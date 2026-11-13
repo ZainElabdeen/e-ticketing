@@ -9,6 +9,9 @@ import { correlationIdOf, type CorrelatedRequest } from './common/http/correlati
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { HealthController } from './health/health.controller';
+import { OrdersController } from './orders/orders.controller';
+import { OrdersRepository } from './orders/orders.repository';
+import { OrdersService } from './orders/orders.service';
 import { TicketTypesController } from './ticket-types/ticket-types.controller';
 import { TicketTypesRepository } from './ticket-types/ticket-types.repository';
 
@@ -45,10 +48,12 @@ export function createAppModule(env: EnvironmentVariables): DynamicModule {
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController, TicketTypesController],
+    controllers: [HealthController, TicketTypesController, OrdersController],
     providers: [
       PrismaService,
       TicketTypesRepository,
+      OrdersRepository,
+      OrdersService,
       { provide: APP_GUARD, useClass: ApiKeyGuard },
     ],
     exports: [PrismaService],

@@ -360,6 +360,7 @@ export interface operations {
                     "application/json": components["schemas"]["Order"];
                 };
             };
+            400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
