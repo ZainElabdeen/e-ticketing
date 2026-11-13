@@ -303,13 +303,16 @@ The full PAN never enters the hash input.
 
 **Steps:**
 
-1. Validate the body (400 on failure). Luhn-check the PAN and check the expiry
-   is not before the current month; failure → `422 INVALID_CARD`.
-2. Read the order from the Ticket Service: `GET /v1/orders/{orderId}`. Not
+1. Validate the body (400 on failure). Run the handler's `validate`: Luhn-check
+   the PAN and check the expiry is not before the current month; failure →
+   `422 INVALID_CARD`.
+2. Pre-read the key (no lock). A completed key row with the same hash →
+   **replay**. With a different hash → `422 IDEMPOTENCY_KEY_REUSE`.
+3. Read the order from the Ticket Service: `GET /v1/orders/{orderId}`. Not
    found → `404 ORDER_NOT_FOUND`. Not `PENDING` or `expiresAt <= now()` →
-   `409 ORDER_NOT_PAYABLE`. The amount is the order's `totalMinor` — **never
-   client-supplied**.
-3. Open a DB transaction and `INSERT INTO idempotency_keys (key, request_hash)
+   `409 ORDER_NOT_PAYABLE`. Unreachable → `502`, timeout → `504`. The amount is
+   the order's `totalMinor` — **never client-supplied**.
+   Open a DB transaction and `INSERT INTO idempotency_keys (key, request_hash)
    … ON CONFLICT (key) DO NOTHING`. If another transaction holds the same key
    uncommitted, Postgres blocks this insert until that transaction ends; no
    polling needed.
@@ -317,6 +320,13 @@ The full PAN never enters the hash input.
    - Conflict → read the stored row. Same hash → **replay**: return the stored
      `response_status` (201) and body with header `Idempotent-Replayed: true`.
      Different hash → `422 IDEMPOTENCY_KEY_REUSE`.
+
+   Why the pre-read comes before the order read: once the outbox has confirmed
+   the order, reading it first would turn a legitimate replay into a `409`, so
+   the stored response must win. The pre-read is lock-free; the insert inside
+   the transaction stays the arbiter for concurrent duplicates. Upstream
+   failures while reading the order return `502 UPSTREAM_UNAVAILABLE` /
+   `504 UPSTREAM_TIMEOUT` and do not bind the key.
 4. Insert the payment. The partial unique index enforces one live payment per
    order: a violation rolls back → `409 PAYMENT_IN_PROGRESS` (a `PENDING`
    payment exists) or `409 ORDER_ALREADY_PAID` (a `SUCCEEDED` one exists).
@@ -359,9 +369,10 @@ job), one DB transaction writes:
    (`correlationId` optional).
 
 **Payment reference** format: `PAY-<UTC yyyymmdd>-<6 chars Crockford base32
-from a CSPRNG>` (e.g. `PAY-20261113-7F3K9Q`), ~1 billion values per day. On a
-unique violation, regenerate and retry the insert up to 3 times inside a
-savepoint; after that, roll back and return `500 INTERNAL_ERROR`.
+from a CSPRNG>` (e.g. `PAY-20261113-7F3K9Q`), ~1 billion values per day. The insert uses
+`ON CONFLICT (payment_reference) DO NOTHING`; on zero rows, regenerate and retry
+up to 3 times (no savepoint needed, since no statement aborts); after that,
+roll back and return `500 INTERNAL_ERROR`.
 
 Guarantee: after any crash, every succeeded payment has a pending outbox event;
 delivery happens whenever the worker next runs.

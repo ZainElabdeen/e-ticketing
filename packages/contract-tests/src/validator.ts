@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 
@@ -84,6 +86,20 @@ export class ContractValidator {
     if (!validate(value)) {
       throw new Error(
         `${schemaName}: value violates the contract: ${this.ajv.errorsText(validate.errors, { dataVar: 'value' })}`,
+      );
+    }
+  }
+
+  /** Validates an event payload against `packages/contracts/events/<name>.schema.json`. */
+  static validateEvent(name: string, value: unknown): void {
+    const file = join(__dirname, '..', '..', 'contracts', 'events', `${name}.schema.json`);
+    const schema = JSON.parse(readFileSync(file, 'utf8')) as object;
+    const ajv = new Ajv({ strict: false, allErrors: true });
+    addFormats(ajv);
+    const validate = ajv.compile(schema);
+    if (!validate(value)) {
+      throw new Error(
+        `${name}: event violates its schema: ${ajv.errorsText(validate.errors, { dataVar: 'event' })}`,
       );
     }
   }

@@ -350,6 +350,24 @@ export interface operations {
                 };
             };
             500: components["responses"]["InternalError"];
+            /** @description UPSTREAM_UNAVAILABLE (the Ticket Service could not be reached). The idempotency key is not bound. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description UPSTREAM_TIMEOUT (the Ticket Service did not answer in time). The idempotency key is not bound. */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getPayment: {

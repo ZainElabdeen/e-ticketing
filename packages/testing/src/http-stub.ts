@@ -53,6 +53,16 @@ function send(res: ServerResponse, status: number, body?: unknown): void {
 export async function startHttpStub(): Promise<HttpStub> {
   const calls: StubCall[] = [];
   let handlers: Handler[] = [];
+  // Delayed replies park a timer; close() and reset() must not leave them running.
+  const pendingDelays = new Set<{ timer: NodeJS.Timeout; release: () => void }>();
+
+  function cancelDelays(): void {
+    for (const pending of pendingDelays) {
+      clearTimeout(pending.timer);
+      pending.release();
+    }
+    pendingDelays.clear();
+  }
 
   const server = createServer((req, res) => {
     void handle(req, res).catch((error: unknown) => {
@@ -87,7 +97,20 @@ export async function startHttpStub(): Promise<HttpStub> {
       return;
     }
     if (reply.delayMs) {
-      await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
+      const completed = await new Promise<boolean>((resolve) => {
+        const pending = {
+          timer: setTimeout(() => {
+            pendingDelays.delete(pending);
+            resolve(true);
+          }, reply.delayMs),
+          release: () => resolve(false),
+        };
+        pendingDelays.add(pending);
+      });
+      if (!completed) {
+        res.destroy();
+        return;
+      }
     }
     send(res, reply.status, reply.body);
   }
@@ -102,11 +125,13 @@ export async function startHttpStub(): Promise<HttpStub> {
       handlers.push({ method: method.toUpperCase(), pattern: pathPattern, reply });
     },
     reset: () => {
+      cancelDelays();
       calls.length = 0;
       handlers = [];
     },
     close: () =>
       new Promise<void>((resolve) => {
+        cancelDelays();
         server.closeAllConnections();
         server.close(() => resolve());
       }),

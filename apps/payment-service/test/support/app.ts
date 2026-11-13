@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import type { DestinationStream } from 'pino';
 import type { HttpStub, TestDatabase } from '@eticket/testing';
 import { createApp } from '../../src/main';
 
@@ -18,19 +19,23 @@ export async function startPaymentService(
   db: TestDatabase,
   stubs: { ticket: HttpStub; ledger: HttpStub },
   overrides: Record<string, string> = {},
+  options: { logStream?: DestinationStream } = {},
 ): Promise<RunningPaymentService> {
-  const app = await createApp({
-    DATABASE_URL: db.urlFor('payments_app'),
-    PUBLIC_API_KEY_PAYMENT: PUBLIC_KEY,
-    TICKET_SERVICE_URL: stubs.ticket.url,
-    LEDGER_SERVICE_URL: stubs.ledger.url,
-    INTERNAL_API_KEY_TICKET: TICKET_KEY,
-    INTERNAL_API_KEY_LEDGER: LEDGER_KEY,
-    QR_JOB_ENABLED: 'false',
-    OUTBOX_ENABLED: 'false',
-    LOG_LEVEL: 'silent',
-    ...overrides,
-  });
+  const app = await createApp(
+    {
+      DATABASE_URL: db.urlFor('payments_app'),
+      PUBLIC_API_KEY_PAYMENT: PUBLIC_KEY,
+      TICKET_SERVICE_URL: stubs.ticket.url,
+      LEDGER_SERVICE_URL: stubs.ledger.url,
+      INTERNAL_API_KEY_TICKET: TICKET_KEY,
+      INTERNAL_API_KEY_LEDGER: LEDGER_KEY,
+      QR_JOB_ENABLED: 'false',
+      OUTBOX_ENABLED: 'false',
+      LOG_LEVEL: 'silent',
+      ...overrides,
+    },
+    options,
+  );
   await app.listen(0, '127.0.0.1');
   return {
     baseUrl: await app.getUrl(),

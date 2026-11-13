@@ -76,4 +76,29 @@ describe('startHttpStub', () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'handler exploded' });
   });
+
+  it('close() cancels a pending delayed reply instead of leaving its timer running', async () => {
+    stub.on('GET', /^\/hang$/, { status: 200, delayMs: 60_000 });
+    const pending = fetch(`${stub.url}/hang`).then(
+      () => 'answered',
+      () => 'failed',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const t0 = Date.now();
+    await stub.close();
+    expect(await pending).toBe('failed');
+    expect(Date.now() - t0).toBeLessThan(2000);
+    // afterEach closes again; closing a closed stub must still resolve.
+  });
+
+  it('reset() cancels a pending delayed reply', async () => {
+    stub.on('GET', /^\/hang$/, { status: 200, delayMs: 60_000 });
+    const pending = fetch(`${stub.url}/hang`).then(
+      () => 'answered',
+      () => 'failed',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    stub.reset();
+    expect(await pending).toBe('failed');
+  });
 });

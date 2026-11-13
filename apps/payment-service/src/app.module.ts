@@ -19,6 +19,13 @@ import type { EnvironmentVariables } from './config/env';
 import { LedgerClient } from './downstream/ledger.client';
 import { TicketClient } from './downstream/ticket.client';
 import { HealthController } from './health/health.controller';
+import { CardHandler } from './payments/handlers/card.handler';
+import { HandlerRegistry } from './payments/handlers/handler-registry';
+import { PAYMENT_HANDLERS, type PaymentHandler } from './payments/handlers/payment-handler';
+import { QrHandler } from './payments/handlers/qr.handler';
+import { PaymentsController } from './payments/payments.controller';
+import { PaymentsRepository } from './payments/payments.repository';
+import { PaymentsService } from './payments/payments.service';
 
 /** Test seams: where request logs are written (default: stdout) and the time source. */
 export interface AppOptions {
@@ -66,11 +73,26 @@ export function createAppModule(
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController],
+    controllers: [HealthController, PaymentsController],
     providers: [
       PrismaService,
       TicketClient,
       LedgerClient,
+      PaymentsRepository,
+      PaymentsService,
+      {
+        provide: PAYMENT_HANDLERS,
+        inject: [ConfigService],
+        useFactory: (config: ConfigService<EnvironmentVariables, true>): PaymentHandler[] => [
+          new CardHandler(),
+          new QrHandler(config.get('QR_SUCCESS_DELAY_SECONDS')),
+        ],
+      },
+      {
+        provide: HandlerRegistry,
+        inject: [PAYMENT_HANDLERS],
+        useFactory: (handlers: PaymentHandler[]) => new HandlerRegistry(handlers),
+      },
       { provide: CLOCK, useValue: options.clock ?? new SystemClock() },
       {
         provide: API_KEYS,
