@@ -497,6 +497,9 @@ The total on `/` is a preview from listed prices; the server total from
   ```
 
   `code` is stable and machine-readable; `correlationId` is always present.
+  Client errors without a domain code use generic codes: `PAYLOAD_TOO_LARGE`
+  (413), `UNSUPPORTED_MEDIA_TYPE` (415), `RATE_LIMITED` (429), and
+  `BAD_REQUEST` for any other unmapped 4xx.
 - Validation: `class-validator` (NestJS) / FluentValidation (.NET) on every
   endpoint; unknown fields rejected (`whitelist`, `forbidNonWhitelisted`).
 - Pagination: `?page=1&pageSize=20` (max 100), response

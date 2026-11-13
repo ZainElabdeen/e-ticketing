@@ -86,12 +86,58 @@ describe('ErrorEnvelopeFilter', () => {
     });
   });
 
-  it.each([413, 429])('keeps status %i as BAD_REQUEST and logs a warning', (code) => {
+  it.each([
+    [413, 'PAYLOAD_TOO_LARGE'],
+    [415, 'UNSUPPORTED_MEDIA_TYPE'],
+    [429, 'RATE_LIMITED'],
+    [405, 'BAD_REQUEST'],
+    [422, 'BAD_REQUEST'],
+  ])('keeps HttpException status %i as %s and logs a warning', (code, envelopeCode) => {
     const { status, json } = run(new HttpException('nope', code));
     expect(status).toHaveBeenCalledWith(code);
-    expect(json.mock.calls[0]?.[0]).toMatchObject({ statusCode: code, code: 'BAD_REQUEST' });
+    expect(json.mock.calls[0]?.[0]).toMatchObject({ statusCode: code, code: envelopeCode });
     expect(logWarn).toHaveBeenCalled();
     expect(logError).not.toHaveBeenCalled();
+  });
+
+  it('keeps an http-errors client error (body-parser 413) instead of a 500', () => {
+    const tooLarge = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      statusCode: 413,
+      expose: true,
+      type: 'entity.too.large',
+    });
+    const { status, json } = run(tooLarge);
+    expect(status).toHaveBeenCalledWith(413);
+    expect(json).toHaveBeenCalledWith({
+      statusCode: 413,
+      code: 'PAYLOAD_TOO_LARGE',
+      message: 'request entity too large',
+      correlationId: ID,
+    });
+    expect(logWarn).toHaveBeenCalled();
+    expect(logError).not.toHaveBeenCalled();
+  });
+
+  it('maps an http-errors 415 and an unmapped 400-range one', () => {
+    const unsupported = Object.assign(new Error('unsupported charset'), {
+      status: 415,
+      expose: true,
+    });
+    expect(run(unsupported).json.mock.calls[0]?.[0]).toMatchObject({
+      statusCode: 415,
+      code: 'UNSUPPORTED_MEDIA_TYPE',
+    });
+    const aborted = Object.assign(new Error('request aborted'), { statusCode: 400, expose: true });
+    expect(run(aborted).json.mock.calls[0]?.[0]).toMatchObject({
+      statusCode: 400,
+      code: 'BAD_REQUEST',
+    });
+  });
+
+  it('does not trust a 4xx-looking error that is not exposable', () => {
+    const { status } = run(Object.assign(new Error('x'), { status: 400, expose: false }));
+    expect(status).toHaveBeenCalledWith(500);
   });
 
   it('does not treat /healthcheck as health', () => {
@@ -102,10 +148,21 @@ describe('ErrorEnvelopeFilter', () => {
     });
   });
 
+  it.each(['/health', '/health/other', '/health/live/x'])(
+    'gives %s the normal envelope',
+    (path) => {
+      const { json } = run(new ServiceUnavailableException('x'), path);
+      expect(json.mock.calls[0]?.[0]).toMatchObject({ statusCode: 500, code: 'INTERNAL_ERROR' });
+    },
+  );
+
   it('passes the health 503 body through unchanged', () => {
     const body = { status: 'error', error: { database: { status: 'down' } } };
     const { status, json } = run(new ServiceUnavailableException(body), '/health/ready');
     expect(status).toHaveBeenCalledWith(503);
     expect(json).toHaveBeenCalledWith(body);
+    expect(run(new ServiceUnavailableException(body), '/health/live').status).toHaveBeenCalledWith(
+      503,
+    );
   });
 });
