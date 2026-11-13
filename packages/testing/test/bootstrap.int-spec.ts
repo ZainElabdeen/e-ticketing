@@ -11,7 +11,11 @@ const ROLES = [
   'ledger_app',
 ] as const;
 
-async function withClient<T>(db: TestDatabase, role: 'postgres' | (typeof ROLES)[number], fn: (client: Client) => Promise<T>): Promise<T> {
+async function withClient<T>(
+  db: TestDatabase,
+  role: 'postgres' | (typeof ROLES)[number],
+  fn: (client: Client) => Promise<T>,
+): Promise<T> {
   const client = await db.connectAs(role);
   try {
     return await fn(client);

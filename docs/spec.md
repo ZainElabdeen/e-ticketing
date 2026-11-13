@@ -640,3 +640,4 @@ QR → result → backoffice → balances) ships with it.
 | [0012](./adr/0012-gateway-bff.md) | NestJS gateway as BFF | Traefik-only edge |
 | [0013](./adr/0013-contract-first-openapi.md) | Hand-written OpenAPI 3.0.3 contracts first | Code-first Swagger |
 | [0014](./adr/0014-qr-status-polling.md) | SPA polls payment status | SSE / WebSocket |
+| [0015](./adr/0015-sql-first-migrations.md) | SQL-first migrations, applied with prisma migrate deploy | Prisma schema-first |
