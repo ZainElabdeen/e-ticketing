@@ -1,0 +1,21 @@
+{
+  "name": "@eticket/payment-service",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test:int": "jest -c jest.config.cjs",
+    "prisma:deploy": "prisma migrate deploy"
+  },
+  "devDependencies": {
+    "@eticket/config": "workspace:*",
+    "@eticket/testing": "workspace:*",
+    "@types/jest": "30.0.0",
+    "@types/node": "26.6.6",
+    "jest": "30.5.2",
+    "prisma": "7.10.1",
+    "ts-jest": "29.4.15",
+    "typescript": "5.9.3"
+  }
+}

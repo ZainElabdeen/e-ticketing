@@ -30,6 +30,33 @@ importers:
         specifier: 8.72.2
         version: 8.72.2(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
 
+  apps/payment-service:
+    devDependencies:
+      '@eticket/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@eticket/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@types/jest':
+        specifier: 30.0.0
+        version: 30.0.0
+      '@types/node':
+        specifier: 26.6.6
+        version: 26.6.6
+      jest:
+        specifier: 30.5.2
+        version: 30.5.2(@types/node@26.6.6)
+      prisma:
+        specifier: 7.10.1
+        version: 7.10.1(@types/node@26.6.6)(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
+      ts-jest:
+        specifier: 29.4.15
+        version: 29.4.15(@babel/core@7.29.13)(@jest/transform@30.5.2)(@jest/types@30.5.1)(babel-jest@30.5.2(@babel/core@7.29.13))(jest-util@30.5.1)(jest@30.5.2(@types/node@26.6.6))(typescript@5.9.3)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   apps/ticket-service:
     devDependencies:
       '@eticket/config':

@@ -1,0 +1,6 @@
+// The `payments` schema is created by hand-written SQL migrations (ADR-0015).
+// This file carries no models: Phase 2 adds them with `prisma db pull` for the
+// client only. Never run `prisma migrate dev` — it would rewrite the SQL.
+datasource db {
+  provider = "postgresql"
+}
