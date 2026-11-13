@@ -45,7 +45,13 @@ describe('CreatePaymentDto', () => {
     const msg = await messageOf({
       orderId: ORDER_ID,
       method: 'CARD',
-      card: { number: '4242-4242-4242-4242', expMonth: 13, expYear: 1999, cvc: '5731x', holder: '' },
+      card: {
+        number: '4242-4242-4242-4242',
+        expMonth: 13,
+        expYear: 1999,
+        cvc: '5731x',
+        holder: '',
+      },
     });
     expect(msg).not.toContain('4242-4242-4242-4242');
     expect(msg).not.toContain('5731');

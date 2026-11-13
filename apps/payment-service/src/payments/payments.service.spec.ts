@@ -58,7 +58,10 @@ describe('PaymentsService.create after a live-payment conflict', () => {
 
   it('retries once, from the order read, when the live payment vanished', async () => {
     const view = { id: 'p1' };
-    const { service, createWithKey, getOrder } = build([null], [undefined, { kind: 'CREATED', view }]);
+    const { service, createWithKey, getOrder } = build(
+      [null],
+      [undefined, { kind: 'CREATED', view }],
+    );
     await expect(create(service)).resolves.toEqual({ view, replayed: false });
     expect(createWithKey).toHaveBeenCalledTimes(2);
     expect(getOrder).toHaveBeenCalledTimes(2);
