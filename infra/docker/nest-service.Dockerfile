@@ -25,7 +25,7 @@ RUN pnpm --filter "@eticket/${SERVICE}..." build
 RUN pnpm --filter @eticket/${SERVICE} deploy --prod --legacy /out
 # The legacy deploy copies the whole package directory (dist included); keep
 # only what runs: package.json, dist and the pruned node_modules.
-RUN cd /out && rm -rf src test prisma prisma.config.ts Dockerfile jest*.cjs tsconfig*.json .env.example .turbo
+RUN cd /out && rm -rf src test prisma prisma.config.ts jest*.cjs tsconfig*.json .env.example .turbo
 # pnpm resolves the optional peers of @prisma/client (the prisma CLI and its
 # studio/pglite/typescript tooling) into the prod tree; the runtime needs none
 # of them because the client is generated at build time.
@@ -34,6 +34,8 @@ RUN cd /out/node_modules/.pnpm && rm -rf prisma@* @prisma+studio-core@* @electri
 FROM node:26-alpine
 ARG PORT
 ENV NODE_ENV=production
+# The app listens on PORT and the HEALTHCHECK reads it at runtime.
+ENV PORT=${PORT}
 WORKDIR /app
 COPY --from=build /out ./
 USER node

@@ -53,7 +53,7 @@ pnpm --filter @eticket/contract-tests test:contract:payment
 | `CONTRACT_TICKET_API_KEY`   | yes      | The Ticket Service public API key                      |
 | `CONTRACT_QR_DELAY_SECONDS` | no       | The target's `QR_SUCCESS_DELAY_SECONDS`; defaults to 8 |
 
-`test:contract` runs both suites and needs every variable above.
+`test:contract` runs both suites, so it needs both the ticket variables (`CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY`) and the payment variables above.
 
 ## Warning: the suite mutates the target
 
