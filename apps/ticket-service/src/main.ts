@@ -3,6 +3,10 @@ import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
+import { setupDocs } from './common/docs';
+import { ErrorEnvelopeFilter } from './common/http/error-envelope.filter';
+import { correlationIdMiddleware } from './common/http/correlation-id';
+import { createValidationPipe } from './common/http/validation';
 import { createAppModule } from './app.module';
 import { validateEnv, type EnvironmentVariables } from './config/env';
 
@@ -12,7 +16,11 @@ export async function createApp(
 ): Promise<INestApplication> {
   const validated = validateEnv(env);
   const app = await NestFactory.create(createAppModule(validated), { bufferLogs: true });
+  app.use(correlationIdMiddleware);
   app.useLogger(app.get(Logger));
+  app.useGlobalFilters(new ErrorEnvelopeFilter());
+  app.useGlobalPipes(createValidationPipe());
+  setupDocs(app, validated.SWAGGER_ENABLED);
   return app;
 }
 

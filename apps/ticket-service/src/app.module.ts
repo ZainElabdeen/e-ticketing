@@ -1,8 +1,11 @@
-import { randomUUID } from 'node:crypto';
 import { Module, type DynamicModule } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TerminusModule } from '@nestjs/terminus';
 import { LoggerModule } from 'nestjs-pino';
+import { ApiKeyGuard } from './common/http/api-key.guard';
+import { FallbackModule } from './common/http/fallback.controller';
+import { correlationIdOf, type CorrelatedRequest } from './common/http/correlation-id';
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { HealthController } from './health/health.controller';
@@ -25,17 +28,23 @@ export function createAppModule(env: EnvironmentVariables): DynamicModule {
         useFactory: (config: ConfigService<EnvironmentVariables, true>) => ({
           pinoHttp: {
             level: config.get('LOG_LEVEL'),
-            // Task 3 replaces this with the correlation ID from the middleware.
-            genReqId: () => randomUUID(),
-            customProps: () => ({ service: 'ticket-service' }),
+            // correlationIdOf caches per request, so the middleware, the logs and
+            // the error body all carry one id whatever the middleware order.
+            genReqId: (req: unknown) => correlationIdOf(req as CorrelatedRequest),
+            customProps: (req: unknown) => ({
+              service: 'ticket-service',
+              correlationId: correlationIdOf(req as CorrelatedRequest),
+            }),
             redact: ['req.headers["x-api-key"]', 'req.headers.authorization'],
           },
         }),
       }),
       TerminusModule,
+      // Keep last: routes register in import order and this one matches everything.
+      FallbackModule,
     ],
     controllers: [HealthController],
-    providers: [PrismaService],
+    providers: [PrismaService, { provide: APP_GUARD, useClass: ApiKeyGuard }],
     exports: [PrismaService],
   })
   class AppModule {}

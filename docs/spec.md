@@ -82,8 +82,9 @@ domain → EF Core repository).
   - **public scope** — held by the gateway; accepted on `/v1/*` routes except
     `/v1/internal/*`.
   - **internal scope** — held only by the Payment Service; required on
-    `/v1/internal/*`. The gateway does not possess it, so a compromised gateway
-    cannot confirm orders or post to the ledger.
+    `/v1/internal/*` and also accepted on the public routes it calls
+    (`GET /v1/orders/{orderId}`). The gateway does not possess it, so a
+    compromised gateway cannot confirm orders or post to the ledger.
 - The gateway never exposes `/v1/internal/*` (no route), and the services
   reject public-scope keys there (authorization, not just routing).
 - Backoffice routes on the gateway require a JWT from `POST /v1/auth/login`.

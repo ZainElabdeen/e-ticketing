@@ -1,9 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
+import { Public } from '../common/http/api-key.guard';
 import { PrismaService } from '../common/prisma.service';
 
 const DB_TIMEOUT_MS = 2000;
 
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(
