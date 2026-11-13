@@ -24,10 +24,12 @@ export function schemaOf(databaseUrl: string): string {
 export class PrismaService extends PrismaClient implements OnApplicationShutdown {
   constructor(config: ConfigService<EnvironmentVariables, true>) {
     const url = config.get<string>('DATABASE_URL');
-    super({ adapter: new PrismaPg(
+    super({
+      adapter: new PrismaPg(
         { connectionString: url, connectionTimeoutMillis: CONNECT_TIMEOUT_MS },
         { schema: schemaOf(url) },
-      ) });
+      ),
+    });
   }
 
   /** After the HTTP server has closed, so in-flight requests never lose the pool. */

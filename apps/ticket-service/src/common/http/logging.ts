@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { DestinationStream } from 'pino';
 import type { Options } from 'pino-http';
-import { correlationIdOf, type CorrelatedRequest } from './correlation-id';
+import { correlationIdOf } from './correlation-id';
 
 interface RoutedRequest extends IncomingMessage {
   originalUrl?: string;
@@ -24,7 +24,7 @@ function routeOf(req: RoutedRequest): string {
 export function pinoHttpOptions(level: string, stream?: DestinationStream): Options {
   const summary = (req: IncomingMessage, res: ServerResponse) => ({
     method: req.method,
-    route: routeOf(req as RoutedRequest),
+    route: routeOf(req),
     statusCode: res.statusCode,
   });
   return {
@@ -39,10 +39,10 @@ export function pinoHttpOptions(level: string, stream?: DestinationStream): Opti
     quietResLogger: true,
     // correlationIdOf caches per request, so the middleware, the logs and
     // the error body all carry one id whatever the middleware order.
-    genReqId: (req) => correlationIdOf(req as CorrelatedRequest),
+    genReqId: (req) => correlationIdOf(req),
     customProps: (req) => ({
       service: 'ticket-service',
-      correlationId: correlationIdOf(req as CorrelatedRequest),
+      correlationId: correlationIdOf(req),
     }),
     customSuccessObject: (req, res, val) => ({
       ...summary(req, res),

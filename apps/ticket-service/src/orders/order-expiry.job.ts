@@ -89,10 +89,7 @@ export class OrderExpiryJob implements OnModuleInit, OnModuleDestroy, BeforeAppl
         this.logger.log({ correlationId: CORRELATION_ID, expired }, 'expired unpaid orders');
       }
     } catch (err) {
-      this.logger.error(
-        { correlationId: CORRELATION_ID, err },
-        'order expiry run failed',
-      );
+      this.logger.error({ correlationId: CORRELATION_ID, err }, 'order expiry run failed');
     } finally {
       this.running = false;
     }

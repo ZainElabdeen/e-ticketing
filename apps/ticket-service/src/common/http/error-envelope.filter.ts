@@ -71,10 +71,7 @@ export class ErrorEnvelopeFilter implements ExceptionFilter {
     const path = req.path ?? (req.url ?? '').split('?')[0] ?? '';
 
     // Health is exempt from the envelope: Terminus's own 503 body is the contract.
-    if (
-      exception instanceof HttpException &&
-      HEALTH_PATHS.has(path)
-    ) {
+    if (exception instanceof HttpException && HEALTH_PATHS.has(path)) {
       res.status(exception.getStatus()).json(exception.getResponse());
       return;
     }
