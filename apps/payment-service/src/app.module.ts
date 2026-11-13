@@ -29,6 +29,8 @@ import { PaymentsController } from './payments/payments.controller';
 import { PaymentsRepository } from './payments/payments.repository';
 import { PaymentsService } from './payments/payments.service';
 import { QrSuccessJob } from './payments/qr-success.job';
+import { TransactionsController } from './transactions/transactions.controller';
+import { TransactionsRepository } from './transactions/transactions.repository';
 
 /** Test seams: where request logs are written (default: stdout) and the time source. */
 export interface AppOptions {
@@ -76,13 +78,14 @@ export function createAppModule(
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController, PaymentsController],
+    controllers: [HealthController, PaymentsController, TransactionsController],
     providers: [
       PrismaService,
       TicketClient,
       LedgerClient,
       PaymentsRepository,
       PaymentsService,
+      TransactionsRepository,
       QrSuccessJob,
       OutboxRepository,
       OutboxWorker,

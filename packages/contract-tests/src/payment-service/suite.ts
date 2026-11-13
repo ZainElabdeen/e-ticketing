@@ -9,6 +9,7 @@ import { ContractValidator } from '../validator';
 import { register as registerAuth } from './auth.contract';
 import { register as registerHealth } from './health.contract';
 import { register as registerPayments } from './payments.contract';
+import { register as registerTransactions } from './transactions.contract';
 import type { PaymentContractTarget } from './target';
 
 export function runPaymentServiceContract(getTarget: () => PaymentContractTarget): void {
@@ -17,5 +18,6 @@ export function runPaymentServiceContract(getTarget: () => PaymentContractTarget
     registerHealth(getTarget, validator);
     registerAuth(getTarget, validator);
     registerPayments(getTarget, validator);
+    registerTransactions(getTarget, validator);
   });
 }
