@@ -34,8 +34,15 @@ redocly.yaml             # lint rules
 
 ## Commands
 
-- Lint (from this folder, so `redocly.yaml` applies):
-  `npx @redocly/cli lint openapi/ticket-service.yaml openapi/payment-service.yaml openapi/ledger-service.yaml openapi/gateway.yaml`
+Run from the repo root; each filters to this package so `redocly.yaml`
+applies.
+
+- Lint the four contracts: `pnpm --filter @eticket/contracts lint`
+- Regenerate the committed types in `src/generated/`:
+  `pnpm --filter @eticket/contracts generate`
+- Fail if `src/generated/` is stale (used in CI):
+  `pnpm --filter @eticket/contracts check:generated`
+- Type-check this package: `pnpm --filter @eticket/contracts build`
 - Single-file bundle: `npx @redocly/cli bundle openapi/gateway.yaml -o dist/gateway.yaml`
-- TypeScript types (wired up in Phase 1): `openapi-typescript` →
-  `src/generated/`, committed so consumers need no codegen step.
+
+The generated files are committed, so consumers need no codegen step.
