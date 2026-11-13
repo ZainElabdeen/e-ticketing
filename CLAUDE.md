@@ -9,6 +9,10 @@
 - UI work: use the frontend-design skill.
 - Decision questions (e.g. spec gaps found while writing a plan): batch them,
   give every option its pros and cons, mark one "(Recommended)" and say why.
+- Every plan in `docs/plans/` ends with an "Execution options" section:
+  (A) Claude subagents on Sonnet, or (B) hand-off to OpenCode with a
+  ready-to-paste `opencode run` command. Plans must be self-contained so either
+  agent can run them. After OpenCode runs, Claude reviews and runs the drift check.
 
 ## Model routing
 
