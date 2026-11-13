@@ -7,15 +7,16 @@ import { setupDocs } from './common/docs';
 import { ErrorEnvelopeFilter } from './common/http/error-envelope.filter';
 import { correlationIdMiddleware } from './common/http/correlation-id';
 import { createValidationPipe } from './common/http/validation';
-import { createAppModule } from './app.module';
+import { createAppModule, type AppOptions } from './app.module';
 import { validateEnv, type EnvironmentVariables } from './config/env';
 
 /** Builds the fully configured app without listening. Used by `bootstrap` and tests. */
 export async function createApp(
   env: Record<string, string | undefined>,
+  options: AppOptions = {},
 ): Promise<INestApplication> {
   const validated = validateEnv(env);
-  const app = await NestFactory.create(createAppModule(validated), { bufferLogs: true });
+  const app = await NestFactory.create(createAppModule(validated, options), { bufferLogs: true });
   // Exact-case routing, so /V1/Internal/... cannot reach an internal handler.
   // Express built its router when the app was created, so set the router flag too.
   const express = app.getHttpAdapter().getInstance() as {

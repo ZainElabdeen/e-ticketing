@@ -4,9 +4,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TerminusModule } from '@nestjs/terminus';
 import { LoggerModule } from 'nestjs-pino';
+import type { DestinationStream } from 'pino';
+import { pinoHttpOptions } from './common/http/logging';
 import { ApiKeyGuard } from './common/http/api-key.guard';
 import { FallbackModule } from './common/http/fallback.controller';
-import { correlationIdOf, type CorrelatedRequest } from './common/http/correlation-id';
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { HealthController } from './health/health.controller';
@@ -18,11 +19,19 @@ import { OrdersService } from './orders/orders.service';
 import { TicketTypesController } from './ticket-types/ticket-types.controller';
 import { TicketTypesRepository } from './ticket-types/ticket-types.repository';
 
+/** Test seam: where request logs are written (default: stdout). */
+export interface AppOptions {
+  logStream?: DestinationStream;
+}
+
 /**
  * Builds the root module over an already-validated env, so tests can boot the
  * app with their own values instead of process.env.
  */
-export function createAppModule(env: EnvironmentVariables): DynamicModule {
+export function createAppModule(
+  env: EnvironmentVariables,
+  options: AppOptions = {},
+): DynamicModule {
   @Module({
     imports: [
       ConfigModule.forRoot({
@@ -34,17 +43,7 @@ export function createAppModule(env: EnvironmentVariables): DynamicModule {
       LoggerModule.forRootAsync({
         inject: [ConfigService],
         useFactory: (config: ConfigService<EnvironmentVariables, true>) => ({
-          pinoHttp: {
-            level: config.get('LOG_LEVEL'),
-            // correlationIdOf caches per request, so the middleware, the logs and
-            // the error body all carry one id whatever the middleware order.
-            genReqId: (req: unknown) => correlationIdOf(req as CorrelatedRequest),
-            customProps: (req: unknown) => ({
-              service: 'ticket-service',
-              correlationId: correlationIdOf(req as CorrelatedRequest),
-            }),
-            redact: ['req.headers["x-api-key"]', 'req.headers.authorization'],
-          },
+          pinoHttp: pinoHttpOptions(config.get('LOG_LEVEL'), options.logStream),
         }),
       }),
       TerminusModule,

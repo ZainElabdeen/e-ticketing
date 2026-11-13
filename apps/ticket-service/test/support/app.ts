@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import type { DestinationStream } from 'pino';
 import type { TestDatabase } from '@eticket/testing';
 import { createApp } from '../../src/main';
 
@@ -17,6 +18,7 @@ const INTERNAL_KEY = 'test-internal-key-0123456789abcdef-int';
 export async function startTicketService(
   db: TestDatabase,
   overrides: Record<string, string> = {},
+  options: { logStream?: DestinationStream } = {},
 ): Promise<RunningService> {
   const app = await createApp({
     DATABASE_URL: db.urlFor('tickets_app'),
@@ -25,7 +27,7 @@ export async function startTicketService(
     ORDER_EXPIRY_ENABLED: 'false',
     LOG_LEVEL: 'silent',
     ...overrides,
-  });
+  }, options);
   await app.listen(0, '127.0.0.1');
   return {
     baseUrl: await app.getUrl(),
