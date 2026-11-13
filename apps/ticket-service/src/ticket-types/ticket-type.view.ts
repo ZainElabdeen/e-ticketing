@@ -1,4 +1,4 @@
-import { toMinor } from '../common/money';
+import { toMinor } from '@eticket/nest-common';
 
 export interface TicketTypeView {
   code: 'GOLD' | 'PREMIUM' | 'VIP';

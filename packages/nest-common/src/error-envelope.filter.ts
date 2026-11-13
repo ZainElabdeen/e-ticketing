@@ -9,7 +9,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { DomainError } from '../domain-error';
+import { DomainError } from './domain-error';
 import { correlationIdOf, type CorrelatedRequest } from './correlation-id';
 
 interface FilterRequest extends CorrelatedRequest {

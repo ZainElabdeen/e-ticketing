@@ -15,6 +15,7 @@ COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/contract-tests/package.json packages/contract-tests/package.json
 COPY packages/testing/package.json packages/testing/package.json
+COPY packages/nest-common/package.json packages/nest-common/package.json
 RUN pnpm install --frozen-lockfile --filter "@eticket/ticket-service..."
 
 COPY . .

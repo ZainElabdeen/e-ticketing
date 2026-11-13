@@ -1,7 +1,6 @@
 import { type ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { ApiKeyGuard, Internal, Public } from './api-key.guard';
+import { ApiKeyGuard, type ApiKeys, Internal, Public } from './api-key.guard';
 
 const PUBLIC_KEY = 'p'.repeat(32);
 const INTERNAL_KEY = 'i'.repeat(32);
@@ -28,10 +27,8 @@ function ctx(path: string, key?: string, target: new () => object = Plain): Exec
 }
 
 describe('ApiKeyGuard', () => {
-  const config = {
-    get: (name: string) => (name === 'PUBLIC_API_KEY_TICKET' ? PUBLIC_KEY : INTERNAL_KEY),
-  } as unknown as ConfigService<never, true>;
-  const guard = new ApiKeyGuard(new Reflector(), config);
+  const keys: ApiKeys = { publicKey: PUBLIC_KEY, internalKey: INTERNAL_KEY };
+  const guard = new ApiKeyGuard(new Reflector(), keys);
   const confirm = '/v1/internal/orders/x/confirm';
 
   it('rejects a missing key', () => {
@@ -80,5 +77,14 @@ describe('ApiKeyGuard', () => {
 
   it('skips @Public() handlers', () => {
     expect(guard.canActivate(ctx('/health/live', undefined, Marked))).toBe(true);
+  });
+
+  it('ApiKeyGuard without internalKey forbids an @Internal() route for the public key', () => {
+    const publicOnly = new ApiKeyGuard(new Reflector(), { publicKey: PUBLIC_KEY });
+    expect(() => publicOnly.canActivate(ctx('/v1/other', PUBLIC_KEY, Flagged))).toThrow(
+      ForbiddenException,
+    );
+    expect(() => publicOnly.canActivate(ctx(confirm, PUBLIC_KEY))).toThrow(ForbiddenException);
+    expect(publicOnly.canActivate(ctx('/v1/orders', PUBLIC_KEY))).toBe(true);
   });
 });

@@ -1,0 +1,47 @@
+{
+  "name": "@eticket/nest-common",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "jest -c jest.config.cjs"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "11.2.10",
+    "@nestjs/core": "11.2.10",
+    "@nestjs/platform-express": "11.2.10",
+    "@nestjs/swagger": "11.4.8",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "nestjs-pino": "4.6.1",
+    "pino": "10.4.0",
+    "pino-http": "11.0.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@eticket/config": "workspace:*",
+    "@nestjs/common": "11.2.10",
+    "@nestjs/core": "11.2.10",
+    "@nestjs/platform-express": "11.2.10",
+    "@nestjs/swagger": "11.4.8",
+    "@types/jest": "30.0.0",
+    "@types/node": "26.6.6",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "jest": "30.5.2",
+    "nestjs-pino": "4.6.1",
+    "pino": "10.4.0",
+    "pino-http": "11.0.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "ts-jest": "29.4.15",
+    "typescript": "5.9.3"
+  }
+}

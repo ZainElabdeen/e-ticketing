@@ -650,3 +650,4 @@ QR → result → backoffice → balances) ships with it.
 | [0016](./adr/0016-contract-validation-with-ajv.md) | Contract tests validate responses with Ajv against the bundled contract | Hand-written assertions |
 | [0017](./adr/0017-nestjs-11-commonjs.md) | NestJS 11 (CommonJS line) pinned at 11.2.10 | NestJS 12 with an ESM migration of every app |
 | [0018](./adr/0018-api-key-scope-enforcement.md) | `@Internal()` metadata read by the guard, path check as defense in depth, last-registered fallback route | Path-only check; guard-free middleware |
+| [0020](./adr/0020-shared-nest-common-package.md) | Shared NestJS plumbing in @eticket/nest-common | Copy per service |
