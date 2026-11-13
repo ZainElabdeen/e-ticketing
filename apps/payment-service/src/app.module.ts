@@ -18,6 +18,8 @@ import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { LedgerClient } from './downstream/ledger.client';
 import { TicketClient } from './downstream/ticket.client';
+import { OutboxRepository } from './outbox/outbox.repository';
+import { OutboxWorker } from './outbox/outbox.worker';
 import { HealthController } from './health/health.controller';
 import { CardHandler } from './payments/handlers/card.handler';
 import { HandlerRegistry } from './payments/handlers/handler-registry';
@@ -82,6 +84,8 @@ export function createAppModule(
       PaymentsRepository,
       PaymentsService,
       QrSuccessJob,
+      OutboxRepository,
+      OutboxWorker,
       {
         provide: PAYMENT_HANDLERS,
         inject: [ConfigService],

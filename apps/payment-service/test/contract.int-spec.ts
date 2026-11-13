@@ -32,7 +32,7 @@ beforeAll(async () => {
   service = await startPaymentService(
     db,
     { ticket, ledger },
-    { QR_SUCCESS_DELAY_SECONDS: '1', QR_JOB_INTERVAL_SECONDS: '1', QR_JOB_ENABLED: 'true' },
+    { QR_SUCCESS_DELAY_SECONDS: '3', QR_JOB_INTERVAL_SECONDS: '1', QR_JOB_ENABLED: 'true' },
   );
 });
 
@@ -46,6 +46,6 @@ afterAll(async () => {
 runPaymentServiceContract(() => ({
   baseUrl: service.baseUrl,
   publicApiKey: service.publicKey,
-  qrDelaySeconds: 1,
+  qrDelaySeconds: 3,
   newPayableOrder: () => Promise.resolve(stubPayableOrder(ticket)),
 }));

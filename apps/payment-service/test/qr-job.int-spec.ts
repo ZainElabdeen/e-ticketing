@@ -120,6 +120,8 @@ describe('QrSuccessJob', () => {
   });
 
   it('a flip racing a cancel has exactly one winner (30 iterations)', async () => {
+    let flipWins = 0;
+    let cancelWins = 0;
     for (let i = 0; i < 30; i++) {
       const id = await newQr(true);
       const [run, cancel] = await Promise.allSettled([job.runOnce(), service.cancel(id)]);
@@ -129,13 +131,19 @@ describe('QrSuccessJob', () => {
       if (run.status === 'rejected') throw run.reason;
       const state = await counts(id);
       if (cancel.status === 'rejected') {
+        flipWins += 1;
         expect(run.value).toBe(1);
         expect(state).toEqual({ status: 'SUCCEEDED', tx: 1, events: 1 });
       } else {
+        cancelWins += 1;
         expect(run.value).toBe(0);
         expect(state).toEqual({ status: 'CANCELLED', tx: 0, events: 0 });
       }
     }
+    // Both outcomes are legal, so only the total is asserted; the split shows in the failure message.
+    expect({ total: flipWins + cancelWins }).toEqual({ total: 30 });
+    process.stderr.write(`qr race: flip won ${flipWins}, cancel won ${cancelWins}
+`);
   });
 
   it('registers the interval when enabled and removes it on close', async () => {
