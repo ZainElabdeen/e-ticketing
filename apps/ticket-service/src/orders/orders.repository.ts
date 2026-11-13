@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import {
   decideConfirmation,
@@ -84,6 +85,51 @@ export class OrdersRepository {
     return row ? toOrderView(row) : null;
   }
 
+  /** Order items with their ticket type code, in ascending code order (the lock order). */
+  private async loadSortedItems(tx: Prisma.TransactionClient, orderId: string) {
+    const items = await tx.$queryRaw<
+      Array<{ ticket_type_id: string; quantity: number; code: string }>
+    >`
+      SELECT i.ticket_type_id, i.quantity, t.code
+        FROM tickets.order_items i
+        JOIN tickets.ticket_types t ON t.id = i.ticket_type_id
+       WHERE i.order_id = ${orderId}::uuid`;
+    return sortLines(items.map((i) => ({ ...i, ticketTypeCode: i.code as TicketTypeCode })));
+  }
+
+  /**
+   * Expires one due PENDING order and releases its reservation. SKIP LOCKED lets
+   * concurrent runners (and a confirm holding the row) pass over each other.
+   * Returns the expired order id, or null when nothing is due.
+   */
+  async expireOne(): Promise<string | null> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const due = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM tickets.orders
+           WHERE status = 'PENDING' AND expires_at < now()
+           ORDER BY expires_at
+           FOR UPDATE SKIP LOCKED LIMIT 1`;
+        const id = due[0]?.id;
+        if (!id) {
+          return null;
+        }
+        const updated = await tx.$executeRaw`
+          UPDATE tickets.orders SET status = 'EXPIRED' WHERE id = ${id}::uuid AND status = 'PENDING'`;
+        if (updated === 0) {
+          return null;
+        }
+        for (const item of await this.loadSortedItems(tx, id)) {
+          await tx.$executeRaw`
+            UPDATE tickets.ticket_types SET reserved = reserved - ${item.quantity}::int
+             WHERE id = ${item.ticket_type_id}::uuid`;
+        }
+        return id;
+      },
+      { maxWait: 5000, timeout: 10000 },
+    );
+  }
+
   /**
    * Confirms a paid order. Lock order: the order row (blocking), then ticket
    * types in ascending code. `decideConfirmation` picks the branch; the SQL for
@@ -122,16 +168,7 @@ export class OrdersRepository {
               `Transaction ${transactionId} already confirmed another order`,
             );
           }
-          const items = await tx.$queryRaw<
-            Array<{ ticket_type_id: string; quantity: number; code: string }>
-          >`
-            SELECT i.ticket_type_id, i.quantity, t.code
-              FROM tickets.order_items i
-              JOIN tickets.ticket_types t ON t.id = i.ticket_type_id
-             WHERE i.order_id = ${orderId}::uuid`;
-          const sorted = sortLines(
-            items.map((i) => ({ ...i, ticketTypeCode: i.code as TicketTypeCode })),
-          );
+          const sorted = await this.loadSortedItems(tx, orderId);
           for (const item of sorted) {
             if (decision === 'CONFIRM_PENDING') {
               await tx.$executeRaw`
