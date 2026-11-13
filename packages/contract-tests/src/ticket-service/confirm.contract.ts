@@ -113,6 +113,13 @@ export function register(getTarget: () => ContractTarget, validator: ContractVal
       expect((res.body as Envelope).code).toBe('VALIDATION_ERROR');
     });
 
+    it('rejects a non-UUID orderId with 400 VALIDATION_ERROR', async () => {
+      const res = await confirm(getTarget(), 'not-a-uuid', { transactionId: randomUUID() });
+      expect(res.status).toBe(400);
+      validator.assertResponse('confirmOrder', res.status, res.body);
+      expect((res.body as Envelope).code).toBe('VALIDATION_ERROR');
+    });
+
     it('rejects the public key with 403 FORBIDDEN', async () => {
       const target = getTarget();
       const res = await confirm(
