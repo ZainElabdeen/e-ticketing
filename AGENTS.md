@@ -87,6 +87,8 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 - Lint: `pnpm lint` | Format: `pnpm format:check` | Build: `pnpm build`
 - Unit tests: `pnpm test` | DB integration tests (Docker running): `pnpm test:int`
 - Contracts: `pnpm --filter @eticket/contracts lint` | regenerate types: `pnpm --filter @eticket/contracts generate`
+- Ticket Service only: `pnpm --filter @eticket/ticket-service test | test:int`
+- Contract suite against a running target: `CONTRACT_BASE_URL=… CONTRACT_API_KEY=… CONTRACT_INTERNAL_API_KEY=… pnpm --filter @eticket/contract-tests test:contract`
 - Local env: `cp infra/.env.example infra/.env` and set passwords
 - Stack: `docker compose -f infra/docker-compose.yml up -d --build`
 - Verify DB + migrations: `infra/scripts/verify-db.sh` | Reset DB: `docker compose -f infra/docker-compose.yml down -v`

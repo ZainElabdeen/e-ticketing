@@ -73,5 +73,31 @@ services:
         condition: service_healthy
     restart: 'no'
 
+  ticket-service:
+    build:
+      context: ..
+      dockerfile: apps/ticket-service/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate-tickets:
+        condition: service_completed_successfully
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://tickets_app:${TICKETS_APP_PASSWORD:?set TICKETS_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
+      PUBLIC_API_KEY_TICKET: ${PUBLIC_API_KEY_TICKET:?set PUBLIC_API_KEY_TICKET in infra/.env}
+      INTERNAL_API_KEY_TICKET: ${INTERNAL_API_KEY_TICKET:?set INTERNAL_API_KEY_TICKET in infra/.env}
+      SWAGGER_ENABLED: 'true'
+      LOG_LEVEL: info
+    ports:
+      # Local only; services are not public (spec section 6).
+      - '127.0.0.1:3001:3001'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3001/health/ready || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
 volumes:
   pgdata: {}
