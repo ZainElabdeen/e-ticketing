@@ -25,5 +25,50 @@ services:
       interval: 5s
       retries: 20
 
+  # One-shot migration containers (ADR-0015). Each connects as its schema's
+  # owner role and runs `prisma migrate deploy`; later phases make the services
+  # depend on these with `condition: service_completed_successfully`.
+  migrate-tickets:
+    build:
+      context: ..
+      dockerfile: infra/migrate/Dockerfile
+      args:
+        SERVICE: ticket-service
+        PRISMA_VERSION: 7.10.1
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://tickets_owner:${TICKETS_OWNER_PASSWORD}@postgres:5432/eticketing?schema=tickets
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  migrate-payments:
+    build:
+      context: ..
+      dockerfile: infra/migrate/Dockerfile
+      args:
+        SERVICE: payment-service
+        PRISMA_VERSION: 7.10.1
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://payments_owner:${PAYMENTS_OWNER_PASSWORD}@postgres:5432/eticketing?schema=payments
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  migrate-ledger:
+    build:
+      context: ..
+      dockerfile: infra/migrate/Dockerfile
+      args:
+        SERVICE: ledger-service
+        PRISMA_VERSION: 7.10.1
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://ledger_owner:${LEDGER_OWNER_PASSWORD}@postgres:5432/eticketing?schema=ledger
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
 volumes:
   pgdata: {}
