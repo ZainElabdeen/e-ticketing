@@ -303,16 +303,23 @@ The full PAN never enters the hash input.
 
 **Steps:**
 
-1. Validate the body (400 on failure). Run the handler's `validate`: Luhn-check
-   the PAN and check the expiry is not before the current month; failure →
-   `422 INVALID_CARD`.
+1. Validate the body (400 on failure; a malformed JSON body is a 400 with the
+   fixed message `Malformed JSON body`, never the parser's text).
 2. Pre-read the key (no lock). A completed key row with the same hash →
    **replay**. With a different hash → `422 IDEMPOTENCY_KEY_REUSE`.
-3. Read the order from the Ticket Service: `GET /v1/orders/{orderId}`. Not
+3. Run the handler's `validate`: Luhn-check the PAN and check the expiry is
+   not before the current month; failure → `422 INVALID_CARD`. It runs after
+   the pre-read so a retry of a successful payment still replays when the
+   card's expiry month has passed in between; the hash proves the body is
+   identical.
+4. Read the order from the Ticket Service: `GET /v1/orders/{orderId}`. Not
    found → `404 ORDER_NOT_FOUND`. Not `PENDING` or `expiresAt <= now()` →
-   `409 ORDER_NOT_PAYABLE`. Unreachable → `502`, timeout → `504`. The amount is
-   the order's `totalMinor` — **never client-supplied**.
-   Open a DB transaction and `INSERT INTO idempotency_keys (key, request_hash)
+   `409 ORDER_NOT_PAYABLE`. Unreachable → `502`, timeout → `504`. A 200 body
+   that fails validation (non-UUID `id`, unknown `status`, `totalMinor` not a
+   positive safe integer, `currency` not three capitals, unparseable
+   `expiresAt`) is also `502`. The amount is the order's `totalMinor` —
+   **never client-supplied**.
+5. Open a DB transaction and `INSERT INTO idempotency_keys (key, request_hash)
    … ON CONFLICT (key) DO NOTHING`. If another transaction holds the same key
    uncommitted, Postgres blocks this insert until that transaction ends; no
    polling needed.
@@ -321,26 +328,30 @@ The full PAN never enters the hash input.
      `response_status` (201) and body with header `Idempotent-Replayed: true`.
      Different hash → `422 IDEMPOTENCY_KEY_REUSE`.
 
-   Why the pre-read comes before the order read: once the outbox has confirmed
-   the order, reading it first would turn a legitimate replay into a `409`, so
-   the stored response must win. The pre-read is lock-free; the insert inside
+   Why the pre-read comes before the order read and the card checks: once the
+   outbox has confirmed the order, reading it first would turn a legitimate
+   replay into a `409`, and a card that has since expired would turn it into a
+   `422`, so the stored response must win. The pre-read is lock-free; the insert inside
    the transaction stays the arbiter for concurrent duplicates. Upstream
    failures while reading the order return `502 UPSTREAM_UNAVAILABLE` /
    `504 UPSTREAM_TIMEOUT` and do not bind the key.
-4. Insert the payment. The partial unique index enforces one live payment per
+6. Insert the payment. The partial unique index enforces one live payment per
    order: a violation rolls back → `409 PAYMENT_IN_PROGRESS` (a `PENDING`
-   payment exists) or `409 ORDER_ALREADY_PAID` (a `SUCCEEDED` one exists).
-5. Run the method handler (Strategy):
+   payment exists) or `409 ORDER_ALREADY_PAID` (a `SUCCEEDED` one exists). If
+   the live payment was cancelled between the violation and the lookup, the
+   whole attempt from step 4 runs once more; a second conflict with no live
+   payment answers `PAYMENT_IN_PROGRESS`.
+7. Run the method handler (Strategy):
    - **CARD**: immediate success → run §4.3 in this same DB transaction.
      Persist only `card_last4`.
    - **QR**: `status = PENDING`, `succeed_after = now() + 8 s`,
      `qr_payload = 'eticket:pay:{paymentId}'` (a simulation format, not UPI or
      QRIS).
-6. Store `payment_id`, `response_status = 201` and the response body on the key
+8. Store `payment_id`, `response_status = 201` and the response body on the key
    row; commit; respond `201`.
 
 **Key binding rule.** A key is bound only when a payment row is created (step
-6). Any failure before that (400, 404, 409, 422 `INVALID_CARD`) rolls back, so
+8). Any failure before that (400, 404, 409, 422 `INVALID_CARD`) rolls back, so
 the client may retry the same key with a corrected body. Replays of a QR
 payment return the original `PENDING` body even after it succeeded; clients
 read live status from `GET /v1/payments/{paymentId}`.
@@ -400,7 +411,7 @@ Per event, **confirm first, then post**:
    `TICKET_SALE` if confirmed, else `UNFULFILLED_PAYMENT`. The ledger picks
    the accounts. `200`/`201` → event `DONE`, `processed_at = now()`.
 3. **Transient failure** → `attempts += 1`, `last_error`, `next_attempt_at =
-   now() + min(2^attempts, 300) s`. After 10 attempts (~19 min) → `FAILED`,
+   now() + min(2^attempts, 300) s`. After 10 attempts (the gaps sum to 810 s, about 13.5 min) → `FAILED`,
    error log. `confirm_outcome` is committed with the failure, so a retry never
    re-asks the Ticket Service for a different answer.
 

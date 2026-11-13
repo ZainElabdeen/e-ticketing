@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { DestinationStream } from 'pino';
 import type { HttpStub, TestDatabase } from '@eticket/testing';
+import type { Clock } from '../../src/common/clock';
 import { createApp } from '../../src/main';
 
 export interface RunningPaymentService {
@@ -19,7 +20,7 @@ export async function startPaymentService(
   db: TestDatabase,
   stubs: { ticket: HttpStub; ledger: HttpStub },
   overrides: Record<string, string> = {},
-  options: { logStream?: DestinationStream } = {},
+  options: { logStream?: DestinationStream; clock?: Clock } = {},
 ): Promise<RunningPaymentService> {
   const app = await createApp(
     {

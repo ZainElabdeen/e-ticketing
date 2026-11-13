@@ -15,6 +15,7 @@ import {
 import { requestHash } from './domain/request-hash';
 import type { CreatePaymentInput } from './domain/types';
 import { HandlerRegistry } from './handlers/handler-registry';
+import type { PaymentHandler } from './handlers/payment-handler';
 import type { PaymentView } from './payment.view';
 import { PaymentsRepository } from './payments.repository';
 
@@ -31,15 +32,16 @@ export class PaymentsService {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  /** Spec §4.2: validate, pre-read the key, read the order, then one DB transaction. */
+  /**
+   * Spec §4.2: the DTO has validated the body (400); then the key pre-read (a
+   * stored response always wins), the handler's checks, the order read and one
+   * DB transaction.
+   */
   async create(
     input: CreatePaymentInput,
     idempotencyKey: string,
     correlationId: string,
   ): Promise<CreateResult> {
-    const handler = this.registry.get(input.method);
-    handler.validate(input, this.clock.now());
-
     const hash = requestHash(input);
     const stored = await this.repo.findKey(idempotencyKey);
     if (stored && stored.responseStatus !== null) {
@@ -47,6 +49,30 @@ export class PaymentsService {
       return { view: stored.responseBody as PaymentView, replayed: true };
     }
 
+    const handler = this.registry.get(input.method);
+    handler.validate(input, this.clock.now());
+
+    // One retry: when the live payment that blocked us was cancelled in between,
+    // the order may be payable again, so read it afresh.
+    for (let attempt = 1; ; attempt++) {
+      const outcome = await this.attempt(input, handler, idempotencyKey, hash, correlationId);
+      if (outcome !== 'LIVE_PAYMENT_GONE' || attempt >= 2) {
+        if (outcome === 'LIVE_PAYMENT_GONE') {
+          throw new PaymentInProgressError('a payment is already in progress');
+        }
+        return outcome;
+      }
+    }
+  }
+
+  /** The order read onward. 'LIVE_PAYMENT_GONE' means a conflict whose blocker has vanished. */
+  private async attempt(
+    input: CreatePaymentInput,
+    handler: PaymentHandler,
+    idempotencyKey: string,
+    hash: string,
+    correlationId: string,
+  ): Promise<CreateResult | 'LIVE_PAYMENT_GONE'> {
     const order = await this.ticket.getOrder(input.orderId, correlationId);
     if (!order) throw new OrderNotFoundError('order not found');
     if (order.status !== 'PENDING' || Date.parse(order.expiresAt) <= this.clock.now().getTime()) {
@@ -86,9 +112,11 @@ export class PaymentsService {
     } catch (err) {
       if (isUniqueViolation(err, LIVE_PAYMENT_INDEX)) {
         const live = await this.repo.liveStatusFor(order.id);
-        if (live === 'PENDING')
+        if (live === 'PENDING') {
           throw new PaymentInProgressError('a payment is already in progress');
-        throw new OrderAlreadyPaidError('the order is already paid');
+        }
+        if (live === 'SUCCEEDED') throw new OrderAlreadyPaidError('the order is already paid');
+        return 'LIVE_PAYMENT_GONE';
       }
       throw err;
     }

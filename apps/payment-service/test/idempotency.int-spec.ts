@@ -194,4 +194,38 @@ describe('Idempotency-Key', () => {
     expect(results.filter((r) => r.headers['idempotent-replayed'] === 'true')).toHaveLength(4);
     expect(await payments(order.id)).toBe(1);
   });
+
+  describe('replay wins over the card-expiry check', () => {
+    it('a retry after the card month ends replays the 201; a new key is 422 INVALID_CARD', async () => {
+      const real = new Date();
+      const month = real.getUTCMonth() + 1;
+      const year = real.getUTCFullYear();
+      let current = real;
+      const clocked = await startPaymentService(
+        db,
+        { ticket, ledger },
+        {},
+        { clock: { now: () => current } },
+      );
+      try {
+        const order = stubPayableOrder(ticket);
+        const body = cardBody(order.id, validCard({ expMonth: month, expYear: year }));
+        const key = newKey();
+        const first = await postPayment(clocked, body, key);
+        expect(first.status).toBe(201);
+
+        current = new Date(Date.UTC(year, month, 1, 0, 1)); // first minute of the next month
+        const replay = await postPayment(clocked, body, key);
+        expect(replay.status).toBe(201);
+        expect(replay.headers['idempotent-replayed']).toBe('true');
+        expect(replay.body).toEqual(first.body);
+
+        const fresh = await postPayment(clocked, body, newKey());
+        expect(fresh.status).toBe(422);
+        expect(fresh.body.code).toBe('INVALID_CARD');
+      } finally {
+        await clocked.close();
+      }
+    });
+  });
 });

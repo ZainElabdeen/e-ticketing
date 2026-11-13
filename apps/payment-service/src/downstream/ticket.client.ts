@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { EnvironmentVariables } from '../config/env';
 import { callDownstream, errorCodeOf, unexpectedStatus } from './downstream-http';
+import { UpstreamUnavailableError } from './upstream-errors';
 
 export interface TicketOrder {
   id: string;
@@ -15,6 +16,35 @@ export interface TicketOrder {
 export type ConfirmOutcome = 'CONFIRMED' | 'NOT_CONFIRMABLE';
 
 const NAME = 'ticket-service';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const STATUSES = new Set(['PENDING', 'CONFIRMED', 'EXPIRED']);
+
+/** A 200 body is trusted for money and expiry, so a malformed one fails closed. */
+function parseOrder(data: unknown): TicketOrder {
+  const o = (data ?? {}) as Partial<Record<keyof TicketOrder, unknown>>;
+  if (
+    typeof o.id === 'string' &&
+    UUID.test(o.id) &&
+    typeof o.status === 'string' &&
+    STATUSES.has(o.status) &&
+    typeof o.totalMinor === 'number' &&
+    Number.isSafeInteger(o.totalMinor) &&
+    o.totalMinor > 0 &&
+    typeof o.currency === 'string' &&
+    /^[A-Z]{3}$/.test(o.currency) &&
+    typeof o.expiresAt === 'string' &&
+    Number.isFinite(Date.parse(o.expiresAt))
+  ) {
+    return {
+      id: o.id,
+      status: o.status as TicketOrder['status'],
+      totalMinor: o.totalMinor,
+      currency: o.currency,
+      expiresAt: o.expiresAt,
+    };
+  }
+  throw new UpstreamUnavailableError(`${NAME} returned a malformed order`);
+}
 
 @Injectable()
 export class TicketClient {
@@ -43,14 +73,7 @@ export class TicketClient {
     if (res.status !== 200) {
       throw unexpectedStatus(NAME, res.status);
     }
-    const o = res.data as TicketOrder;
-    return {
-      id: o.id,
-      status: o.status,
-      totalMinor: o.totalMinor,
-      currency: o.currency,
-      expiresAt: o.expiresAt,
-    };
+    return parseOrder(res.data);
   }
 
   /**

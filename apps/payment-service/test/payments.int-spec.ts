@@ -187,6 +187,20 @@ describe('POST /v1/payments and GET /v1/payments/:id', () => {
       expect(retry.headers['idempotent-replayed']).toBeUndefined();
     });
 
+    it.each([
+      ['an unparseable expiresAt', { expiresAt: 'not-a-date' }],
+      ['a fractional totalMinor', { totalMinor: 700.5 }],
+      ['a zero totalMinor', { totalMinor: 0 }],
+      ['a lowercase currency', { currency: 'aed' }],
+      ['an unknown status', { status: 'SHIPPED' }],
+    ])('Ticket Service returns %s -> 502, no payment created', async (_label, override) => {
+      const order = stubPayableOrder(ticket, override);
+      const res = await postPayment(svc, cardBody(order.id));
+      expect(res.status).toBe(502);
+      expect(res.body.code).toBe('UPSTREAM_UNAVAILABLE');
+      expect(res.text).not.toContain('not-a-date');
+    });
+
     it('Ticket Service is slow -> 504, then the retry succeeds', async () => {
       const order = stubPayableOrder(ticket);
       const key = newKey();
