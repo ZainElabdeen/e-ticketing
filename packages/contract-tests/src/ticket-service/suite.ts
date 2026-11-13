@@ -12,11 +12,13 @@ import type { ContractTarget } from '../target';
 import { ContractValidator } from '../validator';
 import { register as registerAuth } from './auth.contract';
 import { register as registerHealth } from './health.contract';
+import { register as registerTicketTypes } from './ticket-types.contract';
 
 export function runTicketServiceContract(getTarget: () => ContractTarget): void {
   describe('ticket-service contract', () => {
     const validator = ContractValidator.load('ticket-service');
     registerHealth(getTarget, validator);
     registerAuth(getTarget, validator);
+    registerTicketTypes(getTarget, validator);
   });
 }

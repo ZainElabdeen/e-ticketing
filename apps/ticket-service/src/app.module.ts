@@ -9,6 +9,8 @@ import { correlationIdOf, type CorrelatedRequest } from './common/http/correlati
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { HealthController } from './health/health.controller';
+import { TicketTypesController } from './ticket-types/ticket-types.controller';
+import { TicketTypesRepository } from './ticket-types/ticket-types.repository';
 
 /**
  * Builds the root module over an already-validated env, so tests can boot the
@@ -43,8 +45,12 @@ export function createAppModule(env: EnvironmentVariables): DynamicModule {
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController],
-    providers: [PrismaService, { provide: APP_GUARD, useClass: ApiKeyGuard }],
+    controllers: [HealthController, TicketTypesController],
+    providers: [
+      PrismaService,
+      TicketTypesRepository,
+      { provide: APP_GUARD, useClass: ApiKeyGuard },
+    ],
     exports: [PrismaService],
   })
   class AppModule {}
