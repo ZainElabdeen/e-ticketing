@@ -12,7 +12,7 @@
     "generate": "openapi-typescript openapi/ticket-service.yaml -o src/generated/ticket-service.ts && openapi-typescript openapi/payment-service.yaml -o src/generated/payment-service.ts && openapi-typescript openapi/ledger-service.yaml -o src/generated/ledger-service.ts && openapi-typescript openapi/gateway.yaml -o src/generated/gateway.ts",
     "check:generated": "pnpm generate && git diff --exit-code -- src/generated",
     "build": "tsc -p tsconfig.json --noEmit && pnpm bundle",
-    "bundle": "redocly bundle openapi/ticket-service.yaml --dereferenced --ext json -o dist/ticket-service.json && redocly bundle openapi/payment-service.yaml --dereferenced --ext json -o dist/payment-service.json"
+    "bundle": "redocly bundle openapi/ticket-service.yaml --dereferenced --ext json -o dist/ticket-service.json && redocly bundle openapi/payment-service.yaml --dereferenced --ext json -o dist/payment-service.json && redocly bundle openapi/ledger-service.yaml --dereferenced --ext json -o dist/ledger-service.json"
   },
   "devDependencies": {
     "@eticket/config": "workspace:*",

@@ -1,3 +1,4 @@
+import { HttpModule } from '@nestjs/axios';
 import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -15,6 +16,8 @@ import {
 import { CLOCK, SystemClock, type Clock } from './common/clock';
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
+import { LedgerClient } from './downstream/ledger.client';
+import { TicketClient } from './downstream/ticket.client';
 import { HealthController } from './health/health.controller';
 
 /** Test seams: where request logs are written (default: stdout) and the time source. */
@@ -50,6 +53,15 @@ export function createAppModule(
         }),
       }),
       TerminusModule,
+      HttpModule.registerAsync({
+        inject: [ConfigService],
+        useFactory: (config: ConfigService<EnvironmentVariables, true>) => ({
+          timeout: config.get('DOWNSTREAM_TIMEOUT_MS'),
+          // The clients map statuses themselves.
+          validateStatus: () => true,
+          maxRedirects: 0,
+        }),
+      }),
       ScheduleModule.forRoot(),
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
@@ -57,6 +69,8 @@ export function createAppModule(
     controllers: [HealthController],
     providers: [
       PrismaService,
+      TicketClient,
+      LedgerClient,
       { provide: CLOCK, useValue: options.clock ?? new SystemClock() },
       {
         provide: API_KEYS,
@@ -68,7 +82,7 @@ export function createAppModule(
       },
       { provide: APP_GUARD, useClass: ApiKeyGuard },
     ],
-    exports: [PrismaService],
+    exports: [PrismaService, TicketClient, LedgerClient],
   })
   class AppModule {}
 

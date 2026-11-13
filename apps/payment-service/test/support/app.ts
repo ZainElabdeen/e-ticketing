@@ -9,9 +9,9 @@ export interface RunningPaymentService {
   close(): Promise<void>;
 }
 
-const PUBLIC_KEY = 'test-public-key-0123456789abcdef-pub';
-const TICKET_KEY = 'test-ticket-key-0123456789abcdef-tkt';
-const LEDGER_KEY = 'test-ledger-key-0123456789abcdef-ldg';
+export const PUBLIC_KEY = 'test-public-key-0123456789abcdef-pub';
+export const TICKET_KEY = 'test-ticket-key-0123456789abcdef-tkt';
+export const LEDGER_KEY = 'test-ledger-key-0123456789abcdef-ldg';
 
 /** Boots the service on a random port against the test database and the HTTP stubs. */
 export async function startPaymentService(

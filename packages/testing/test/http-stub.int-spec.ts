@@ -67,4 +67,13 @@ describe('startHttpStub', () => {
     expect(stub.calls).toHaveLength(0);
     expect((await fetch(`${stub.url}/d`)).status).toBe(599);
   });
+
+  it('answers 500 with the message when a reply function throws', async () => {
+    stub.on('GET', /^\/boom$/, () => {
+      throw new Error('handler exploded');
+    });
+    const res = await fetch(`${stub.url}/boom`);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'handler exploded' });
+  });
 });

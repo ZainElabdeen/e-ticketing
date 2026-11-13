@@ -66,3 +66,34 @@ describe('ContractValidator', () => {
   it('throws on an unknown operationId', () =>
     expect(() => v.assertResponse('nope', 200, {})).toThrow(/nope/));
 });
+
+describe('ContractValidator.validateSchema', () => {
+  const v = ContractValidator.load('ledger-service');
+  const posting = {
+    transactionId: '2b7e1a9c-3d4f-4a5b-8c6d-7e8f9a0b1c2d',
+    postingType: 'TICKET_SALE',
+    orderId: '6a1f0e9e-1c2b-4f3a-9d4e-5f6a7b8c9d0e',
+    paymentReference: 'PAY-20261113-7F3K9Q',
+    amountMinor: 70000,
+    currency: 'AED',
+  };
+
+  it('accepts a value that matches the named schema', () =>
+    expect(() => v.validateSchema('PostingRequest', posting)).not.toThrow());
+
+  it('rejects an extra property and names it', () =>
+    expect(() => v.validateSchema('PostingRequest', { ...posting, cardNumber: '4' })).toThrow(
+      /PostingRequest.*additional/i,
+    ));
+
+  it('rejects a wrong type', () =>
+    expect(() => v.validateSchema('PostingRequest', { ...posting, amountMinor: '1' })).toThrow(
+      /amountMinor/,
+    ));
+
+  it('throws on an unknown schema name', () =>
+    expect(() => v.validateSchema('Nope', {})).toThrow(/Nope/));
+
+  it('loads the payment-service contract too', () =>
+    expect(() => ContractValidator.load('payment-service')).not.toThrow());
+});

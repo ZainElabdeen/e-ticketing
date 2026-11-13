@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { HttpStub } from '@eticket/testing';
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Registers GET /v1/orders/<id> on the ticket stub with a body valid against
  * the ticket contract's Order schema. Defaults: PENDING, 70000 AED (one GOLD
@@ -38,6 +42,6 @@ export function stubPayableOrder(
     confirmedAt: null,
     paidTransactionId: null,
   };
-  ticket.on('GET', new RegExp(`^/v1/orders/${id}$`), { status: 200, body });
+  ticket.on('GET', new RegExp(`^/v1/orders/${escapeRegExp(id)}$`), { status: 200, body });
   return { id, totalMinor, currency };
 }

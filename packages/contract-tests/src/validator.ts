@@ -1,10 +1,11 @@
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 
-export type ServiceName = 'ticket-service';
+export type ServiceName = 'ticket-service' | 'payment-service' | 'ledger-service';
 
 interface OpenApiDocument {
   paths: Record<string, Record<string, unknown>>;
+  components?: { schemas?: Record<string, object> };
 }
 
 interface Operation {
@@ -18,7 +19,10 @@ export class ContractValidator {
   private readonly ajv = new Ajv({ strict: false, allErrors: true });
   private readonly compiled = new Map<string, ValidateFunction>();
 
-  private constructor(private readonly operations: Map<string, Operation>) {
+  private constructor(
+    private readonly operations: Map<string, Operation>,
+    private readonly schemas: Record<string, object>,
+  ) {
     addFormats(this.ajv);
   }
 
@@ -35,7 +39,7 @@ export class ContractValidator {
         }
       }
     }
-    return new ContractValidator(operations);
+    return new ContractValidator(operations, doc.components?.schemas ?? {});
   }
 
   /** Throws an Error listing Ajv errors if status is undocumented for the operation or the body fails its schema. */
@@ -61,6 +65,25 @@ export class ContractValidator {
     if (!validate(body)) {
       throw new Error(
         `${operationId} ${status}: response body violates the contract: ${this.ajv.errorsText(validate.errors, { dataVar: 'body' })}`,
+      );
+    }
+  }
+
+  /** Throws an Error listing Ajv errors if `value` does not match `components.schemas[schemaName]`. */
+  validateSchema(schemaName: string, value: unknown): void {
+    const schema = this.schemas[schemaName];
+    if (!schema) {
+      throw new Error(`Unknown schema "${schemaName}"`);
+    }
+    const key = `schema:${schemaName}`;
+    let validate = this.compiled.get(key);
+    if (!validate) {
+      validate = this.ajv.compile(schema);
+      this.compiled.set(key, validate);
+    }
+    if (!validate(value)) {
+      throw new Error(
+        `${schemaName}: value violates the contract: ${this.ajv.errorsText(validate.errors, { dataVar: 'value' })}`,
       );
     }
   }

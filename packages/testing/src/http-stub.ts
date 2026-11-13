@@ -55,33 +55,43 @@ export async function startHttpStub(): Promise<HttpStub> {
   let handlers: Handler[] = [];
 
   const server = createServer((req, res) => {
-    void (async () => {
-      const call: StubCall = {
-        method: req.method ?? 'GET',
-        path: req.url ?? '/',
-        headers: req.headers,
-        body: await readBody(req),
-      };
-      calls.push(call);
-      const pathOnly = call.path.split('?')[0] ?? '';
-      const handler = [...handlers]
-        .reverse()
-        .find((h) => h.method === call.method && h.pattern.test(pathOnly));
-      if (!handler) {
-        send(res, 599, { error: 'no stub' });
+    void handle(req, res).catch((error: unknown) => {
+      // A throwing reply function or an unreadable body must answer, not hang the caller.
+      if (res.headersSent) {
+        res.destroy();
         return;
       }
-      const reply = typeof handler.reply === 'function' ? handler.reply(call) : handler.reply;
-      if (reply === 'drop') {
-        req.socket.destroy();
-        return;
-      }
-      if (reply.delayMs) {
-        await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
-      }
-      send(res, reply.status, reply.body);
-    })();
+      send(res, 500, { error: error instanceof Error ? error.message : String(error) });
+    });
   });
+
+  async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const call: StubCall = {
+      method: req.method ?? 'GET',
+      path: req.url ?? '/',
+      headers: req.headers,
+      body: await readBody(req),
+    };
+    calls.push(call);
+    const pathOnly = call.path.split('?')[0] ?? '';
+    const handler = [...handlers]
+      .reverse()
+      .find((h) => h.method === call.method && h.pattern.test(pathOnly));
+    if (!handler) {
+      send(res, 599, { error: 'no stub' });
+      return;
+    }
+    const reply = typeof handler.reply === 'function' ? handler.reply(call) : handler.reply;
+    if (reply === 'drop') {
+      req.socket.destroy();
+      return;
+    }
+    if (reply.delayMs) {
+      await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
+    }
+    send(res, reply.status, reply.body);
+  }
+
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
 
