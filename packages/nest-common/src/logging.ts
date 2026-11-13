@@ -48,8 +48,8 @@ export function pinoHttpOptions(opts: {
     // correlationIdOf caches per request, so the middleware, the logs and
     // the error body all carry one id whatever the middleware order.
     genReqId: (req) => correlationIdOf(req),
+    // `service` comes from `base`; repeating it here would emit a duplicate key.
     customProps: (req) => ({
-      service,
       correlationId: correlationIdOf(req),
     }),
     customSuccessObject: (req, res, val) => ({

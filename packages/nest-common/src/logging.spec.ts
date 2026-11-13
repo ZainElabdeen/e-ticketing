@@ -1,4 +1,7 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { Writable } from 'node:stream';
+import pinoHttp from 'pino-http';
 import pino, { type LoggerOptions } from 'pino';
 import { pinoHttpOptions } from './logging';
 
@@ -38,5 +41,31 @@ describe('pinoHttpOptions', () => {
     expect(captured).not.toContain('4242424242424242');
     expect(captured).not.toContain('"cvc":"123"');
     expect(captured).toContain('[Redacted]');
+  });
+
+  it('puts exactly one service key on a request-completion line', async () => {
+    let captured = '';
+    const stream = new Writable({
+      write(chunk: Buffer, _enc, cb) {
+        captured += chunk.toString();
+        cb();
+      },
+    });
+    const logger = pinoHttp(pinoHttpOptions({ service: 'svc', level: 'info', stream }));
+    const server = createServer((req, res) => {
+      logger(req, res);
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const { port } = server.address() as AddressInfo;
+      await fetch(`http://127.0.0.1:${port}/x`);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    } finally {
+      server.close();
+    }
+    const line = captured.trim().split('\n')[0] ?? '';
+    expect(line).toContain('"statusCode":200');
+    expect(line.match(/"service"/g)).toHaveLength(1);
   });
 });
