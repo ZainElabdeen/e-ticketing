@@ -99,6 +99,8 @@ export class OutboxRepository {
           WHERE id = ${row.id}::uuid`;
         if (failed) {
           this.logger.error({ eventId: row.id, attempts }, 'outbox event FAILED');
+        } else {
+          this.logger.warn({ eventId: row.id, attempts, error }, 'outbox event will be retried');
         }
         return true;
       },
