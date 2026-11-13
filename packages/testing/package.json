@@ -1,0 +1,27 @@
+{
+  "name": "@eticket/testing",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "build": "tsc -p tsconfig.json --noEmit",
+    "test:int": "jest -c jest.config.cjs"
+  },
+  "dependencies": {
+    "@testcontainers/postgresql": "11.14.0",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.1",
+    "testcontainers": "11.14.0"
+  },
+  "devDependencies": {
+    "@eticket/config": "workspace:*",
+    "@types/jest": "30.0.0",
+    "@types/node": "26.6.6",
+    "jest": "30.5.2",
+    "ts-jest": "29.4.15",
+    "typescript": "5.9.3"
+  }
+}
