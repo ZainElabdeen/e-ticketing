@@ -1,6 +1,59 @@
 // The `tickets` schema is created by hand-written SQL migrations (ADR-0015).
-// This file carries no models: Phase 2 adds them with `prisma db pull` for the
-// client only. Never run `prisma migrate dev` — it would rewrite the SQL.
+// These models mirror that SQL for the client only. Never run
+// `prisma migrate dev` — it would rewrite the SQL. CHECK constraints are not
+// modelled by Prisma; test/schema.int-spec.ts covers them.
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+  importFileExtension = ""
+}
+
 datasource db {
   provider = "postgresql"
+}
+
+model TicketType {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code       String      @unique(map: "ticket_types_code_key")
+  name       String
+  priceMinor BigInt      @map("price_minor")
+  currency   String      @default("AED") @db.Char(3)
+  quota      Int
+  sold       Int         @default(0)
+  reserved   Int         @default(0)
+  items      OrderItem[]
+
+  @@map("ticket_types")
+}
+
+model Order {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  status            String
+  totalMinor        BigInt      @map("total_minor")
+  currency          String      @default("AED") @db.Char(3)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt         DateTime    @map("expires_at") @db.Timestamptz(6)
+  confirmedAt       DateTime?   @map("confirmed_at") @db.Timestamptz(6)
+  paidTransactionId String?     @unique(map: "orders_paid_transaction_id_key") @map("paid_transaction_id") @db.Uuid
+  items             OrderItem[]
+
+  @@index([status, expiresAt], map: "orders_status_expires_at_idx")
+  @@index([createdAt], map: "orders_created_at_idx")
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId        String     @map("order_id") @db.Uuid
+  ticketTypeId   String     @map("ticket_type_id") @db.Uuid
+  quantity       Int
+  unitPriceMinor BigInt     @map("unit_price_minor")
+  lineTotalMinor BigInt     @map("line_total_minor")
+  order          Order      @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ticketType     TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([orderId, ticketTypeId], map: "order_items_order_ticket_type_key")
+  @@index([orderId], map: "order_items_order_id_idx")
+  @@map("order_items")
 }
