@@ -73,7 +73,15 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
     const batch = this.config.get('OUTBOX_BATCH_SIZE', { infer: true });
     let claimed = 0;
     while (claimed < batch) {
-      const found = await this.repository.processOne((event) => this.deliver(event));
+      let found: boolean;
+      try {
+        found = await this.repository.processOne((event) => this.deliver(event));
+      } catch (err) {
+        // The transaction rolled back, so the event is still due. Stop here instead of
+        // re-claiming it in a tight loop; the next tick retries.
+        this.logger.error({ correlationId: CORRELATION_ID, err }, 'outbox event processing failed');
+        break;
+      }
       if (!found) {
         break;
       }
@@ -84,7 +92,7 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
 
   private async deliver(event: ClaimedEvent): Promise<EventUpdate> {
     const { payload } = event;
-    const correlationId = payload.correlationId ?? `outbox:${event.id}`;
+    const correlationId = payload.correlationId ?? event.id;
     let outcome: ConfirmOutcome | null = event.confirmOutcome;
     try {
       outcome ??= await this.ticket.confirmOrder(

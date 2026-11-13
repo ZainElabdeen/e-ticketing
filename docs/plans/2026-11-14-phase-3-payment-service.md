@@ -865,7 +865,7 @@ This mirrors the Ticket Service's `OrderExpiryJob`. Read it and follow the same 
    ```
 
    If `attempts + 1 >= OUTBOX_MAX_ATTEMPTS`, also set `status='FAILED', processed_at=now()`, and log at error level with the event ID.
-6. The correlation ID for the outbound calls is the payload's `correlationId` if present, else `outbox:<eventId>`.
+6. The correlation ID for the outbound calls is the payload's `correlationId` if present, else the event's own id (a UUID).
 
 Wiring is like the QR job: the interval is `'outbox'` with `OUTBOX_INTERVAL_SECONDS`; it is gated by `OUTBOX_ENABLED` at wiring time; the in-flight run is awaited on shutdown.
 

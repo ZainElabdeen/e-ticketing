@@ -383,7 +383,9 @@ Polls every 2 s, up to 10 events per tick, **one DB transaction per event**:
 `SELECT … FROM outbox_events WHERE status = 'PENDING' AND next_attempt_at <=
 now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1`. The row lock is the
 claim; if the worker crashes, the transaction aborts and the event is eligible
-again. HTTP timeout per call: 5 s.
+again. HTTP timeout per call: 5 s. The outbound `X-Correlation-Id` is the
+stored `correlationId`; without one, the worker forwards the outbox event id
+(a UUID) as the correlation ID.
 
 Per event, **confirm first, then post**:
 

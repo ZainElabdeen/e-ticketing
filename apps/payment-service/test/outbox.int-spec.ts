@@ -6,6 +6,7 @@ import {
   type HttpStub,
   type TestDatabase,
 } from '@eticket/testing';
+import { OutboxRepository } from '../src/outbox/outbox.repository';
 import { OutboxWorker } from '../src/outbox/outbox.worker';
 import { startPaymentService, type RunningPaymentService } from './support/app';
 import { cardBody, postPayment } from './support/payments';
@@ -136,7 +137,7 @@ describe('OutboxWorker', () => {
     expect(header(ledger.calls[0]!)).toBe(CORRELATION);
   });
 
-  it('falls back to outbox:<eventId> when the payload has no correlation id', async () => {
+  it('falls back to the event id (a UUID) when the payload has no correlation id', async () => {
     ticket.on('POST', CONFIRM, ok);
     ledger.on('POST', POSTINGS, created);
     const { eventId } = await seed();
@@ -146,8 +147,9 @@ describe('OutboxWorker', () => {
     );
     ticket.calls.length = 0;
     expect(await worker.runOnce()).toBe(1);
-    expect(header(ticket.calls[0]!)).toBe(`outbox:${eventId}`);
-    expect(header(ledger.calls[0]!)).toBe(`outbox:${eventId}`);
+    expect(eventId).toMatch(/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/);
+    expect(header(ticket.calls[0]!)).toBe(eventId);
+    expect(header(ledger.calls[0]!)).toBe(eventId);
   });
 
   it('posts UNFULFILLED_PAYMENT when the order is not confirmable', async () => {
@@ -229,6 +231,20 @@ describe('OutboxWorker', () => {
     expect(await worker.runOnce()).toBe(1);
     expect(ticket.calls).toHaveLength(2);
     expect(await row(eventId)).toMatchObject({ status: 'DONE', confirm_outcome: 'CONFIRMED' });
+  });
+
+  it('stops the batch and recovers when processing an event throws', async () => {
+    ticket.on('POST', CONFIRM, ok);
+    ledger.on('POST', POSTINGS, created);
+    const { eventId } = await seed();
+    const repo = svc.app.get(OutboxRepository);
+    const spy = jest.spyOn(repo, 'processOne').mockRejectedValueOnce(new Error('tx timeout'));
+    expect(await worker.runOnce()).toBe(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect((await row(eventId)).status).toBe('PENDING');
+    spy.mockRestore();
+    expect(await worker.runOnce()).toBe(1);
+    expect((await row(eventId)).status).toBe('DONE');
   });
 
   it('processes events in created_at order within one batch', async () => {
