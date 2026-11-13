@@ -3,6 +3,7 @@ import { Logger } from 'nestjs-pino';
 import { correlationIdMiddleware } from './correlation-id';
 import { setupDocs } from './docs';
 import { ErrorEnvelopeFilter } from './error-envelope.filter';
+import { jsonParseErrorMiddleware } from './json-parse-error';
 import { createValidationPipe } from './validation';
 
 /**
@@ -21,6 +22,18 @@ export function configureApp(
   };
   express.set('case sensitive routing', true);
   express.router.caseSensitive = true;
+  // Nest registers the body parsers at init, after every app.use() made here, so
+  // an error middleware added now would sit before them. Register ours right
+  // after the parsers instead.
+  const adapter = app.getHttpAdapter() as unknown as {
+    registerParserMiddleware(...args: unknown[]): void;
+    use(...args: unknown[]): void;
+  };
+  const registerParsers = adapter.registerParserMiddleware.bind(adapter);
+  adapter.registerParserMiddleware = (...args: unknown[]) => {
+    registerParsers(...args);
+    adapter.use(jsonParseErrorMiddleware);
+  };
   app.use(correlationIdMiddleware);
   app.useLogger(app.get(Logger));
   app.useGlobalFilters(new ErrorEnvelopeFilter());

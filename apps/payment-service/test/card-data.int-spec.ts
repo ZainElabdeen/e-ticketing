@@ -1,4 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { setTimeout } from 'node:timers/promises';
 import { Writable } from 'node:stream';
+import request from 'supertest';
 import {
   applyMigrations,
   startHttpStub,
@@ -98,5 +101,28 @@ describe('card data never leaks', () => {
       expect([name, text.includes(`"cvc":"${CVC}"`)]).toEqual([name, false]);
     }
     expect(dbText).toContain('4242');
+  });
+
+  it('answers a malformed JSON body with a fixed message that never echoes card data', async () => {
+    const mark = logs.length;
+    const raw = `{"orderId":"${randomUUID()}","method":"CARD","card":{"number":"${PAN}","cvc":"${CVC}","x":y}}`;
+    const res = await request(svc.baseUrl)
+      .post('/v1/payments')
+      .set('X-Api-Key', svc.publicKey)
+      .set('Idempotency-Key', newKey())
+      .set('Content-Type', 'application/json')
+      .send(raw);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR', message: 'Malformed JSON body' });
+    await setTimeout(100); // let any request log line land before reading the capture
+    const logText = logs.slice(mark).join('');
+    for (const [name, text] of [
+      ['response', res.text],
+      ['logs', logText],
+    ] as const) {
+      for (const needle of [PAN, '424242', `"${CVC}"`, `${CVC}","`]) {
+        expect([name, needle, text.includes(needle)]).toEqual([name, needle, false]);
+      }
+    }
   });
 });

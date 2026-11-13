@@ -45,10 +45,10 @@ describe('CreatePaymentDto', () => {
     const msg = await messageOf({
       orderId: ORDER_ID,
       method: 'CARD',
-      card: { number: '4242-4242-4242-4242', expMonth: 13, expYear: 1999, cvc: '12', holder: '' },
+      card: { number: '4242-4242-4242-4242', expMonth: 13, expYear: 1999, cvc: '5731x', holder: '' },
     });
     expect(msg).not.toContain('4242-4242-4242-4242');
-    expect(msg).not.toContain('"12"');
+    expect(msg).not.toContain('5731');
   });
   it('does not echo a valid-shaped PAN when another field fails', async () => {
     const msg = await messageOf({
