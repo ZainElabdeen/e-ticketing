@@ -1,7 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { priceOrder, sortLines, type OrderLineRequest, type PricedLine } from './domain/order';
-import { QuotaExceededError } from './domain/errors';
+import {
+  decideConfirmation,
+  priceOrder,
+  sortLines,
+  type OrderLineRequest,
+  type OrderStatus,
+  type PricedLine,
+  type TicketTypeCode,
+} from './domain/order';
+import { isUniqueViolation } from '../common/db-errors';
+import { OrderNotConfirmableError, OrderNotFoundError, QuotaExceededError } from './domain/errors';
 import { toMinor } from '../common/money';
 import { toOrderView, type OrderView } from './order.view';
 
@@ -73,5 +82,94 @@ export class OrdersRepository {
   async findById(id: string): Promise<OrderView | null> {
     const row = await this.prisma.order.findUnique({ where: { id }, include: WITH_ITEMS });
     return row ? toOrderView(row) : null;
+  }
+
+  /**
+   * Confirms a paid order. Lock order: the order row (blocking), then ticket
+   * types in ascending code. `decideConfirmation` picks the branch; the SQL for
+   * each branch runs here, inside the locked transaction.
+   */
+  async confirm(orderId: string, transactionId: string): Promise<OrderView> {
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          const orders = await tx.$queryRaw<
+            Array<{ id: string; status: OrderStatus; paid_transaction_id: string | null }>
+          >`SELECT id, status, paid_transaction_id FROM tickets.orders WHERE id = ${orderId}::uuid FOR UPDATE`;
+          const order = orders[0];
+          if (!order) {
+            throw new OrderNotFoundError(orderId);
+          }
+          const decision = decideConfirmation(
+            { status: order.status, paidTransactionId: order.paid_transaction_id },
+            transactionId,
+          );
+          if (decision === 'REPLAY') {
+            return;
+          }
+          if (decision === 'REJECT') {
+            throw new OrderNotConfirmableError(
+              `Order ${orderId} is already confirmed by another transaction`,
+            );
+          }
+          // A unique violation would abort this transaction, so look first. The
+          // catch below is the backstop for two orders racing on one transaction id.
+          const used = await tx.$queryRaw<Array<{ one: number }>>`
+            SELECT 1 AS one FROM tickets.orders
+             WHERE paid_transaction_id = ${transactionId}::uuid AND id <> ${orderId}::uuid`;
+          if (used.length > 0) {
+            throw new OrderNotConfirmableError(
+              `Transaction ${transactionId} already confirmed another order`,
+            );
+          }
+          const items = await tx.$queryRaw<
+            Array<{ ticket_type_id: string; quantity: number; code: string }>
+          >`
+            SELECT i.ticket_type_id, i.quantity, t.code
+              FROM tickets.order_items i
+              JOIN tickets.ticket_types t ON t.id = i.ticket_type_id
+             WHERE i.order_id = ${orderId}::uuid`;
+          const sorted = sortLines(
+            items.map((i) => ({ ...i, ticketTypeCode: i.code as TicketTypeCode })),
+          );
+          for (const item of sorted) {
+            if (decision === 'CONFIRM_PENDING') {
+              await tx.$executeRaw`
+                UPDATE tickets.ticket_types
+                   SET reserved = reserved - ${item.quantity}::int, sold = sold + ${item.quantity}::int
+                 WHERE id = ${item.ticket_type_id}::uuid`;
+            } else {
+              const rows = await tx.$queryRaw<Array<{ id: string }>>`
+                UPDATE tickets.ticket_types SET sold = sold + ${item.quantity}::int
+                 WHERE id = ${item.ticket_type_id}::uuid
+                   AND sold + reserved + ${item.quantity}::int <= quota
+                RETURNING id`;
+              if (rows.length === 0) {
+                throw new OrderNotConfirmableError(
+                  `Order ${orderId} expired and ${item.code} is no longer available`,
+                );
+              }
+            }
+          }
+          await tx.$executeRaw`
+            UPDATE tickets.orders
+               SET status = 'CONFIRMED', confirmed_at = now(), paid_transaction_id = ${transactionId}::uuid
+             WHERE id = ${orderId}::uuid`;
+        },
+        { maxWait: 5000, timeout: 10000 },
+      );
+    } catch (err) {
+      if (isUniqueViolation(err, 'orders_paid_transaction_id_key')) {
+        throw new OrderNotConfirmableError(
+          `Transaction ${transactionId} already confirmed another order`,
+        );
+      }
+      throw err;
+    }
+    const view = await this.findById(orderId);
+    if (!view) {
+      throw new Error(`Order ${orderId} vanished after confirmation`);
+    }
+    return view;
   }
 }

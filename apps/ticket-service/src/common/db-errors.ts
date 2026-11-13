@@ -18,17 +18,28 @@ function* chain(err: unknown): Generator<DriverError> {
   }
 }
 
+/** True when `name` appears in `text` as a whole identifier, so `foo_key` does not match `foo_key2`. */
+function mentionsExactly(text: string, name: string): boolean {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`).test(text);
+}
+
 /**
  * True when `err` is a unique violation on the named constraint. Covers Prisma's
  * P2002 and Postgres 23505 from a raw query, whichever way the adapter wraps it.
  */
 export function isUniqueViolation(err: unknown, constraint: string): boolean {
   for (const e of chain(err)) {
-    const isUnique = e.code === 'P2002' || e.code === UNIQUE_VIOLATION;
+    const text =
+      JSON.stringify(e.meta ?? {}) + ' ' + (typeof e.message === 'string' ? e.message : '');
+    // $executeRaw/$queryRaw wrap a driver 23505 as P2010 with the SQLSTATE in meta/message.
+    const isUnique =
+      e.code === 'P2002' ||
+      e.code === UNIQUE_VIOLATION ||
+      (e.code === 'P2010' && text.includes(UNIQUE_VIOLATION));
     if (!isUnique) continue;
     if (e.constraint === constraint) return true;
-    const text = JSON.stringify(e.meta ?? {}) + (typeof e.message === 'string' ? e.message : '');
-    if (text.includes(constraint)) return true;
+    if (mentionsExactly(text, constraint)) return true;
   }
   return false;
 }

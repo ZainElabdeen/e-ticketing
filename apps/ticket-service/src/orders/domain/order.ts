@@ -46,3 +46,24 @@ export function priceOrder(lines: PricedLine[]): {
   }
   return { lines, totalMinor, currency };
 }
+
+export type ConfirmationDecision = 'REPLAY' | 'CONFIRM_PENDING' | 'CONFIRM_EXPIRED' | 'REJECT';
+
+/**
+ * What to do with a payment confirmation. A paid order is honored even after it
+ * expired (the customer's money is already taken); the repository then re-checks
+ * quota because the expiry job released the reservation.
+ */
+export function decideConfirmation(
+  order: { status: OrderStatus; paidTransactionId: string | null },
+  transactionId: string,
+): ConfirmationDecision {
+  switch (order.status) {
+    case 'PENDING':
+      return 'CONFIRM_PENDING';
+    case 'EXPIRED':
+      return 'CONFIRM_EXPIRED';
+    case 'CONFIRMED':
+      return order.paidTransactionId === transactionId ? 'REPLAY' : 'REJECT';
+  }
+}

@@ -20,6 +20,10 @@ export class OrdersService {
     );
   }
 
+  confirmOrder(orderId: string, transactionId: string): Promise<OrderView> {
+    return this.repository.confirm(orderId, transactionId);
+  }
+
   async getOrder(id: string): Promise<OrderView> {
     const order = await this.repository.findById(id);
     if (!order) {
