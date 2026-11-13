@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+packages/contracts/src/generated
+**/migration.sql
+
+# Phase 0 prose and hand-written contracts predate this Prettier config.
+docs/
+CLAUDE.md
+.superpowers/
+packages/contracts/openapi/
+packages/contracts/events/
