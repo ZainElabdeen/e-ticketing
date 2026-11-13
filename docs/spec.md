@@ -541,7 +541,7 @@ The total on `/` is a preview from listed prices; the server total from
 | `LOG_LEVEL` | all services | pino / Serilog level |
 | `ORDER_TTL_MINUTES` (15), `QR_SUCCESS_DELAY_SECONDS` (8) | ticket, payment | Business timings |
 | `VITE_API_BASE_URL` | web (build time) | Gateway URL, default `/api` |
-| `CONTRACT_BASE_URL`, `CONTRACT_API_KEY` | contract tests | Target under test |
+| `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests | Target under test (public and internal-scope keys) |
 
 ## 8. Testing strategy
 
@@ -641,3 +641,4 @@ QR → result → backoffice → balances) ships with it.
 | [0013](./adr/0013-contract-first-openapi.md) | Hand-written OpenAPI 3.0.3 contracts first | Code-first Swagger |
 | [0014](./adr/0014-qr-status-polling.md) | SPA polls payment status | SSE / WebSocket |
 | [0015](./adr/0015-sql-first-migrations.md) | SQL-first migrations, applied with prisma migrate deploy | Prisma schema-first |
+| [0016](./adr/0016-contract-validation-with-ajv.md) | Contract tests validate responses with Ajv against the bundled contract | Hand-written assertions |

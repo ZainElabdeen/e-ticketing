@@ -11,6 +11,10 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    "test:contract": {
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
     "test:int": {
       "dependsOn": ["^build"],
       "cache": false
