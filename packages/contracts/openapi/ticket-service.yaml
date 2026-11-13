@@ -1,0 +1,249 @@
+openapi: 3.0.3
+info:
+  title: Ticket Service API
+  version: 2.0.0
+  license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
+  description: >
+    Ticket types, quota, orders, atomic reservation, expiry and confirmation.
+    Implemented by the NestJS reference service and the ASP.NET Core port; the
+    contract test suite runs against either. Behavior: docs/spec.md §4.1, §4.5.
+servers:
+  - url: http://localhost:3001
+tags:
+  - name: ticket-types
+  - name: orders
+  - name: internal
+  - name: health
+
+security:
+  - PublicApiKey: []
+
+paths:
+  /v1/ticket-types:
+    get:
+      tags: [ticket-types]
+      operationId: listTicketTypes
+      summary: List ticket types with live availability
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Ticket types, ordered by code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketTypeList' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+
+  /v1/orders:
+    post:
+      tags: [orders]
+      operationId: createOrder
+      summary: Create an order (server-priced, atomic quota reservation)
+      description: >
+        Items are processed in ticketTypeCode order; each reserves quota with
+        one conditional UPDATE, all in one transaction. The order is PENDING
+        and expires after ORDER_TTL_MINUTES (default 15).
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+      responses:
+        '201':
+          description: Order created, quota reserved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: './common.yaml#/components/responses/ValidationError' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '409':
+          description: Not enough quota for at least one item (code QUOTA_EXCEEDED)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+
+  /v1/orders/{orderId}:
+    get:
+      tags: [orders]
+      operationId: getOrder
+      summary: Get an order (also used by the Payment Service to read the amount)
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+
+  /v1/internal/orders/{orderId}/confirm:
+    post:
+      tags: [internal]
+      operationId: confirmOrder
+      summary: Confirm a paid order (idempotent; called by the payment outbox worker)
+      description: >
+        Locks the order row, then: PENDING → moves reserved to sold, sets
+        CONFIRMED. CONFIRMED with the same transactionId → 200 replay.
+        CONFIRMED with another transactionId → 409. EXPIRED → re-checks quota
+        for all items (sold + reserved + qty <= quota) and increments sold
+        directly; 409 if any item no longer fits.
+      security:
+        - InternalApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmOrderRequest' }
+      responses:
+        '200':
+          description: Order confirmed (or already confirmed by this transaction)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: './common.yaml#/components/responses/ValidationError' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409':
+          description: >
+            Expired and quota exhausted, or confirmed by a different
+            transaction (code ORDER_NOT_CONFIRMABLE)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+
+  /health/live:
+    get:
+      tags: [health]
+      operationId: healthLive
+      security: []
+      summary: Liveness probe
+      responses:
+        '200': { $ref: './common.yaml#/components/responses/Health' }
+  /health/ready:
+    get:
+      tags: [health]
+      operationId: healthReady
+      security: []
+      summary: Readiness probe (database reachable)
+      responses:
+        '200': { $ref: './common.yaml#/components/responses/Health' }
+        '503': { $ref: './common.yaml#/components/responses/Health' }
+
+components:
+  securitySchemes:
+    PublicApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Public-scope key (held by the gateway). Rejected on /v1/internal/*.
+    InternalApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Internal-scope key (held only by the Payment Service).
+
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  schemas:
+    TicketTypeCode:
+      type: string
+      enum: [GOLD, PREMIUM, VIP]
+
+    TicketType:
+      type: object
+      required: [code, name, priceMinor, currency, quota, sold, reserved, available]
+      properties:
+        code: { $ref: '#/components/schemas/TicketTypeCode' }
+        name: { type: string, example: Gold }
+        priceMinor: { $ref: './common.yaml#/components/schemas/AmountMinor' }
+        currency: { $ref: './common.yaml#/components/schemas/Currency' }
+        quota: { type: integer, example: 100 }
+        sold: { type: integer, example: 12 }
+        reserved: { type: integer, example: 3 }
+        available:
+          type: integer
+          example: 85
+          description: quota - sold - reserved
+
+    TicketTypeList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TicketType' }
+
+    CreateOrderRequest:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 3
+          description: Each ticketTypeCode may appear at most once (duplicates → 400).
+          items:
+            type: object
+            required: [ticketTypeCode, quantity]
+            additionalProperties: false
+            properties:
+              ticketTypeCode: { $ref: '#/components/schemas/TicketTypeCode' }
+              quantity: { type: integer, minimum: 1, maximum: 10 }
+      example:
+        items:
+          - { ticketTypeCode: GOLD, quantity: 2 }
+          - { ticketTypeCode: VIP, quantity: 1 }
+
+    ConfirmOrderRequest:
+      type: object
+      required: [transactionId]
+      additionalProperties: false
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+          description: Payment transaction that paid for this order; stored as paidTransactionId.
+
+    OrderStatus:
+      type: string
+      enum: [PENDING, CONFIRMED, EXPIRED]
+
+    OrderItem:
+      type: object
+      required: [ticketTypeCode, quantity, unitPriceMinor, lineTotalMinor]
+      properties:
+        ticketTypeCode: { $ref: '#/components/schemas/TicketTypeCode' }
+        quantity: { type: integer }
+        unitPriceMinor: { $ref: './common.yaml#/components/schemas/AmountMinor' }
+        lineTotalMinor: { $ref: './common.yaml#/components/schemas/AmountMinor' }
+
+    Order:
+      type: object
+      required: [id, status, items, totalMinor, currency, createdAt, expiresAt, confirmedAt, paidTransactionId]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/OrderItem' }
+        totalMinor: { $ref: './common.yaml#/components/schemas/AmountMinor' }
+        currency: { $ref: './common.yaml#/components/schemas/Currency' }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        confirmedAt: { type: string, format: date-time, nullable: true }
+        paidTransactionId: { type: string, format: uuid, nullable: true }

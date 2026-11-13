@@ -1,0 +1,9 @@
+# Redocly lint config for the contract files.
+# Errors stay strict; purely stylistic rules are relaxed:
+# - tag-description: tags are self-explanatory at this size
+# - operation-4xx-response: health probes legitimately return only 200/503
+# - no-server-example.com / localhost servers are intentional for local dev
+rules:
+  tag-description: off
+  operation-4xx-response: off
+  no-server-example.com: off

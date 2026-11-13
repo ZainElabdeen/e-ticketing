@@ -1,0 +1,228 @@
+openapi: 3.0.3
+info:
+  title: Ledger Service API
+  version: 2.0.0
+  license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
+  description: >
+    Double-entry, append-only ledger. Producers post business facts with a
+    posting type; the ledger owns the chart of accounts and the templates.
+    Idempotent on transactionId. Behavior: docs/spec.md §3.3, ADR-0009.
+servers:
+  - url: http://localhost:3003
+tags:
+  - name: journal
+  - name: accounts
+  - name: internal
+  - name: health
+
+security:
+  - PublicApiKey: []
+
+paths:
+  /v1/internal/postings:
+    post:
+      tags: [internal]
+      operationId: createPosting
+      summary: Post a journal entry from a posting template (idempotent; outbox worker)
+      description: >
+        TICKET_SALE → Debit 1100 Payment Gateway Clearing / Credit 4000 Ticket
+        Sales Revenue. UNFULFILLED_PAYMENT → Debit 1100 / Credit 2100 Customer
+        Refunds Payable. Re-posting a transactionId with the same postingType,
+        amount and currency returns the existing entry (200); with different
+        values → 409 POSTING_CONFLICT.
+      security:
+        - InternalApiKey: []
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PostingRequest' }
+      responses:
+        '201':
+          description: Journal entry posted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JournalEntry' }
+        '200':
+          description: Entry for this transactionId already exists (idempotent replay)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JournalEntry' }
+        '400': { $ref: './common.yaml#/components/responses/ValidationError' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '409':
+          description: transactionId already posted with different values (code POSTING_CONFLICT)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+
+  /v1/journal-entries:
+    get:
+      tags: [journal]
+      operationId: listJournalEntries
+      summary: List journal entries with lines, newest first (backoffice "ledger entries")
+      parameters:
+        - $ref: './common.yaml#/components/parameters/Page'
+        - $ref: './common.yaml#/components/parameters/PageSize'
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Paginated journal entries
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JournalEntryPage' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+
+  /v1/accounts:
+    get:
+      tags: [accounts]
+      operationId: listAccounts
+      summary: List accounts with derived balances and ledger totals
+      description: >
+        Debit-normal accounts (ASSET, EXPENSE): balance = debits - credits.
+        Credit-normal accounts (LIABILITY, EQUITY, REVENUE): balance = credits
+        - debits. totals.debitMinor always equals totals.creditMinor.
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Accounts and totals
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountList' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+
+  /health/live:
+    get:
+      tags: [health]
+      operationId: healthLive
+      security: []
+      summary: Liveness probe
+      responses:
+        '200': { $ref: './common.yaml#/components/responses/Health' }
+  /health/ready:
+    get:
+      tags: [health]
+      operationId: healthReady
+      security: []
+      summary: Readiness probe (database reachable)
+      responses:
+        '200': { $ref: './common.yaml#/components/responses/Health' }
+        '503': { $ref: './common.yaml#/components/responses/Health' }
+
+components:
+  securitySchemes:
+    PublicApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Public-scope key (held by the gateway). Rejected on /v1/internal/*.
+    InternalApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Internal-scope key (held only by the Payment Service).
+
+  schemas:
+    PostingType:
+      type: string
+      enum: [TICKET_SALE, UNFULFILLED_PAYMENT]
+
+    Direction:
+      type: string
+      enum: [DEBIT, CREDIT]
+
+    AccountType:
+      type: string
+      enum: [ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE]
+
+    PostingRequest:
+      type: object
+      required: [transactionId, postingType, orderId, paymentReference, amountMinor, currency]
+      additionalProperties: false
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+          description: Idempotency anchor (UNIQUE in the ledger).
+        postingType: { $ref: '#/components/schemas/PostingType' }
+        orderId: { type: string, format: uuid }
+        paymentReference: { type: string, example: PAY-20261113-7F3K9Q }
+        amountMinor: { $ref: './common.yaml#/components/schemas/AmountMinor' }
+        currency: { $ref: './common.yaml#/components/schemas/Currency' }
+      example:
+        transactionId: 2b7e1a9c-3d4f-4a5b-8c6d-7e8f9a0b1c2d
+        postingType: TICKET_SALE
+        orderId: 6a1f0e9e-1c2b-4f3a-9d4e-5f6a7b8c9d0e
+        paymentReference: PAY-20261113-7F3K9Q
+        amountMinor: 70000
+        currency: AED
+
+    JournalLine:
+      type: object
+      required: [id, accountCode, accountName, direction, amountMinor]
+      properties:
+        id: { type: string, format: uuid }
+        accountCode: { type: string, example: '4000' }
+        accountName: { type: string, example: Ticket Sales Revenue }
+        direction: { $ref: '#/components/schemas/Direction' }
+        amountMinor: { $ref: './common.yaml#/components/schemas/AmountMinor' }
+
+    JournalEntry:
+      type: object
+      required: [id, transactionId, postingType, orderId, paymentReference, description, currency, correlationId, postedAt, lines]
+      properties:
+        id: { type: string, format: uuid }
+        transactionId: { type: string, format: uuid }
+        postingType: { $ref: '#/components/schemas/PostingType' }
+        orderId: { type: string, format: uuid }
+        paymentReference: { type: string }
+        description:
+          type: string
+          example: 'Ticket sale PAY-20261113-7F3K9Q order 6a1f0e9e-1c2b-4f3a-9d4e-5f6a7b8c9d0e'
+        currency: { $ref: './common.yaml#/components/schemas/Currency' }
+        correlationId: { type: string, nullable: true }
+        postedAt: { type: string, format: date-time }
+        lines:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/JournalLine' }
+
+    JournalEntryPage:
+      allOf:
+        - $ref: './common.yaml#/components/schemas/PageMeta'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/JournalEntry' }
+
+    Account:
+      type: object
+      required: [code, name, type, currency, debitMinor, creditMinor, balanceMinor]
+      properties:
+        code: { type: string, example: '1100' }
+        name: { type: string, example: Payment Gateway Clearing }
+        type: { $ref: '#/components/schemas/AccountType' }
+        currency: { $ref: './common.yaml#/components/schemas/Currency' }
+        debitMinor: { type: integer, format: int64, minimum: 0 }
+        creditMinor: { type: integer, format: int64, minimum: 0 }
+        balanceMinor: { type: integer, format: int64, example: 70000 }
+
+    AccountList:
+      type: object
+      required: [data, totals]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Account' }
+        totals:
+          type: object
+          required: [debitMinor, creditMinor]
+          properties:
+            debitMinor: { type: integer, format: int64, minimum: 0 }
+            creditMinor: { type: integer, format: int64, minimum: 0 }

@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: Payment Service API
+  version: 2.0.0
+  license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
+  description: >
+    Simulated payments with pluggable method handlers (card, QR). The amount is
+    read from the Ticket Service, never from the client. At most one PENDING or
+    SUCCEEDED payment per order. Every success writes a transaction and an
+    outbox event atomically. Behavior: docs/spec.md §4.2–4.4.
+servers:
+  - url: http://localhost:3002
+tags:
+  - name: payments
+  - name: transactions
+  - name: health
+
+security:
+  - PublicApiKey: []
+
+paths:
+  /v1/payments:
+    post:
+      tags: [payments]
+      operationId: createPayment
+      summary: Initiate a payment for an order (idempotent)
+      description: >
+        Requires Idempotency-Key. The key is bound only when a payment is
+        created; any 4xx leaves it free for a corrected retry. Same key + same
+        body → the stored 201 response, verbatim, with Idempotent-Replayed:
+        true (a QR replay returns the original PENDING body). Same key +
+        different body → 422 IDEMPOTENCY_KEY_REUSE. CARD with a Luhn-valid,
+        unexpired number succeeds immediately; QR returns PENDING with a QR
+        payload and the server marks it SUCCEEDED 8 s later.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentRequest' }
+      responses:
+        '201':
+          description: >
+            Payment created (or replayed). CARD: SUCCEEDED with transaction.
+            QR: PENDING with qrPayload.
+          headers:
+            Idempotent-Replayed:
+              description: Present with value "true" when this is a stored replay.
+              schema: { type: string, enum: ['true'] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '400':
+          description: Missing/invalid Idempotency-Key or body (code VALIDATION_ERROR)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '404':
+          description: Order not found (code ORDER_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+        '409':
+          description: >
+            ORDER_NOT_PAYABLE (order not PENDING or expired),
+            PAYMENT_IN_PROGRESS (a PENDING payment exists for the order), or
+            ORDER_ALREADY_PAID (a SUCCEEDED payment exists).
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+        '422':
+          description: >
+            INVALID_CARD (Luhn-invalid or expired card; no payment created), or
+            IDEMPOTENCY_KEY_REUSE (key already bound to a different body).
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+        '500': { $ref: './common.yaml#/components/responses/InternalError' }
+
+  /v1/payments/{paymentId}:
+    get:
+      tags: [payments]
+      operationId: getPayment
+      summary: Get live payment status (polled by the SPA for QR)
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Payment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+
+  /v1/payments/{paymentId}/cancel:
+    post:
+      tags: [payments]
+      operationId: cancelPayment
+      summary: Cancel a PENDING payment (e.g. switch from QR to card)
+      description: >
+        Conditional update WHERE status = 'PENDING'. Frees the order for a new
+        payment. Races with the QR success job resolve to exactly one winner.
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Payment cancelled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409':
+          description: Payment already SUCCEEDED or CANCELLED (code PAYMENT_NOT_CANCELLABLE)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+
+  /v1/transactions:
+    get:
+      tags: [transactions]
+      operationId: listTransactions
+      summary: List transactions, newest first (backoffice)
+      parameters:
+        - $ref: './common.yaml#/components/parameters/Page'
+        - $ref: './common.yaml#/components/parameters/PageSize'
+        - $ref: './common.yaml#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Paginated transactions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransactionPage' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+
+  /health/live:
+    get:
+      tags: [health]
+      operationId: healthLive
+      security: []
+      summary: Liveness probe
+      responses:
+        '200': { $ref: './common.yaml#/components/responses/Health' }
+  /health/ready:
+    get:
+      tags: [health]
+      operationId: healthReady
+      security: []
+      summary: Readiness probe (database reachable)
+      responses:
+        '200': { $ref: './common.yaml#/components/responses/Health' }
+        '503': { $ref: './common.yaml#/components/responses/Health' }
+
+components:
+  securitySchemes:
+    PublicApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Public-scope key (held by the gateway).
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128 }
+      description: Client-generated (the SPA uses a UUID v4 per Pay submission).
+    PaymentId:
+      name: paymentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  schemas:
+    PaymentMethod:
+      type: string
+      enum: [CARD, QR]
+      description: Extensible; WALLET, BANK_TRANSFER, CRYPTO would each be one handler class.
+
+    PaymentStatus:
+      type: string
+      enum: [PENDING, SUCCEEDED, CANCELLED]
+
+    CardDetails:
+      type: object
+      required: [number, expMonth, expYear, cvc, holder]
+      additionalProperties: false
+      properties:
+        number:
+          type: string
+          pattern: '^[0-9]{12,19}$'
+          description: Luhn-checked; never persisted, hashed or logged.
+        expMonth: { type: integer, minimum: 1, maximum: 12 }
+        expYear:
+          type: integer
+          minimum: 2000
+          maximum: 2099
+          description: Expiry before the current month → 422 INVALID_CARD.
+        cvc: { type: string, pattern: '^[0-9]{3,4}$' }
+        holder: { type: string, minLength: 1, maxLength: 100 }
+
+    CreatePaymentRequest:
+      type: object
+      required: [orderId, method]
+      additionalProperties: false
+      properties:
+        orderId: { type: string, format: uuid }
+        method: { $ref: '#/components/schemas/PaymentMethod' }
+        card:
+          allOf: [{ $ref: '#/components/schemas/CardDetails' }]
+          description: Required when method is CARD; must be absent for QR.
+      example:
+        orderId: 6a1f0e9e-1c2b-4f3a-9d4e-5f6a7b8c9d0e
+        method: CARD
+        card:
+          number: '4242424242424242'
+          expMonth: 12
+          expYear: 2030
+          cvc: '123'
+          holder: Jane Doe
+
+    TransactionRef:
+      type: object
+      required: [transactionId, paymentReference, createdAt]
+      properties:
+        transactionId: { type: string, format: uuid }
+        paymentReference:
+          type: string
+          pattern: '^PAY-[0-9]{8}-[0-9A-HJKMNP-TV-Z]{6}$'
+          example: PAY-20261113-7F3K9Q
+        createdAt: { type: string, format: date-time }
+
+    Transaction:
+      description: A transaction with fields denormalized from its payment.
+      allOf:
+        - $ref: '#/components/schemas/TransactionRef'
+        - type: object
+          required: [paymentId, orderId, amountMinor, currency, method]
+          properties:
+            paymentId: { type: string, format: uuid }
+            orderId: { type: string, format: uuid }
+            amountMinor: { $ref: './common.yaml#/components/schemas/AmountMinor' }
+            currency: { $ref: './common.yaml#/components/schemas/Currency' }
+            method: { $ref: '#/components/schemas/PaymentMethod' }
+
+    TransactionPage:
+      allOf:
+        - $ref: './common.yaml#/components/schemas/PageMeta'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/Transaction' }
+
+    Payment:
+      type: object
+      required: [id, orderId, method, status, amountMinor, currency, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        method: { $ref: '#/components/schemas/PaymentMethod' }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        amountMinor:
+          allOf: [{ $ref: './common.yaml#/components/schemas/AmountMinor' }]
+          description: The order total read from the Ticket Service.
+        currency: { $ref: './common.yaml#/components/schemas/Currency' }
+        cardLast4: { type: string, nullable: true, example: '4242' }
+        qrPayload:
+          type: string
+          nullable: true
+          example: 'eticket:pay:0e9f8a7b-6c5d-4e3f-2a1b-0c9d8e7f6a5b'
+          description: QR only. Simulation format, not UPI/QRIS.
+        transaction:
+          allOf: [{ $ref: '#/components/schemas/TransactionRef' }]
+          description: Present only once the payment has SUCCEEDED.
+        createdAt: { type: string, format: date-time }
+        succeededAt: { type: string, format: date-time, nullable: true }
+        cancelledAt: { type: string, format: date-time, nullable: true }

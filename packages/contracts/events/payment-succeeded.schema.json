@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://e-ticketing.local/contracts/events/payment-succeeded.schema.json",
+  "title": "payment.succeeded",
+  "description": "Payload of the outbox event written in the same DB transaction as a payment success (docs/spec.md §4.3). It never leaves the Payment Service as a message: the outbox worker turns it into a Ticket Service confirm call and a Ledger posting call, both idempotent on transactionId.",
+  "type": "object",
+  "required": [
+    "transactionId",
+    "paymentId",
+    "orderId",
+    "paymentReference",
+    "amountMinor",
+    "currency",
+    "occurredAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "transactionId": { "type": "string", "format": "uuid" },
+    "paymentId": { "type": "string", "format": "uuid" },
+    "orderId": { "type": "string", "format": "uuid" },
+    "paymentReference": {
+      "type": "string",
+      "pattern": "^PAY-[0-9]{8}-[0-9A-HJKMNP-TV-Z]{6}$",
+      "examples": ["PAY-20261113-7F3K9Q"]
+    },
+    "amountMinor": { "type": "integer", "minimum": 1 },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "examples": ["AED"] },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "correlationId": { "type": "string", "description": "Optional; forwarded on the worker's outbound calls." }
+  }
+}

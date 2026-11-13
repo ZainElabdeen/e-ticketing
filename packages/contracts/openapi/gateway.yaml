@@ -1,0 +1,325 @@
+openapi: 3.0.3
+info:
+  title: Gateway (BFF) API
+  version: 2.0.0
+  license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
+  description: >
+    The only public backend. Holds public-scope API keys, rate limits, applies
+    CORS and security headers, issues correlation IDs and backoffice JWTs, and
+    proxies 1:1 to services (ADR-0012). Downstream 4xx/5xx bodies pass through
+    unchanged. Connection failure → 502 UPSTREAM_UNAVAILABLE; 5 s timeout →
+    504 UPSTREAM_TIMEOUT. Request/response shapes are the downstream schemas,
+    referenced, not copied. Served under /api by the ingress.
+servers:
+  - url: http://localhost:3000
+
+# Shop routes are anonymous; backoffice routes override with BearerAuth.
+security: []
+
+tags:
+  - name: auth
+  - name: shop
+  - name: backoffice
+  - name: health
+
+paths:
+  /v1/auth/login:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Backoffice login (10/min per IP)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '200':
+          description: JWT issued (HS256, 1 hour)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accessToken, expiresIn]
+                properties:
+                  accessToken: { type: string }
+                  expiresIn: { type: integer, example: 3600 }
+        '400': { $ref: './common.yaml#/components/responses/ValidationError' }
+        '401':
+          description: Invalid credentials (code INVALID_CREDENTIALS)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/ticket-types:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    get:
+      tags: [shop]
+      operationId: listTicketTypes
+      summary: Ticket types with availability (→ Ticket Service)
+      responses:
+        '200':
+          description: Ticket types
+          content:
+            application/json:
+              schema: { $ref: './ticket-service.yaml#/components/schemas/TicketTypeList' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/orders:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    post:
+      tags: [shop]
+      operationId: createOrder
+      summary: Create order (→ Ticket Service; 5/min per IP)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './ticket-service.yaml#/components/schemas/CreateOrderRequest' }
+      responses:
+        '201':
+          description: Order created, quota reserved
+          content:
+            application/json:
+              schema: { $ref: './ticket-service.yaml#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/Downstream' }
+        '409': { $ref: '#/components/responses/Downstream' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/orders/{orderId}:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+      - name: orderId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [shop]
+      operationId: getOrder
+      summary: Get order (→ Ticket Service)
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema: { $ref: './ticket-service.yaml#/components/schemas/Order' }
+        '404': { $ref: '#/components/responses/Downstream' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/payments:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    post:
+      tags: [shop]
+      operationId: createPayment
+      summary: Initiate payment (→ Payment Service; forwards Idempotency-Key)
+      parameters:
+        - $ref: './payment-service.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './payment-service.yaml#/components/schemas/CreatePaymentRequest' }
+      responses:
+        '201':
+          description: Payment created or replayed (Idempotent-Replayed header forwarded)
+          headers:
+            Idempotent-Replayed:
+              schema: { type: string, enum: ['true'] }
+          content:
+            application/json:
+              schema: { $ref: './payment-service.yaml#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/Downstream' }
+        '404': { $ref: '#/components/responses/Downstream' }
+        '409': { $ref: '#/components/responses/Downstream' }
+        '422': { $ref: '#/components/responses/Downstream' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/Downstream' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/payments/{paymentId}:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+      - $ref: './payment-service.yaml#/components/parameters/PaymentId'
+    get:
+      tags: [shop]
+      operationId: getPayment
+      summary: Poll payment status (→ Payment Service)
+      responses:
+        '200':
+          description: Payment
+          content:
+            application/json:
+              schema: { $ref: './payment-service.yaml#/components/schemas/Payment' }
+        '404': { $ref: '#/components/responses/Downstream' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/payments/{paymentId}/cancel:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+      - $ref: './payment-service.yaml#/components/parameters/PaymentId'
+    post:
+      tags: [shop]
+      operationId: cancelPayment
+      summary: Cancel a PENDING payment to switch method (→ Payment Service)
+      responses:
+        '200':
+          description: Payment cancelled
+          content:
+            application/json:
+              schema: { $ref: './payment-service.yaml#/components/schemas/Payment' }
+        '404': { $ref: '#/components/responses/Downstream' }
+        '409': { $ref: '#/components/responses/Downstream' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/backoffice/transactions:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    get:
+      tags: [backoffice]
+      operationId: backofficeTransactions
+      summary: Transactions (JWT; → Payment Service)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/Page'
+        - $ref: './common.yaml#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paginated transactions
+          content:
+            application/json:
+              schema: { $ref: './payment-service.yaml#/components/schemas/TransactionPage' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/backoffice/ledger-entries:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    get:
+      tags: [backoffice]
+      operationId: backofficeLedgerEntries
+      summary: Ledger (journal) entries with lines (JWT; → Ledger Service)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/Page'
+        - $ref: './common.yaml#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paginated journal entries
+          content:
+            application/json:
+              schema: { $ref: './ledger-service.yaml#/components/schemas/JournalEntryPage' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/backoffice/accounts:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    get:
+      tags: [backoffice]
+      operationId: backofficeAccounts
+      summary: Account balances and ledger totals (JWT; → Ledger Service)
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: Accounts with balances
+          content:
+            application/json:
+              schema: { $ref: './ledger-service.yaml#/components/schemas/AccountList' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /v1/backoffice/ticket-availability:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    get:
+      tags: [backoffice]
+      operationId: backofficeTicketAvailability
+      summary: Quota, sold, reserved and available per type (JWT; → Ticket Service)
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: Ticket availability
+          content:
+            application/json:
+              schema: { $ref: './ticket-service.yaml#/components/schemas/TicketTypeList' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
+  /health/live:
+    get:
+      tags: [health]
+      operationId: healthLive
+      summary: Liveness probe
+      responses:
+        '200': { $ref: './common.yaml#/components/responses/Health' }
+  /health/ready:
+    get:
+      tags: [health]
+      operationId: healthReady
+      summary: Readiness probe (downstream services reachable)
+      responses:
+        '200': { $ref: './common.yaml#/components/responses/Health' }
+        '503': { $ref: './common.yaml#/components/responses/Health' }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Downstream:
+      description: Error envelope passed through unchanged from the downstream service
+      content:
+        application/json:
+          schema: { $ref: './common.yaml#/components/schemas/Error' }
+    RateLimited:
+      description: Too many requests (code RATE_LIMITED)
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: './common.yaml#/components/schemas/Error' }
+    UpstreamUnavailable:
+      description: Downstream service unreachable (code UPSTREAM_UNAVAILABLE)
+      content:
+        application/json:
+          schema: { $ref: './common.yaml#/components/schemas/Error' }
+    UpstreamTimeout:
+      description: Downstream service did not answer within 5 s (code UPSTREAM_TIMEOUT)
+      content:
+        application/json:
+          schema: { $ref: './common.yaml#/components/schemas/Error' }
