@@ -1,4 +1,10 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import {
+  type BeforeApplicationShutdown,
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import type { EnvironmentVariables } from '../config/env';
@@ -9,9 +15,10 @@ const CORRELATION_ID = 'job:order-expiry';
 
 /** Releases the reservations of PENDING orders whose 15 minutes have passed. */
 @Injectable()
-export class OrderExpiryJob implements OnModuleInit, OnModuleDestroy {
+export class OrderExpiryJob implements OnModuleInit, OnModuleDestroy, BeforeApplicationShutdown {
   private readonly logger = new Logger(OrderExpiryJob.name);
   private running = false;
+  private inFlight: Promise<number> | undefined;
 
   constructor(
     private readonly repository: OrdersRepository,
@@ -36,8 +43,28 @@ export class OrderExpiryJob implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Runs before Nest stops the HTTP server and the database pool: the interval is
+   * already gone (onModuleDestroy), so waiting here lets an in-flight run finish.
+   */
+  async beforeApplicationShutdown(): Promise<void> {
+    await this.inFlight?.catch(() => undefined);
+  }
+
   /** Expires due orders, up to ORDER_EXPIRY_BATCH_SIZE. Returns how many. */
-  async runOnce(): Promise<number> {
+  runOnce(): Promise<number> {
+    const run = this.expireBatch();
+    this.inFlight = run;
+    const clear = (): void => {
+      if (this.inFlight === run) {
+        this.inFlight = undefined;
+      }
+    };
+    run.then(clear, clear);
+    return run;
+  }
+
+  private async expireBatch(): Promise<number> {
     const batch = this.config.get('ORDER_EXPIRY_BATCH_SIZE', { infer: true });
     let expired = 0;
     while (expired < batch) {
@@ -63,7 +90,7 @@ export class OrderExpiryJob implements OnModuleInit, OnModuleDestroy {
       }
     } catch (err) {
       this.logger.error(
-        { correlationId: CORRELATION_ID, err: err instanceof Error ? err.message : String(err) },
+        { correlationId: CORRELATION_ID, err },
         'order expiry run failed',
       );
     } finally {
