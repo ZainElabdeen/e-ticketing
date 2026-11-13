@@ -32,7 +32,7 @@ beforeAll(async () => {
   service = await startPaymentService(
     db,
     { ticket, ledger },
-    { QR_SUCCESS_DELAY_SECONDS: '1', QR_JOB_INTERVAL_SECONDS: '1' },
+    { QR_SUCCESS_DELAY_SECONDS: '1', QR_JOB_INTERVAL_SECONDS: '1', QR_JOB_ENABLED: 'true' },
   );
 });
 

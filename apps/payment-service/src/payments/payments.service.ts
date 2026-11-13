@@ -9,6 +9,7 @@ import {
   OrderNotFoundError,
   OrderNotPayableError,
   PaymentInProgressError,
+  PaymentNotCancellableError,
   PaymentNotFoundError,
 } from './domain/errors';
 import { requestHash } from './domain/request-hash';
@@ -97,5 +98,14 @@ export class PaymentsService {
     const view = await this.repo.findView(paymentId);
     if (!view) throw new PaymentNotFoundError('payment not found');
     return view;
+  }
+
+  async cancel(paymentId: string): Promise<PaymentView> {
+    const result = await this.repo.cancel(paymentId);
+    if (result === 'NOT_FOUND') throw new PaymentNotFoundError('payment not found');
+    if (result === 'NOT_CANCELLABLE') {
+      throw new PaymentNotCancellableError('only a PENDING payment can be cancelled');
+    }
+    return result;
   }
 }

@@ -36,4 +36,10 @@ export class PaymentsController {
   get(@Param('paymentId', ParseUUIDPipe) paymentId: string): Promise<PaymentView> {
     return this.payments.get(paymentId);
   }
+
+  @Post(':paymentId/cancel')
+  @HttpCode(200)
+  cancel(@Param('paymentId', ParseUUIDPipe) paymentId: string): Promise<PaymentView> {
+    return this.payments.cancel(paymentId);
+  }
 }

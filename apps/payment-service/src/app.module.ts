@@ -26,6 +26,7 @@ import { QrHandler } from './payments/handlers/qr.handler';
 import { PaymentsController } from './payments/payments.controller';
 import { PaymentsRepository } from './payments/payments.repository';
 import { PaymentsService } from './payments/payments.service';
+import { QrSuccessJob } from './payments/qr-success.job';
 
 /** Test seams: where request logs are written (default: stdout) and the time source. */
 export interface AppOptions {
@@ -80,6 +81,7 @@ export function createAppModule(
       LedgerClient,
       PaymentsRepository,
       PaymentsService,
+      QrSuccessJob,
       {
         provide: PAYMENT_HANDLERS,
         inject: [ConfigService],

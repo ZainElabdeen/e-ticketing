@@ -99,10 +99,32 @@ describe('Idempotency-Key', () => {
     expect(first.status).toBe(201);
 
     stubPayableOrder(ticket, { id: order.id, status: 'CONFIRMED' });
+    ticket.calls.length = 0;
     const replay = await postPayment(svc, cardBody(order.id), key);
     expect(replay.status).toBe(201);
     expect(replay.body).toEqual(first.body);
     expect(replay.headers['idempotent-replayed']).toBe('true');
+    expect(ticket.calls).toHaveLength(0);
+  });
+
+  it('a key row with no stored response is never treated as a replay (500, row untouched)', async () => {
+    const order = stubPayableOrder(ticket);
+    const key = newKey();
+    const body = cardBody(order.id);
+    const first = await postPayment(svc, body, key);
+    expect(first.status).toBe(201);
+    // Same hash as the real request, but the response was never bound.
+    await sql.query(
+      `UPDATE payments.idempotency_keys SET response_status = NULL, response_body = NULL, payment_id = NULL WHERE key = $1`,
+      [key],
+    );
+    const res = await postPayment(svc, body, key);
+    expect(res.status).toBe(500);
+    const row = await sql.query<{ response_status: number | null }>(
+      `SELECT response_status FROM payments.idempotency_keys WHERE key = $1`,
+      [key],
+    );
+    expect(row.rows[0]?.response_status).toBeNull();
   });
 
   it('a QR replay after success returns the original PENDING body', async () => {

@@ -64,10 +64,14 @@ export class PaymentsRepository {
           RETURNING key`;
         if (claimed.length === 0) {
           const stored = await tx.$queryRaw<
-            Array<{ request_hash: string; response_body: unknown }>
-          >`SELECT request_hash, response_body FROM payments.idempotency_keys WHERE key = ${args.key}`;
+            Array<{ request_hash: string; response_status: number | null; response_body: unknown }>
+          >`SELECT request_hash, response_status, response_body FROM payments.idempotency_keys WHERE key = ${args.key}`;
           const row = stored[0];
-          if (row && row.request_hash === args.requestHash) {
+          // A key row is only ever visible with its response bound (one transaction).
+          if (!row || row.response_status === null) {
+            throw new Error('idempotency key row exists without a stored response');
+          }
+          if (row.request_hash === args.requestHash) {
             return { kind: 'REPLAY', body: row.response_body } as const;
           }
           return { kind: 'KEY_REUSE' } as const;
@@ -98,6 +102,42 @@ export class PaymentsRepository {
           SET payment_id = ${paymentId}::uuid, response_status = 201, response_body = ${body}::jsonb
           WHERE key = ${args.key}`;
         return { kind: 'CREATED', view } as const;
+      },
+      { maxWait: 5000, timeout: 10000 },
+    );
+  }
+
+  /** Spec §4.2: PENDING -> CANCELLED, conditional so it loses cleanly against the QR job. */
+  async cancel(paymentId: string): Promise<PaymentView | 'NOT_FOUND' | 'NOT_CANCELLABLE'> {
+    const updated = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      UPDATE payments.payments SET status = 'CANCELLED', cancelled_at = now()
+      WHERE id = ${paymentId}::uuid AND status = 'PENDING'
+      RETURNING id`;
+    const view = await this.findView(paymentId);
+    if (updated.length === 1 && view) return view;
+    return view ? 'NOT_CANCELLABLE' : 'NOT_FOUND';
+  }
+
+  /**
+   * Spec §4.2 QR job: claims one due PENDING QR payment, marks it SUCCEEDED and
+   * records the success, in one transaction. Returns its id, or null when none.
+   */
+  async succeedOneDueQr(now: Date): Promise<string | null> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const claimed = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM payments.payments
+          WHERE status = 'PENDING' AND method = 'QR' AND succeed_after <= now()
+          ORDER BY succeed_after
+          FOR UPDATE SKIP LOCKED LIMIT 1`;
+        const id = claimed[0]?.id;
+        if (!id) return null;
+        const updated = await tx.$executeRaw`
+          UPDATE payments.payments SET status = 'SUCCEEDED', succeeded_at = now()
+          WHERE id = ${id}::uuid AND status = 'PENDING'`;
+        if (updated === 0) return null;
+        await this.recordSuccess(tx, id, null, now);
+        return id;
       },
       { maxWait: 5000, timeout: 10000 },
     );

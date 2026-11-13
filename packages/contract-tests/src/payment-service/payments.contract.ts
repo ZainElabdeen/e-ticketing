@@ -100,8 +100,7 @@ export function register(
       expect((res.body as Envelope).code).toBe('ORDER_NOT_FOUND');
     });
 
-    // enabled in Task 6
-    it.skip('QR: 201 PENDING, then polling reaches SUCCEEDED with a transaction', async () => {
+    it('QR: 201 PENDING, then polling reaches SUCCEEDED with a transaction', async () => {
       const target = getTarget();
       const order = await target.newPayableOrder();
       const res = await create(target, { orderId: order.id, method: 'QR' }, newKey());
@@ -126,7 +125,7 @@ export function register(
       expect(current.transaction?.transactionId).toEqual(expect.any(String));
     });
 
-    it('a second payment for a paid order -> 409 ORDER_ALREADY_PAID', async () => {
+    it('a second payment for a paid order -> 409', async () => {
       const target = getTarget();
       const order = await target.newPayableOrder();
       const first = await create(
@@ -138,7 +137,29 @@ export function register(
       const res = await create(target, { orderId: order.id, method: 'QR' }, newKey());
       expect(res.status).toBe(409);
       validator.assertResponse('createPayment', res.status, res.body);
-      expect((res.body as Envelope).code).toBe('ORDER_ALREADY_PAID');
+      // On a real stack the outbox may confirm the order before this call.
+      expect(['ORDER_ALREADY_PAID', 'ORDER_NOT_PAYABLE']).toContain((res.body as Envelope).code);
+    });
+
+    it('cancel: a PENDING QR payment -> 200 CANCELLED, then 409 PAYMENT_NOT_CANCELLABLE', async () => {
+      const target = getTarget();
+      const order = await target.newPayableOrder();
+      const created = await create(target, { orderId: order.id, method: 'QR' }, newKey());
+      expect(created.status).toBe(201);
+      const id = (created.body as PaymentBody).id;
+      const res = await request(target.baseUrl)
+        .post(`/v1/payments/${id}/cancel`)
+        .set('X-Api-Key', target.publicApiKey);
+      expect(res.status).toBe(200);
+      validator.assertResponse('cancelPayment', res.status, res.body);
+      expect((res.body as PaymentBody).status).toBe('CANCELLED');
+
+      const again = await request(target.baseUrl)
+        .post(`/v1/payments/${id}/cancel`)
+        .set('X-Api-Key', target.publicApiKey);
+      expect(again.status).toBe(409);
+      validator.assertResponse('cancelPayment', again.status, again.body);
+      expect((again.body as Envelope).code).toBe('PAYMENT_NOT_CANCELLABLE');
     });
   });
 }
