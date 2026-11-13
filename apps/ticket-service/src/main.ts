@@ -16,6 +16,14 @@ export async function createApp(
 ): Promise<INestApplication> {
   const validated = validateEnv(env);
   const app = await NestFactory.create(createAppModule(validated), { bufferLogs: true });
+  // Exact-case routing, so /V1/Internal/... cannot reach an internal handler.
+  // Express built its router when the app was created, so set the router flag too.
+  const express = app.getHttpAdapter().getInstance() as {
+    set(key: string, value: boolean): void;
+    router: { caseSensitive: boolean };
+  };
+  express.set('case sensitive routing', true);
+  express.router.caseSensitive = true;
   app.use(correlationIdMiddleware);
   app.useLogger(app.get(Logger));
   app.useGlobalFilters(new ErrorEnvelopeFilter());

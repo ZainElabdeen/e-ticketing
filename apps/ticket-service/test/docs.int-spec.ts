@@ -30,4 +30,8 @@ describe('/docs', () => {
     const r = await request(off.baseUrl).get('/docs');
     expect(r.status).toBe(401);
   });
+
+  it('routes case-sensitively', async () => {
+    expect((await request(off.baseUrl).get('/HEALTH/LIVE')).status).toBe(401);
+  });
 });

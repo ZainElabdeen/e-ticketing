@@ -44,7 +44,10 @@ export class ErrorEnvelopeFilter implements ExceptionFilter {
     const path = req.path ?? (req.url ?? '').split('?')[0] ?? '';
 
     // Health is exempt from the envelope: Terminus's own 503 body is the contract.
-    if (exception instanceof HttpException && path.startsWith(HEALTH_PREFIX)) {
+    if (
+      exception instanceof HttpException &&
+      (path === HEALTH_PREFIX || path.startsWith(`${HEALTH_PREFIX}/`))
+    ) {
       res.status(exception.getStatus()).json(exception.getResponse());
       return;
     }
@@ -71,6 +74,15 @@ export class ErrorEnvelopeFilter implements ExceptionFilter {
     }
     if (exception instanceof NotFoundException) {
       return { statusCode: 404, code: 'NOT_FOUND', message: messageOf(exception) };
+    }
+    if (exception instanceof HttpException && exception.getStatus() < 500) {
+      // e.g. 413 from body-parser, 405, 429: keep the status, never leak a stack.
+      this.logger.warn({ correlationId }, exception.message);
+      return {
+        statusCode: exception.getStatus(),
+        code: 'BAD_REQUEST',
+        message: messageOf(exception),
+      };
     }
     const stack = exception instanceof Error ? exception.stack : String(exception);
     this.logger.error({ correlationId }, stack);

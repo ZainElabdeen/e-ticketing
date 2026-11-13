@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   type ArgumentsHost,
+  HttpException,
   Logger,
   ForbiddenException,
   NotFoundException,
@@ -31,7 +32,9 @@ function run(exception: unknown, path = '/v1/orders') {
 
 describe('ErrorEnvelopeFilter', () => {
   let logError: jest.SpyInstance;
+  let logWarn: jest.SpyInstance;
   beforeEach(() => {
+    logWarn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     logError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   });
   afterEach(() => jest.restoreAllMocks());
@@ -80,6 +83,22 @@ describe('ErrorEnvelopeFilter', () => {
       code: 'INTERNAL_ERROR',
       message: 'Internal server error',
       correlationId: ID,
+    });
+  });
+
+  it.each([413, 429])('keeps status %i as BAD_REQUEST and logs a warning', (code) => {
+    const { status, json } = run(new HttpException('nope', code));
+    expect(status).toHaveBeenCalledWith(code);
+    expect(json.mock.calls[0]?.[0]).toMatchObject({ statusCode: code, code: 'BAD_REQUEST' });
+    expect(logWarn).toHaveBeenCalled();
+    expect(logError).not.toHaveBeenCalled();
+  });
+
+  it('does not treat /healthcheck as health', () => {
+    const { json } = run(new ServiceUnavailableException('x'), '/healthcheck');
+    expect(json.mock.calls[0]?.[0]).toMatchObject({
+      statusCode: 500,
+      code: 'INTERNAL_ERROR',
     });
   });
 

@@ -41,6 +41,30 @@ export function register(getTarget: () => ContractTarget, validator: ContractVal
       expect((res.body as Envelope).code).toBe('FORBIDDEN');
     });
 
+    it('does not let a differently-cased internal path bypass the scope', async () => {
+      const target = getTarget();
+      const res = await request(target.baseUrl)
+        .post(`/V1/INTERNAL/orders/${randomUUID()}/confirm`)
+        .set('X-Api-Key', target.publicApiKey)
+        .send({ transactionId: randomUUID() });
+      const body = res.body as Envelope;
+      expect([403, 404]).toContain(res.status);
+      expect(body.code).toBe(res.status === 403 ? 'FORBIDDEN' : 'NOT_FOUND');
+    });
+
+    it('answers malformed JSON with 400 VALIDATION_ERROR and a correlation id', async () => {
+      const target = getTarget();
+      const res = await request(target.baseUrl)
+        .post('/v1/orders')
+        .set('X-Api-Key', target.publicApiKey)
+        .set('Content-Type', 'application/json')
+        .send('{"items":');
+      const body = res.body as Envelope;
+      expect(res.status).toBe(400);
+      expect(body.code).toBe('VALIDATION_ERROR');
+      expect(typeof body.correlationId).toBe('string');
+    });
+
     it('answers an unknown route with a 404 NOT_FOUND envelope', async () => {
       const target = getTarget();
       const res = await request(target.baseUrl)

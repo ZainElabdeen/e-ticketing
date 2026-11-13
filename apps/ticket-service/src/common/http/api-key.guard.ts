@@ -15,6 +15,10 @@ export const IS_PUBLIC = 'isPublic';
 /** Marks a route (or controller) as needing no API key: health and docs. */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
 
+export const IS_INTERNAL = 'isInternal';
+/** Marks a route (or controller) as internal-scope: only the internal key passes. */
+export const Internal = () => SetMetadata(IS_INTERNAL, true);
+
 const INTERNAL_PREFIX = '/v1/internal/';
 
 function safeEqual(a: string, b: string): boolean {
@@ -63,8 +67,16 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Missing or invalid API key');
     }
 
-    const path = req.path ?? (req.url ?? '').split('?')[0] ?? '';
-    if (path.startsWith(INTERNAL_PREFIX) && !internal) {
+    const isInternalRoute =
+      this.reflector.getAllAndOverride<boolean | undefined>(IS_INTERNAL, [
+        context.getHandler(),
+        context.getClass(),
+      ]) === true;
+    // Defense in depth: the path check survives a route that forgot @Internal().
+    // Normalised, because Express matches case-insensitively by default.
+    const raw = req.path ?? (req.url ?? '').split('?')[0] ?? '';
+    const path = raw.toLowerCase().replace(/\/{2,}/g, '/');
+    if ((isInternalRoute || path.startsWith(INTERNAL_PREFIX)) && !internal) {
       throw new ForbiddenException('This key is not allowed on internal routes');
     }
     return true;

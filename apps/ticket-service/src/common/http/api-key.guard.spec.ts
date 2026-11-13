@@ -1,12 +1,16 @@
 import { type ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { ApiKeyGuard, Public } from './api-key.guard';
+import { ApiKeyGuard, Internal, Public } from './api-key.guard';
 
 const PUBLIC_KEY = 'p'.repeat(32);
 const INTERNAL_KEY = 'i'.repeat(32);
 
 class Plain {
+  handler(): void {}
+}
+class Flagged {
+  @Internal()
   handler(): void {}
 }
 class Marked {
@@ -59,6 +63,20 @@ describe('ApiKeyGuard', () => {
     expect(guard.canActivate(ctx('/v1/orders', INTERNAL_KEY))).toBe(true);
     expect(guard.canActivate(ctx(confirm, INTERNAL_KEY))).toBe(true);
   });
+
+  it('requires the internal key on an @Internal() handler whatever the path', () => {
+    expect(() => guard.canActivate(ctx('/v1/other', PUBLIC_KEY, Flagged))).toThrow(
+      ForbiddenException,
+    );
+    expect(guard.canActivate(ctx('/v1/other', INTERNAL_KEY, Flagged))).toBe(true);
+  });
+
+  it.each(['/V1/INTERNAL/orders/x/confirm', '//v1//internal/orders/x/confirm'])(
+    'forbids the public key on %s',
+    (path) => {
+      expect(() => guard.canActivate(ctx(path, PUBLIC_KEY))).toThrow(ForbiddenException);
+    },
+  );
 
   it('skips @Public() handlers', () => {
     expect(guard.canActivate(ctx('/health/live', undefined, Marked))).toBe(true);
