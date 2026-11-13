@@ -20,6 +20,7 @@ set -euo pipefail
 : "${LEDGER_APP_PASSWORD:?LEDGER_APP_PASSWORD is required}"
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+  -v db_name="$POSTGRES_DB" \
   -v tickets_owner_pw="$TICKETS_OWNER_PASSWORD" \
   -v tickets_app_pw="$TICKETS_APP_PASSWORD" \
   -v payments_owner_pw="$PAYMENTS_OWNER_PASSWORD" \
@@ -56,8 +57,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE ledger_owner IN SCHEMA ledger
 ALTER ROLE ledger_owner SET search_path = ledger;
 ALTER ROLE ledger_app   SET search_path = ledger;
 
-REVOKE ALL ON DATABASE eticketing FROM PUBLIC;
-GRANT CONNECT ON DATABASE eticketing TO
+REVOKE ALL ON DATABASE :"db_name" FROM PUBLIC;
+GRANT CONNECT ON DATABASE :"db_name" TO
   tickets_owner, tickets_app,
   payments_owner, payments_app,
   ledger_owner, ledger_app;

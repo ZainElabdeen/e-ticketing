@@ -1,5 +1,8 @@
 name: eticketing
 
+# Keep in step with the prisma pin in apps/*/package.json.
+x-prisma-version: &prisma-version 7.10.1
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -34,9 +37,9 @@ services:
       dockerfile: infra/migrate/Dockerfile
       args:
         SERVICE: ticket-service
-        PRISMA_VERSION: 7.10.1
+        PRISMA_VERSION: *prisma-version
     environment:
-      MIGRATION_DATABASE_URL: postgresql://tickets_owner:${TICKETS_OWNER_PASSWORD}@postgres:5432/eticketing?schema=tickets
+      MIGRATION_DATABASE_URL: postgresql://tickets_owner:${TICKETS_OWNER_PASSWORD:?set TICKETS_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,9 +51,9 @@ services:
       dockerfile: infra/migrate/Dockerfile
       args:
         SERVICE: payment-service
-        PRISMA_VERSION: 7.10.1
+        PRISMA_VERSION: *prisma-version
     environment:
-      MIGRATION_DATABASE_URL: postgresql://payments_owner:${PAYMENTS_OWNER_PASSWORD}@postgres:5432/eticketing?schema=payments
+      MIGRATION_DATABASE_URL: postgresql://payments_owner:${PAYMENTS_OWNER_PASSWORD:?set PAYMENTS_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=payments
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,9 +65,9 @@ services:
       dockerfile: infra/migrate/Dockerfile
       args:
         SERVICE: ledger-service
-        PRISMA_VERSION: 7.10.1
+        PRISMA_VERSION: *prisma-version
     environment:
-      MIGRATION_DATABASE_URL: postgresql://ledger_owner:${LEDGER_OWNER_PASSWORD}@postgres:5432/eticketing?schema=ledger
+      MIGRATION_DATABASE_URL: postgresql://ledger_owner:${LEDGER_OWNER_PASSWORD:?set LEDGER_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=ledger
     depends_on:
       postgres:
         condition: service_healthy
