@@ -45,6 +45,6 @@ counters: order creation, the expiry job and order confirmation.
 
 The expired-but-paid window is not negligible: it opens when the payment
 lands near expiry or when the Ticket Service is down long enough for outbox
-retries (up to ~19 min) to cross the 15-minute mark. The policy above handles
+retries (up to ~13.5 min) to push confirmation past the 15-minute mark. The policy above handles
 it deterministically. `reserved` can lag reality by one job interval; the
 invariant `sold + reserved <= quota` holds at all times.

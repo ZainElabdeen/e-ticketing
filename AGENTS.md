@@ -74,7 +74,8 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 
 - NestJS: @nestjs/swagger, class-validator, Prisma (raw SQL migrations for
   CHECK constraints), @nestjs/config, @nestjs/throttler, helmet, nestjs-pino,
-  @nestjs/terminus, @nestjs/schedule, Jest, Supertest, Testcontainers.
+  @nestjs/terminus, @nestjs/schedule, @nestjs/axios + axios (service-to-service
+  HTTP, ADR-0019), Jest, Supertest, Testcontainers.
 - .NET: ASP.NET Core Web API, EF Core + Npgsql, FluentValidation, Swagger UI,
   Serilog, xUnit, Testcontainers, dotnet format.
 - Web: React Router, TanStack Query, React Hook Form + Zod,
