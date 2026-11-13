@@ -7,10 +7,10 @@ let db: TestDatabase;
 let service: RunningService;
 let orders: OrdersService;
 
-async function sql(text: string): Promise<Record<string, unknown>[]> {
+async function sql(text: string, params: unknown[] = []): Promise<Record<string, unknown>[]> {
   const client = await db.connectAs('postgres');
   try {
-    return (await client.query(text)).rows as Record<string, unknown>[];
+    return (await client.query(text, params)).rows as Record<string, unknown>[];
   } finally {
     await client.end();
   }
@@ -66,7 +66,8 @@ describe('reservation', () => {
     const order = await orders.createOrder([{ ticketTypeCode: 'GOLD', quantity: 3 }]);
     expect(order.totalMinor).toBe(37035);
     const rows = await sql(
-      `SELECT unit_price_minor::text AS u FROM tickets.order_items WHERE order_id = '${order.id}'`,
+      `SELECT unit_price_minor::text AS u FROM tickets.order_items WHERE order_id = $1`,
+      [order.id],
     );
     expect(rows).toEqual([{ u: '12345' }]);
   });

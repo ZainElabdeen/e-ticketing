@@ -67,6 +67,7 @@ export function register(getTarget: () => ContractTarget, validator: ContractVal
       expect(order.status).toBe('PENDING');
       expect(order.totalMinor).toBe(70000);
       expect(order.currency).toBe('AED');
+      expect(order.items).toHaveLength(2);
       const byCode = new Map(order.items.map((i) => [i.ticketTypeCode, i]));
       expect(byCode.get('GOLD')).toMatchObject({ unitPriceMinor: 10000, lineTotalMinor: 20000 });
       expect(byCode.get('VIP')).toMatchObject({ unitPriceMinor: 50000, lineTotalMinor: 50000 });

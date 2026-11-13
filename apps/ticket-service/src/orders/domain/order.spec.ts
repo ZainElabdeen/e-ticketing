@@ -3,6 +3,7 @@ import { priceOrder, sortLines, type PricedLine } from './order';
 const line = (code: PricedLine['ticketTypeCode'], quantity: number, unit: number): PricedLine => ({
   ticketTypeCode: code,
   ticketTypeId: `id-${code}`,
+  currency: 'AED',
   quantity,
   unitPriceMinor: unit,
   lineTotalMinor: unit * quantity,
@@ -26,10 +27,16 @@ describe('priceOrder', () => {
     const result = priceOrder([line('GOLD', 2, 10000), line('VIP', 1, 50000)]);
     expect(result.totalMinor).toBe(70000);
     expect(result.lines).toHaveLength(2);
+    expect(result.currency).toBe('AED');
   });
 
   it('throws when a line total does not equal unit price times quantity', () => {
     const bad = { ...line('GOLD', 2, 10000), lineTotalMinor: 1 };
     expect(() => priceOrder([bad])).toThrow();
+  });
+
+  it('throws when lines mix currencies', () => {
+    const usd = { ...line('VIP', 1, 50000), currency: 'USD' };
+    expect(() => priceOrder([line('GOLD', 1, 10000), usd])).toThrow(/currenc/);
   });
 });

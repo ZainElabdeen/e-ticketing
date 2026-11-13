@@ -9,6 +9,7 @@ export interface OrderLineRequest {
 export interface PricedLine {
   ticketTypeCode: TicketTypeCode;
   ticketTypeId: string;
+  currency: string;
   quantity: number;
   unitPriceMinor: number;
   lineTotalMinor: number;
@@ -21,9 +22,20 @@ export function sortLines<T extends { ticketTypeCode: TicketTypeCode }>(lines: T
   );
 }
 
-export function priceOrder(lines: PricedLine[]): { lines: PricedLine[]; totalMinor: number } {
+export function priceOrder(lines: PricedLine[]): {
+  lines: PricedLine[];
+  totalMinor: number;
+  currency: string;
+} {
+  const currency = lines[0]?.currency;
+  if (!currency) {
+    throw new Error('Order has no lines');
+  }
   let totalMinor = 0;
   for (const line of lines) {
+    if (line.currency !== currency) {
+      throw new Error('Order lines mix currencies');
+    }
     if (line.lineTotalMinor !== line.unitPriceMinor * line.quantity) {
       throw new Error(`Line total mismatch for ${line.ticketTypeCode}`);
     }
@@ -32,5 +44,5 @@ export function priceOrder(lines: PricedLine[]): { lines: PricedLine[]; totalMin
   if (!Number.isSafeInteger(totalMinor)) {
     throw new RangeError('Order total is not a safe integer');
   }
-  return { lines, totalMinor };
+  return { lines, totalMinor, currency };
 }

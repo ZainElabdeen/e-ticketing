@@ -17,48 +17,52 @@ export class OrdersRepository {
    * lock), so concurrent orders cannot deadlock. Any failed line rolls back all.
    */
   async reserveAndCreate(lines: OrderLineRequest[], ttlMinutes: number): Promise<OrderView> {
-    const orderId = await this.prisma.$transaction(async (tx) => {
-      const priced: PricedLine[] = [];
-      for (const line of sortLines(lines)) {
-        const rows = await tx.$queryRaw<
-          Array<{ id: string; price_minor: bigint; currency: string }>
-        >`
+    const orderId = await this.prisma.$transaction(
+      async (tx) => {
+        const priced: PricedLine[] = [];
+        for (const line of sortLines(lines)) {
+          const rows = await tx.$queryRaw<
+            Array<{ id: string; price_minor: bigint; currency: string }>
+          >`
           UPDATE tickets.ticket_types SET reserved = reserved + ${line.quantity}::int
            WHERE code = ${line.ticketTypeCode} AND sold + reserved + ${line.quantity}::int <= quota
           RETURNING id, price_minor, currency`;
-        const reserved = rows[0];
-        if (!reserved) {
-          throw new QuotaExceededError(line.ticketTypeCode);
+          const reserved = rows[0];
+          if (!reserved) {
+            throw new QuotaExceededError(line.ticketTypeCode);
+          }
+          const unit = toMinor(reserved.price_minor);
+          priced.push({
+            ticketTypeCode: line.ticketTypeCode,
+            ticketTypeId: reserved.id,
+            currency: reserved.currency,
+            quantity: line.quantity,
+            unitPriceMinor: unit,
+            lineTotalMinor: unit * line.quantity,
+          });
         }
-        const unit = toMinor(reserved.price_minor);
-        priced.push({
-          ticketTypeCode: line.ticketTypeCode,
-          ticketTypeId: reserved.id,
-          quantity: line.quantity,
-          unitPriceMinor: unit,
-          lineTotalMinor: unit * line.quantity,
-        });
-      }
-      const { lines: final, totalMinor } = priceOrder(priced);
-      const inserted = await tx.$queryRaw<Array<{ id: string }>>`
-        INSERT INTO tickets.orders (status, total_minor, expires_at)
-        VALUES ('PENDING', ${BigInt(totalMinor)}, now() + make_interval(mins => ${ttlMinutes}::int))
+        const { lines: final, totalMinor, currency } = priceOrder(priced);
+        const inserted = await tx.$queryRaw<Array<{ id: string }>>`
+        INSERT INTO tickets.orders (status, total_minor, currency, expires_at)
+        VALUES ('PENDING', ${BigInt(totalMinor)}, ${currency}, now() + make_interval(mins => ${ttlMinutes}::int))
         RETURNING id`;
-      const id = inserted[0]?.id;
-      if (!id) {
-        throw new Error('Order insert returned no id');
-      }
-      await tx.orderItem.createMany({
-        data: final.map((l) => ({
-          orderId: id,
-          ticketTypeId: l.ticketTypeId,
-          quantity: l.quantity,
-          unitPriceMinor: BigInt(l.unitPriceMinor),
-          lineTotalMinor: BigInt(l.lineTotalMinor),
-        })),
-      });
-      return id;
-    });
+        const id = inserted[0]?.id;
+        if (!id) {
+          throw new Error('Order insert returned no id');
+        }
+        await tx.orderItem.createMany({
+          data: final.map((l) => ({
+            orderId: id,
+            ticketTypeId: l.ticketTypeId,
+            quantity: l.quantity,
+            unitPriceMinor: BigInt(l.unitPriceMinor),
+            lineTotalMinor: BigInt(l.lineTotalMinor),
+          })),
+        });
+        return id;
+      },
+      { maxWait: 5000, timeout: 10000 },
+    );
     const view = await this.findById(orderId);
     if (!view) {
       throw new Error(`Order ${orderId} vanished after creation`);
