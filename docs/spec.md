@@ -544,8 +544,10 @@ The total on `/` is a preview from listed prices; the server total from
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
 | `ORDER_TTL_MINUTES` (15), `QR_SUCCESS_DELAY_SECONDS` (8) | ticket, payment | Business timings |
+| `ORDER_EXPIRY_INTERVAL_SECONDS` (60), `ORDER_EXPIRY_BATCH_SIZE` (100), `ORDER_EXPIRY_ENABLED` (true) | ticket | Expiry job cadence (§4.1); `false` only in tests that drive the job by hand |
 | `VITE_API_BASE_URL` | web (build time) | Gateway URL, default `/api` |
 | `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests | Target under test (public and internal-scope keys) |
+| `CONTRACT_ORDER_TTL_MINUTES` (15) | contract tests | Must equal the target's `ORDER_TTL_MINUTES` |
 
 ## 8. Testing strategy
 
