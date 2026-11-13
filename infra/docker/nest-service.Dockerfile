@@ -1,7 +1,9 @@
-# Ticket Service image. Build context is the repo root:
-#   docker build -f apps/ticket-service/Dockerfile -t eticket/ticket-service:dev .
+# One image recipe for every NestJS service. Build context is the repo root:
+#   docker build -f infra/docker/nest-service.Dockerfile \
+#     --build-arg SERVICE=ticket-service --build-arg PORT=3001 -t eticket/ticket-service:dev .
 # Pure JS dependencies only, so the same file builds for linux/arm64.
 FROM node:26-alpine AS build
+ARG SERVICE
 # Node 26 no longer ships corepack; pin pnpm to the packageManager version.
 RUN npm install -g pnpm@10.34.9
 WORKDIR /repo
@@ -16,11 +18,11 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/contract-tests/package.json packages/contract-tests/package.json
 COPY packages/testing/package.json packages/testing/package.json
 COPY packages/nest-common/package.json packages/nest-common/package.json
-RUN pnpm install --frozen-lockfile --filter "@eticket/ticket-service..."
+RUN pnpm install --frozen-lockfile --filter "@eticket/${SERVICE}..."
 
 COPY . .
-RUN pnpm --filter "@eticket/ticket-service..." build
-RUN pnpm --filter @eticket/ticket-service deploy --prod --legacy /out
+RUN pnpm --filter "@eticket/${SERVICE}..." build
+RUN pnpm --filter @eticket/${SERVICE} deploy --prod --legacy /out
 # The legacy deploy copies the whole package directory (dist included); keep
 # only what runs: package.json, dist and the pruned node_modules.
 RUN cd /out && rm -rf src test prisma prisma.config.ts Dockerfile jest*.cjs tsconfig*.json .env.example .turbo
@@ -30,11 +32,12 @@ RUN cd /out && rm -rf src test prisma prisma.config.ts Dockerfile jest*.cjs tsco
 RUN cd /out/node_modules/.pnpm && rm -rf prisma@* @prisma+studio-core@* @electric-sql+pglite@* typescript@*
 
 FROM node:26-alpine
+ARG PORT
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /out ./
 USER node
-EXPOSE 3001
+EXPOSE ${PORT}
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
-  CMD wget -qO- http://127.0.0.1:3001/health/live || exit 1
+  CMD wget -qO- http://127.0.0.1:${PORT}/health/live || exit 1
 CMD ["node", "dist/src/main.js"]

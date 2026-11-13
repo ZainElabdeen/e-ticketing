@@ -557,9 +557,13 @@ The total on `/` is a preview from listed prices; the server total from
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
 | `ORDER_TTL_MINUTES` (15), `QR_SUCCESS_DELAY_SECONDS` (8) | ticket, payment | Business timings |
+| `DOWNSTREAM_TIMEOUT_MS` (5000) | payment | Timeout per call to the Ticket and Ledger Services (100–30000) |
+| `QR_JOB_INTERVAL_SECONDS` (1), `QR_JOB_BATCH_SIZE` (50), `QR_JOB_ENABLED` (true) | payment | QR success job cadence (§4.2); `false` only in tests that drive the job by hand |
+| `OUTBOX_INTERVAL_SECONDS` (2), `OUTBOX_BATCH_SIZE` (10), `OUTBOX_MAX_ATTEMPTS` (10), `OUTBOX_ENABLED` (true) | payment | Outbox worker cadence and retry cap (§4.2); `false` only in tests that drive the worker by hand |
 | `ORDER_EXPIRY_INTERVAL_SECONDS` (60), `ORDER_EXPIRY_BATCH_SIZE` (100), `ORDER_EXPIRY_ENABLED` (true) | ticket | Expiry job cadence (§4.1); `false` only in tests that drive the job by hand |
 | `VITE_API_BASE_URL` | web (build time) | Gateway URL, default `/api` |
-| `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests | Target under test (public and internal-scope keys) |
+| `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests (ticket) | Target under test (public and internal-scope keys) |
+| `CONTRACT_PAYMENT_BASE_URL`, `CONTRACT_PAYMENT_API_KEY`, `CONTRACT_TICKET_BASE_URL`, `CONTRACT_TICKET_API_KEY`, `CONTRACT_QR_DELAY_SECONDS` (8) | contract tests (payment) | Payment target, plus the Ticket Service it creates orders on; the delay must equal the target's `QR_SUCCESS_DELAY_SECONDS` |
 | `CONTRACT_ORDER_TTL_MINUTES` (15) | contract tests | Must equal the target's `ORDER_TTL_MINUTES` |
 
 ## 8. Testing strategy
