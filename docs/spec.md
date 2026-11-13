@@ -82,8 +82,9 @@ domain → EF Core repository).
   - **public scope** — held by the gateway; accepted on `/v1/*` routes except
     `/v1/internal/*`.
   - **internal scope** — held only by the Payment Service; required on
-    `/v1/internal/*`. The gateway does not possess it, so a compromised gateway
-    cannot confirm orders or post to the ledger.
+    `/v1/internal/*` and also accepted on the public routes it calls
+    (`GET /v1/orders/{orderId}`). The gateway does not possess it, so a
+    compromised gateway cannot confirm orders or post to the ledger.
 - The gateway never exposes `/v1/internal/*` (no route), and the services
   reject public-scope keys there (authorization, not just routing).
 - Backoffice routes on the gateway require a JWT from `POST /v1/auth/login`.
@@ -496,6 +497,9 @@ The total on `/` is a preview from listed prices; the server total from
   ```
 
   `code` is stable and machine-readable; `correlationId` is always present.
+  Client errors without a domain code use generic codes: `PAYLOAD_TOO_LARGE`
+  (413), `UNSUPPORTED_MEDIA_TYPE` (415), `RATE_LIMITED` (429), and
+  `BAD_REQUEST` for any other unmapped 4xx.
 - Validation: `class-validator` (NestJS) / FluentValidation (.NET) on every
   endpoint; unknown fields rejected (`whitelist`, `forbidNonWhitelisted`).
 - Pagination: `?page=1&pageSize=20` (max 100), response
@@ -540,8 +544,10 @@ The total on `/` is a preview from listed prices; the server total from
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
 | `ORDER_TTL_MINUTES` (15), `QR_SUCCESS_DELAY_SECONDS` (8) | ticket, payment | Business timings |
+| `ORDER_EXPIRY_INTERVAL_SECONDS` (60), `ORDER_EXPIRY_BATCH_SIZE` (100), `ORDER_EXPIRY_ENABLED` (true) | ticket | Expiry job cadence (§4.1); `false` only in tests that drive the job by hand |
 | `VITE_API_BASE_URL` | web (build time) | Gateway URL, default `/api` |
-| `CONTRACT_BASE_URL`, `CONTRACT_API_KEY` | contract tests | Target under test |
+| `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests | Target under test (public and internal-scope keys) |
+| `CONTRACT_ORDER_TTL_MINUTES` (15) | contract tests | Must equal the target's `ORDER_TTL_MINUTES` |
 
 ## 8. Testing strategy
 
@@ -641,3 +647,6 @@ QR → result → backoffice → balances) ships with it.
 | [0013](./adr/0013-contract-first-openapi.md) | Hand-written OpenAPI 3.0.3 contracts first | Code-first Swagger |
 | [0014](./adr/0014-qr-status-polling.md) | SPA polls payment status | SSE / WebSocket |
 | [0015](./adr/0015-sql-first-migrations.md) | SQL-first migrations, applied with prisma migrate deploy | Prisma schema-first |
+| [0016](./adr/0016-contract-validation-with-ajv.md) | Contract tests validate responses with Ajv against the bundled contract | Hand-written assertions |
+| [0017](./adr/0017-nestjs-11-commonjs.md) | NestJS 11 (CommonJS line) pinned at 11.2.10 | NestJS 12 with an ESM migration of every app |
+| [0018](./adr/0018-api-key-scope-enforcement.md) | `@Internal()` metadata read by the guard, path check as defense in depth, last-registered fallback route | Path-only check; guard-free middleware |

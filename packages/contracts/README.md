@@ -44,5 +44,7 @@ applies.
   `pnpm --filter @eticket/contracts check:generated`
 - Type-check this package: `pnpm --filter @eticket/contracts build`
 - Single-file bundle: `npx @redocly/cli bundle openapi/gateway.yaml -o dist/gateway.yaml`
+- Dereferenced JSON bundle of the Ticket Service contract (`dist/ticket-service.json`, also run by `build`):
+  `pnpm --filter @eticket/contracts bundle`
 
 The generated files are committed, so consumers need no codegen step.

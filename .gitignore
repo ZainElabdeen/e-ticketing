@@ -11,3 +11,6 @@ node_modules/
 .turbo/
 dist/
 coverage/
+
+# Generated Prisma clients
+apps/*/src/generated/
