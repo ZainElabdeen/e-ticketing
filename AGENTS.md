@@ -81,10 +81,15 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
   openapi-typescript + openapi-fetch, CSS Modules (no UI framework),
   qrcode.react, Vitest + Testing Library. No mock data.
 
-## Commands (keep updated once the scaffold exists)
+## Commands
 
-- Install: `pnpm install`
-- Dev: `pnpm dev` | Lint: `pnpm lint` | Test: `pnpm test` | Build: `pnpm build`
-- Stack: `docker compose -f infra/docker-compose.yml up -d`
+- Node 26 (`nvm use`), then `corepack enable` and `pnpm install`
+- Lint: `pnpm lint` | Format: `pnpm format:check` | Build: `pnpm build`
+- Unit tests: `pnpm test` | DB integration tests (Docker running): `pnpm test:int`
+- Contracts: `pnpm --filter @eticket/contracts lint` | regenerate types: `pnpm --filter @eticket/contracts generate`
+- Local env: `cp infra/.env.example infra/.env` and set passwords
+- Stack: `docker compose -f infra/docker-compose.yml up -d --build`
+- Verify DB + migrations: `infra/scripts/verify-db.sh` | Reset DB: `docker compose -f infra/docker-compose.yml down -v`
+- Migrations are hand-written SQL (ADR-0015). Never run `prisma migrate dev`.
 - .NET: `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`
-- Before saying a phase is done: lint, build and test must pass.
+- Before saying a phase is done: lint, build, test and test:int must pass.

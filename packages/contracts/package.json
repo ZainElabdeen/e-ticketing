@@ -1,0 +1,21 @@
+{
+  "name": "@eticket/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "redocly lint openapi/ticket-service.yaml openapi/payment-service.yaml openapi/ledger-service.yaml openapi/gateway.yaml",
+    "generate": "openapi-typescript openapi/ticket-service.yaml -o src/generated/ticket-service.ts && openapi-typescript openapi/payment-service.yaml -o src/generated/payment-service.ts && openapi-typescript openapi/ledger-service.yaml -o src/generated/ledger-service.ts && openapi-typescript openapi/gateway.yaml -o src/generated/gateway.ts",
+    "check:generated": "pnpm generate && git diff --exit-code -- src/generated",
+    "build": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@eticket/config": "workspace:*",
+    "@redocly/cli": "2.78.0",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

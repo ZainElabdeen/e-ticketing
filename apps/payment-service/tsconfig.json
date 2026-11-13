@@ -1,0 +1,4 @@
+{
+  "extends": "@eticket/config/tsconfig.node.json",
+  "include": ["test", "prisma.config.ts"]
+}

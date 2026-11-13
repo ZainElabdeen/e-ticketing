@@ -1,0 +1,77 @@
+name: eticketing
+
+# Keep in step with the prisma pin in apps/*/package.json.
+x-prisma-version: &prisma-version 7.10.1
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: eticketing
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}
+      TICKETS_OWNER_PASSWORD: ${TICKETS_OWNER_PASSWORD:?set TICKETS_OWNER_PASSWORD in infra/.env}
+      TICKETS_APP_PASSWORD: ${TICKETS_APP_PASSWORD:?set TICKETS_APP_PASSWORD in infra/.env}
+      PAYMENTS_OWNER_PASSWORD: ${PAYMENTS_OWNER_PASSWORD:?set PAYMENTS_OWNER_PASSWORD in infra/.env}
+      PAYMENTS_APP_PASSWORD: ${PAYMENTS_APP_PASSWORD:?set PAYMENTS_APP_PASSWORD in infra/.env}
+      LEDGER_OWNER_PASSWORD: ${LEDGER_OWNER_PASSWORD:?set LEDGER_OWNER_PASSWORD in infra/.env}
+      LEDGER_APP_PASSWORD: ${LEDGER_APP_PASSWORD:?set LEDGER_APP_PASSWORD in infra/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - '5432:5432'
+    healthcheck:
+      # TCP, so the probe stays unhealthy while the init scripts run on the
+      # socket-only temporary server.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d eticketing']
+      interval: 5s
+      retries: 20
+
+  # One-shot migration containers (ADR-0015). Each connects as its schema's
+  # owner role and runs `prisma migrate deploy`; later phases make the services
+  # depend on these with `condition: service_completed_successfully`.
+  migrate-tickets:
+    build:
+      context: ..
+      dockerfile: infra/migrate/Dockerfile
+      args:
+        SERVICE: ticket-service
+        PRISMA_VERSION: *prisma-version
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://tickets_owner:${TICKETS_OWNER_PASSWORD:?set TICKETS_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  migrate-payments:
+    build:
+      context: ..
+      dockerfile: infra/migrate/Dockerfile
+      args:
+        SERVICE: payment-service
+        PRISMA_VERSION: *prisma-version
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://payments_owner:${PAYMENTS_OWNER_PASSWORD:?set PAYMENTS_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=payments
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  migrate-ledger:
+    build:
+      context: ..
+      dockerfile: infra/migrate/Dockerfile
+      args:
+        SERVICE: ledger-service
+        PRISMA_VERSION: *prisma-version
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://ledger_owner:${LEDGER_OWNER_PASSWORD:?set LEDGER_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=ledger
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+volumes:
+  pgdata: {}
