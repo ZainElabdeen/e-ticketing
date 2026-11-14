@@ -1,0 +1,27 @@
+.button {
+  min-height: 44px;
+  padding: 0 24px;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.primary {
+  background: var(--stamp);
+  border-color: var(--stamp);
+  color: var(--card);
+}
+
+.quiet {
+  background: transparent;
+  color: var(--ink);
+}
+
+.button:disabled {
+  background: var(--rule);
+  border-color: var(--rule);
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}

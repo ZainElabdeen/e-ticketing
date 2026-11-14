@@ -22,3 +22,6 @@ TestResults/
 
 # Playwright MCP scratch output
 .playwright-mcp/
+
+# TypeScript build info
+*.tsbuildinfo

@@ -1,0 +1,21 @@
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 16px var(--gutter);
+}
+
+.wordmark {
+  font-stretch: 75%;
+  font-weight: 700;
+  font-size: var(--text-md);
+  text-decoration: none;
+}
+
+.main {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 16px var(--gutter) 64px;
+}
