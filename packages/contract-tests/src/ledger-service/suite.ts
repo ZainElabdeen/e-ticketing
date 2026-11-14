@@ -9,6 +9,7 @@ import { ContractValidator } from '../validator';
 import { register as registerAuth } from './auth.contract';
 import { register as registerHealth } from './health.contract';
 import { register as registerPostings } from './postings.contract';
+import { register as registerReads } from './reads.contract';
 import type { LedgerContractTarget } from './target';
 
 export function runLedgerServiceContract(getTarget: () => LedgerContractTarget): void {
@@ -17,5 +18,6 @@ export function runLedgerServiceContract(getTarget: () => LedgerContractTarget):
     registerHealth(getTarget, validator);
     registerAuth(getTarget, validator);
     registerPostings(getTarget, validator);
+    registerReads(getTarget, validator);
   });
 }

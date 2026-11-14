@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { toMinor } from '@eticket/nest-common';
 import { PrismaService } from '../common/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
-import type { PlannedLine, PostingInput } from './domain/posting';
+import { balanceOf } from './domain/balance';
+import type { AccountType, PlannedLine, PostingInput } from './domain/posting';
 import {
   toEntryView,
   type JournalEntryRow,
@@ -10,6 +12,23 @@ import {
 } from './journal-entry.view';
 
 type Reader = Pick<Prisma.TransactionClient, '$queryRaw'>;
+
+export interface AccountView {
+  code: string;
+  name: string;
+  type: AccountType;
+  currency: string;
+  debitMinor: number;
+  creditMinor: number;
+  balanceMinor: number;
+}
+
+export interface AccountList {
+  data: AccountView[];
+  totals: { debitMinor: number; creditMinor: number };
+}
+
+type PageLineRow = JournalLineRow & { journal_entry_id: string };
 
 export type PostEntryResult =
   | { kind: 'CREATED'; view: JournalEntryView }
@@ -101,5 +120,79 @@ export class LedgerRepository {
       WHERE l.journal_entry_id = ${entry.id}::uuid
       ORDER BY (l.direction = 'DEBIT') DESC, a.code`;
     return toEntryView(entry, lines);
+  }
+
+  /** Newest first; `id` breaks ties. Lines come in one query for the whole page. */
+  async listEntries(
+    page: number,
+    pageSize: number,
+  ): Promise<{ data: JournalEntryView[]; total: number }> {
+    const offset = (page - 1) * pageSize;
+    const [counts, entries] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ n: bigint }>>`SELECT count(*) AS n FROM ledger.journal_entries`,
+      this.prisma.$queryRaw<JournalEntryRow[]>`
+        SELECT id, transaction_id, posting_type, order_id, payment_reference, description,
+               currency, correlation_id, posted_at
+        FROM ledger.journal_entries
+        ORDER BY posted_at DESC, id DESC
+        LIMIT ${pageSize} OFFSET ${offset}`,
+    ]);
+    const total = toMinor(counts[0]?.n ?? 0n);
+    if (entries.length === 0) return { data: [], total };
+
+    const ids = entries.map((e) => e.id);
+    const lines = await this.prisma.$queryRaw<PageLineRow[]>`
+      SELECT l.journal_entry_id, l.id, a.code AS account_code, a.name AS account_name,
+             l.direction, l.amount_minor
+      FROM ledger.journal_lines l
+      JOIN ledger.accounts a ON a.id = l.account_id
+      WHERE l.journal_entry_id = ANY(${ids}::uuid[])
+      ORDER BY (l.direction = 'DEBIT') DESC, a.code`;
+    const byEntry = new Map<string, PageLineRow[]>();
+    for (const line of lines) {
+      const bucket = byEntry.get(line.journal_entry_id);
+      if (bucket) bucket.push(line);
+      else byEntry.set(line.journal_entry_id, [line]);
+    }
+    return { data: entries.map((e) => toEntryView(e, byEntry.get(e.id) ?? [])), total };
+  }
+
+  /** One aggregate over every line; balances follow each account's normal side. */
+  async accountBalances(): Promise<AccountList> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        code: string;
+        name: string;
+        type: AccountType;
+        currency: string;
+        debit: bigint | null;
+        credit: bigint | null;
+      }>
+    >`
+      SELECT a.code, a.name, a.type, a.currency,
+             COALESCE(sum(l.amount_minor) FILTER (WHERE l.direction = 'DEBIT'), 0) AS debit,
+             COALESCE(sum(l.amount_minor) FILTER (WHERE l.direction = 'CREDIT'), 0) AS credit
+      FROM ledger.accounts a
+      LEFT JOIN ledger.journal_lines l ON l.account_id = a.id
+      GROUP BY a.id, a.code, a.name, a.type, a.currency
+      ORDER BY a.code`;
+    let debitTotal = 0;
+    let creditTotal = 0;
+    const data = rows.map((r) => {
+      const debitMinor = toMinor(r.debit ?? 0n);
+      const creditMinor = toMinor(r.credit ?? 0n);
+      debitTotal += debitMinor;
+      creditTotal += creditMinor;
+      return {
+        code: r.code,
+        name: r.name,
+        type: r.type,
+        currency: r.currency,
+        debitMinor,
+        creditMinor,
+        balanceMinor: balanceOf(r.type, debitMinor, creditMinor),
+      };
+    });
+    return { data, totals: { debitMinor: debitTotal, creditMinor: creditTotal } };
   }
 }

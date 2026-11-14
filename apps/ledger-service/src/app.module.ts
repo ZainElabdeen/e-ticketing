@@ -14,6 +14,8 @@ import {
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { HealthController } from './health/health.controller';
+import { AccountsController } from './ledger/accounts.controller';
+import { JournalEntriesController } from './ledger/journal-entries.controller';
 import { LedgerRepository } from './ledger/ledger.repository';
 import { PostingsController } from './ledger/postings.controller';
 import { PostingsService } from './ledger/postings.service';
@@ -53,7 +55,12 @@ export function createAppModule(
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController, PostingsController],
+    controllers: [
+      HealthController,
+      PostingsController,
+      JournalEntriesController,
+      AccountsController,
+    ],
     providers: [
       PrismaService,
       LedgerRepository,
