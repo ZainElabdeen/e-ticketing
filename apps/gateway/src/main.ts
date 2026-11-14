@@ -29,6 +29,14 @@ export async function createApp(
   // Hops of trusted proxies in front of the gateway; decides which IP counts as the client.
   app.set('trust proxy', validated.TRUST_PROXY);
   app.use(helmet());
+  // Tokens and admin data must never sit in a browser or proxy cache, errors included.
+  app.use(
+    ['/v1/backoffice', '/v1/auth'],
+    (_req: unknown, res: { setHeader(name: string, value: string): unknown }, next: () => void) => {
+      res.setHeader('Cache-Control', 'no-store');
+      next();
+    },
+  );
   app.enableCors({
     // An array makes cors echo the request origin only when it matches.
     origin: [new URL(validated.WEB_ORIGIN).origin],
