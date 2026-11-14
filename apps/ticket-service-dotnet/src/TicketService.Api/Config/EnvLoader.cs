@@ -18,6 +18,12 @@ public static class EnvLoader
     private static readonly string[] LogLevels = ["fatal", "error", "warn", "info", "debug", "trace", "silent"];
     private const int MinKeyLength = 32;
 
+    /// <summary>Same as node-postgres' default, which the NestJS service runs with.</summary>
+    private const int DefaultPoolSize = 10;
+
+    /// <summary>Bounds lock waits, as the NestJS service's 10 s transaction timeout does.</summary>
+    private const int CommandTimeoutSeconds = 10;
+
     public static TicketServiceOptions Load(IDictionary<string, string?> env)
     {
         var errors = new List<string>();
@@ -73,7 +79,7 @@ public static class EnvLoader
             ttl, interval, batch, expiryEnabled);
     }
 
-    /// <summary>Prisma-style <c>postgresql://user:pw@host:port/db?schema=tickets</c> to an Npgsql connection string.</summary>
+    /// <summary>Prisma-style <c>postgresql://user:pw@host:port/db?schema=tickets&amp;connection_limit=n</c> to an Npgsql connection string.</summary>
     public static bool TryTranslateDatabaseUrl(string url, out string connectionString, out string schema)
     {
         connectionString = "";
@@ -93,12 +99,20 @@ public static class EnvLoader
         }
 
         schema = "public";
+        var poolSize = DefaultPoolSize;
         foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var kv = pair.Split('=', 2);
             if (kv[0] == "schema" && kv.Length == 2 && kv[1].Length > 0)
             {
                 schema = Uri.UnescapeDataString(kv[1]);
+            }
+            else if (kv[0] == "connection_limit" && kv.Length == 2
+                     && int.TryParse(kv[1], System.Globalization.NumberStyles.None,
+                         System.Globalization.CultureInfo.InvariantCulture, out var limit)
+                     && limit > 0)
+            {
+                poolSize = limit;
             }
         }
 
@@ -111,6 +125,8 @@ public static class EnvLoader
             Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : null,
             SearchPath = schema,
             Timeout = 5,
+            MaxPoolSize = poolSize,
+            CommandTimeout = CommandTimeoutSeconds,
         };
         connectionString = builder.ConnectionString;
         return true;
