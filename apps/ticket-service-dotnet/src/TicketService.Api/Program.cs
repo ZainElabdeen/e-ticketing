@@ -1,9 +1,11 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using TicketService.Api.Application;
 using TicketService.Api.Config;
 using TicketService.Api.Http;
 using TicketService.Api.Infrastructure;
@@ -43,6 +45,11 @@ public partial class Program
             new NpgsqlDataSourceBuilder(sp.GetRequiredService<TicketServiceOptions>().ConnectionString).Build());
         builder.Services.AddDbContext<TicketsDbContext>((sp, options) =>
             options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()));
+        builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+        builder.Services.AddScoped<TicketTypesRepository>();
+        builder.Services.AddScoped<OrdersRepository>();
+        builder.Services.AddScoped<TicketTypesService>();
+        builder.Services.AddScoped<OrdersService>();
         builder.Host.UseSerilog((_, services, logger) =>
         {
             var options = services.GetRequiredService<TicketServiceOptions>();
