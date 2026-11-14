@@ -1,4 +1,3 @@
-/* global fetch, console, process, setTimeout, AbortSignal, crypto */
 // End-to-end smoke test. Node 26 global fetch only. Never prints a key.
 const env = (name) => {
   const value = process.env[name];

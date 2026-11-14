@@ -6,7 +6,7 @@
     "node": ">=26"
   },
   "scripts": {
-    "lint": "turbo run lint",
+    "lint": "turbo run lint && eslint infra/scripts",
     "build": "turbo run build",
     "test": "turbo run test",
     "test:int": "turbo run test:int",

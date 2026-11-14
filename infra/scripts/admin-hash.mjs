@@ -1,4 +1,3 @@
-/* global process, console, Buffer */
 // Hashes the backoffice admin password (bcrypt cost 12) and prints
 // ADMIN_PASSWORD_HASH_B64=<base64>. The password comes from stdin (echo off on a
 // TTY) and is never printed. Base64 keeps `$` out of compose files and shells.
