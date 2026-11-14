@@ -15,9 +15,14 @@ interface AccountList {
   totals: { debitMinor: number; creditMinor: number };
 }
 
+interface JournalEntry {
+  transactionId: string;
+  lines: Array<{ accountCode: string; direction: string; amountMinor: number }>;
+}
+
 const DEBIT_NORMAL = new Set(['ASSET', 'EXPENSE']);
 
-/** Compares deltas only: the target may already hold any amount of data. */
+/** Never asserts exact global amounts: the target may hold data and live postings. */
 export function register(
   getTarget: () => LedgerContractTarget,
   validator: ContractValidator,
@@ -52,14 +57,15 @@ export function register(
       }
     });
 
-    it('reflects a new TICKET_SALE as an exact delta on 1100 and 4000', async () => {
+    it('shows a new TICKET_SALE in the journal and in the account totals', async () => {
       const target = getTarget();
+      const transactionId = randomUUID();
       const before = await accounts();
       const res = await request(target.baseUrl)
         .post('/v1/internal/postings')
         .set('X-Api-Key', target.internalApiKey)
         .send({
-          transactionId: randomUUID(),
+          transactionId,
           postingType: 'TICKET_SALE',
           orderId: randomUUID(),
           paymentReference: 'PAY-20261113-7F3K9Q',
@@ -67,9 +73,41 @@ export function register(
           currency: 'AED',
         });
       expect(res.status).toBe(201);
+
+      // Live outbox postings may land on a shared target, so no exact global deltas:
+      // find our own entry and check that the totals moved by at least our amount.
+      const list = await read('/v1/journal-entries?page=1&pageSize=100');
+      expect(list.status).toBe(200);
+      validator.assertResponse('listJournalEntries', list.status, list.body);
+      const entry = (list.body as { data: JournalEntry[] }).data.find(
+        (e) => e.transactionId === transactionId,
+      );
+      expect(entry).toBeDefined();
+      expect(
+        entry?.lines.map((l) => ({
+          accountCode: l.accountCode,
+          direction: l.direction,
+          amountMinor: l.amountMinor,
+        })),
+      ).toEqual([
+        { accountCode: '1100', direction: 'DEBIT', amountMinor: 5000 },
+        { accountCode: '4000', direction: 'CREDIT', amountMinor: 5000 },
+      ]);
+
       const after = await accounts();
-      expect(find(after, '1100').debitMinor - find(before, '1100').debitMinor).toBe(5000);
-      expect(find(after, '4000').creditMinor - find(before, '4000').creditMinor).toBe(5000);
+      expect(after.totals.debitMinor).toBe(after.totals.creditMinor);
+      expect(find(after, '1100').debitMinor).toBeGreaterThanOrEqual(
+        find(before, '1100').debitMinor + 5000,
+      );
+      expect(find(after, '4000').creditMinor).toBeGreaterThanOrEqual(
+        find(before, '4000').creditMinor + 5000,
+      );
+    });
+
+    it.each(['pageSize=101', 'page=0'])('?%s on journal entries -> 400', async (q) => {
+      const res = await read(`/v1/journal-entries?${q}`);
+      expect(res.status).toBe(400);
+      validator.assertResponse('listJournalEntries', res.status, res.body);
     });
 
     it('lists journal entries with 200 matching the contract', async () => {

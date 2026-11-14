@@ -95,12 +95,13 @@ describe('GET /v1/transactions', () => {
     });
   });
 
-  it.each(['pageSize=101', 'pageSize=0', 'page=0', 'page=abc', 'page=1.5'])(
+  it.each(['pageSize=101', 'pageSize=0', 'page=0', 'page=abc', 'page=1.5', 'page=1000001'])(
     'rejects ?%s with 400 VALIDATION_ERROR',
     async (q) => {
       const res = await list(`?${q}`);
       expect(res.status).toBe(400);
       expect((res.body as Page).code).toBe('VALIDATION_ERROR');
+      contract.assertResponse('listTransactions', res.status, res.body);
     },
   );
 });

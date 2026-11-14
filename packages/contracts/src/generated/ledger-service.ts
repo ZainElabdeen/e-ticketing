@@ -338,6 +338,7 @@ export interface operations {
                     "application/json": components["schemas"]["JournalEntryPage"];
                 };
             };
+            400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
         };
     };

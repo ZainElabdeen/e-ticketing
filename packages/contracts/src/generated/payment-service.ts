@@ -258,6 +258,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Request validation failed (code VALIDATION_ERROR) */
+        ValidationError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Health report (exempt from the error envelope) */
         Health: {
             headers: {
@@ -457,6 +466,7 @@ export interface operations {
                     "application/json": components["schemas"]["TransactionPage"];
                 };
             };
+            400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
         };
     };

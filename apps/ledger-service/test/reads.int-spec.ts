@@ -138,10 +138,14 @@ describe('GET /v1/accounts and /v1/journal-entries', () => {
       expect(b2.data.map((e) => e.transactionId)).toEqual([ids[0]]);
     });
 
-    it('rejects pageSize above 100 with 400', async () => {
-      const res = await get('/v1/journal-entries?pageSize=101');
-      expect(res.status).toBe(400);
-      expect((res.body as { code: string }).code).toBe('VALIDATION_ERROR');
-    });
+    it.each(['pageSize=101', 'pageSize=0', 'page=0', 'page=abc', 'page=1.5', 'page=1000001'])(
+      'rejects ?%s with 400 VALIDATION_ERROR',
+      async (q) => {
+        const res = await get(`/v1/journal-entries?${q}`);
+        expect(res.status).toBe(400);
+        expect((res.body as { code: string }).code).toBe('VALIDATION_ERROR');
+        validator.assertResponse('listJournalEntries', res.status, res.body);
+      },
+    );
   });
 });

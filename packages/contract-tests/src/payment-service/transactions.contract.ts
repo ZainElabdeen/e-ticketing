@@ -29,12 +29,13 @@ export function register(
       expect(body.total).toBeGreaterThan(0);
     });
 
-    it('pageSize=101 -> 400 VALIDATION_ERROR', async () => {
+    it.each(['pageSize=101', 'page=0'])('?%s -> 400 VALIDATION_ERROR', async (q) => {
       const target = getTarget();
       const res = await request(target.baseUrl)
-        .get('/v1/transactions?pageSize=101')
+        .get(`/v1/transactions?${q}`)
         .set('X-Api-Key', target.publicApiKey);
       expect(res.status).toBe(400);
+      validator.assertResponse('listTransactions', res.status, res.body);
       expect((res.body as { code: string }).code).toBe('VALIDATION_ERROR');
     });
   });

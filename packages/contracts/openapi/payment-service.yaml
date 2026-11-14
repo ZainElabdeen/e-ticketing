@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Payment Service API
-  version: 2.0.0
+  version: 2.1.0
   license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
   description: >
     Simulated payments with pluggable method handlers (card, QR). The amount is
@@ -151,6 +151,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TransactionPage' }
+        '400': { $ref: './common.yaml#/components/responses/ValidationError' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
 
   /health/live:
