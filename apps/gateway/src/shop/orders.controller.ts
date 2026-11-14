@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import type { CorrelatedRequest } from '@eticket/nest-common';
 import { correlationIdOf } from '@eticket/nest-common';
+import { RateLimit } from '../throttling/rate-limit';
 import { pathSegment } from './path-segment';
 import { DownstreamClient, relay, type RelayTarget } from '../downstream/downstream.client';
 
@@ -9,6 +10,7 @@ export class OrdersController {
   constructor(private readonly downstream: DownstreamClient) {}
 
   @Post()
+  @RateLimit('orders')
   async create(
     @Req() req: CorrelatedRequest,
     @Res() res: RelayTarget,

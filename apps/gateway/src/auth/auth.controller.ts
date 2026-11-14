@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import type { CorrelatedRequest } from '@eticket/nest-common';
 import { correlationIdOf } from '@eticket/nest-common';
+import { RateLimit } from '../throttling/rate-limit';
 import { AuthService } from './auth.service';
 import { InvalidCredentialsError } from './errors';
 import { LoginDto } from './login.dto';
@@ -16,6 +17,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @RateLimit('login')
   @HttpCode(200)
   async login(
     @Req() req: CorrelatedRequest & { ip?: string },

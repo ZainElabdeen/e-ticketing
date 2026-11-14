@@ -1,5 +1,6 @@
 import { HttpService } from '@nestjs/axios';
 import { Controller, Get } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import {
   HealthCheck,
@@ -12,6 +13,7 @@ import type { EnvironmentVariables } from '../config/env';
 
 const PROBE_TIMEOUT_MS = 2000;
 
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(

@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { BackofficeController } from './backoffice/backoffice.controller';
 import { DownstreamClient } from './downstream/downstream.client';
 import { HealthController } from './health/health.controller';
+import { ThrottlingModule } from './throttling/throttling.module';
 import { OrdersController } from './shop/orders.controller';
 import { PaymentsController } from './shop/payments.controller';
 import { TicketTypesController } from './shop/ticket-types.controller';
@@ -49,6 +50,7 @@ export function createAppModule(
       }),
       TerminusModule,
       AuthModule,
+      ThrottlingModule,
       // Timeout, status and redirect handling are set per call (DownstreamClient, HealthController).
       HttpModule,
       // Keep last: routes register in import order and this one matches everything.
