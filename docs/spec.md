@@ -516,6 +516,16 @@ The total on `/` is a preview from listed prices; the server total from
 
 - **Serving**: Vite build served by nginx in its own container; ingress routes
   `/api/*` to the gateway (prefix stripped) and everything else to the SPA.
+  In docker-compose the same nginx container proxies `/api/` to the gateway
+  (prefix stripped), so the browser has one origin; the SPA is on
+  `http://127.0.0.1:${WEB_HOST_PORT:-8080}`.
+- **Payment memory**: after `POST /v1/payments` the SPA keeps the order's
+  `paymentId` and method in `sessionStorage` (`paymentMemory`), so
+  `PAYMENT_IN_PROGRESS` / `ORDER_ALREADY_PAID` can resume or go to the result
+  without a lookup by order.
+- **Idempotency key timing (implementation note)**: the key is created lazily
+  at the first submit, not at the button press, and cleared on any edit or
+  method change; a manual re-press without edits replays the same key safely.
 
 ## 6. API conventions
 

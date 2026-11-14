@@ -109,6 +109,7 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 - Smoke test (Docker running): `infra/scripts/smoke.sh` (destroys the local compose volume with `down -v`; ends with `SMOKE OK`; `--keep` leaves the stack up)
 - Local env: `cp infra/.env.example infra/.env` and set passwords. If host port 5432 or 3000 is taken by another project, set `POSTGRES_HOST_PORT` / `GATEWAY_HOST_PORT` in `infra/.env` (both bind to 127.0.0.1; smoke and `contract.sh gateway` follow `GATEWAY_HOST_PORT` and abort if the port is not this Gateway)
 - Stack: `docker compose -f infra/docker-compose.yml up -d --build`
+- Web in compose (nginx serves the SPA and proxies `/api/` to the gateway): `http://127.0.0.1:${WEB_HOST_PORT:-8080}`; set `WEB_HOST_PORT` in `infra/.env` if 8080 is taken (smoke's web-origin step follows it, or `SMOKE_WEB_URL`)
 - Verify DB + migrations: `infra/scripts/verify-db.sh` | Reset DB: `docker compose -f infra/docker-compose.yml down -v`
 - Migrations are hand-written SQL (ADR-0015). Never run `prisma migrate dev`.
 - Web: `pnpm --filter @eticket/web dev` (Vite, proxies `/api` to the gateway; `cp apps/web/.env.example apps/web/.env` to change the target) | `pnpm --filter @eticket/web test` | `pnpm --filter @eticket/web build`

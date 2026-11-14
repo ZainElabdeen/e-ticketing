@@ -233,7 +233,8 @@ services:
       WEB_ORIGIN: http://localhost:5173
       SWAGGER_ENABLED: 'true'
       LOG_LEVEL: info
-      # Direct connections in compose, so the socket address is the client IP.
+      # The gateway sees nginx's address, so locally all browser traffic shares one IP for rate
+      # limiting. K3s sets the real hop count (Phase 9).
       TRUST_PROXY: '0'
     ports:
       - '127.0.0.1:${GATEWAY_HOST_PORT:-3000}:3000'
@@ -243,6 +244,24 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+
+  # The SPA (spec section 5): nginx serves the Vite build and proxies /api/ to the gateway,
+  # so the browser has one origin and the gateway needs no CORS in this setup.
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    depends_on:
+      gateway:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:${WEB_HOST_PORT:-8080}:8080'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/healthz || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
 
 volumes:
   pgdata: {}
