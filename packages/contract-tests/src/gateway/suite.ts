@@ -23,6 +23,6 @@ export function runGatewayContract(getTarget: () => GatewayContractTarget): void
     registerShop(getTarget, validator);
     registerAuth(getTarget, validator, ctx);
     registerBackoffice(getTarget, validator, ctx);
-    registerAllowList(getTarget, validator);
+    registerAllowList(getTarget);
   });
 }

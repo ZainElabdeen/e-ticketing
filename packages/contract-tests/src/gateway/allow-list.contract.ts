@@ -1,12 +1,8 @@
 import request from 'supertest';
-import type { ContractValidator } from '../validator';
 import type { GatewayContractTarget } from './target';
 
 // Requests: 4. None of these carry a key or a token: the allow-list answers first.
-export function register(
-  getTarget: () => GatewayContractTarget,
-  _validator: ContractValidator,
-): void {
+export function register(getTarget: () => GatewayContractTarget): void {
   describe('allow-list', () => {
     it.each([
       ['get', '/v1/transactions'],
