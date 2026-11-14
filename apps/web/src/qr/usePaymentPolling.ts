@@ -18,7 +18,13 @@ export const paymentKey = (paymentId: string) => ['payment', paymentId] as const
 export function usePaymentPolling(
   paymentId: string,
   opts: { intervalMs?: number; maxVisibleMs?: number } = {},
-): { payment?: Payment; state: PollState; reconnecting: boolean; restart: () => void } {
+): {
+  payment?: Payment;
+  state: PollState;
+  reconnecting: boolean;
+  error: unknown;
+  restart: () => void;
+} {
   const { intervalMs = 1000, maxVisibleMs = 60_000 } = opts;
   const api = useApi();
   const [timedOut, setTimedOut] = useState(false);
@@ -33,9 +39,10 @@ export function usePaymentPolling(
     refetchInterval: (q) => {
       const status = q.state.data?.status;
       if (timedOut || status === 'SUCCEEDED' || status === 'CANCELLED') return false;
-      // A first load that fails (e.g. 404) has nothing to keep polling for.
-      if (q.state.data === undefined && q.state.error) return false;
       const err = q.state.error;
+      // A payment that does not exist will not appear: stop. Any other first-load failure
+      // (429, 5xx, network) is transient and keeps polling.
+      if (q.state.data === undefined && err instanceof ApiError && err.status === 404) return false;
       if (err instanceof ApiError && err.status === 429 && err.retryAfterSeconds) {
         return Math.max(intervalMs, err.retryAfterSeconds * 1000);
       }
@@ -84,6 +91,7 @@ export function usePaymentPolling(
     ...(query.data ? { payment: query.data } : {}),
     state,
     reconnecting: query.isError,
+    error: query.error,
     restart,
   };
 }

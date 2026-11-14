@@ -19,7 +19,7 @@ export function QrPage(): ReactElement {
   const api = useApi();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { payment, state, reconnecting, restart } = usePaymentPolling(paymentId);
+  const { payment, state, reconnecting, error, restart } = usePaymentPolling(paymentId);
 
   useEffect(() => {
     if (state === 'succeeded') void navigate(`/result/${paymentId}`, { replace: true });
@@ -46,33 +46,54 @@ export function QrPage(): ReactElement {
     </Link>
   );
 
-  if (!payment) {
-    if (reconnecting) {
-      return (
-        <section>
-          <h1 className={styles.title}>Scan to pay</h1>
-          <Banner>{"We couldn't find this payment"}</Banner>
-          <div className={styles.actions}>{back}</div>
-        </section>
-      );
-    }
-    return <p className={styles.quiet}>Loading your payment…</p>;
+  const notFound = !payment && error instanceof ApiError && error.status === 404;
+  const conflict =
+    cancel.error instanceof ApiError && cancel.error.code === 'PAYMENT_NOT_CANCELLABLE';
+  const cancelFailed = cancel.isError && !conflict;
+  const timeout = state === 'timeout';
+
+  // Mounted from the first render so screen readers announce later text.
+  const live = (text: string | null) => (
+    <div aria-live="polite" className={styles.status}>
+      {text ? <p>{text}</p> : null}
+      {reconnecting ? <p className={styles.quiet}>Reconnecting…</p> : null}
+    </div>
+  );
+
+  if (notFound) {
+    return (
+      <section>
+        <h1 className={styles.title}>Payment</h1>
+        {live(null)}
+        <Banner>{"We couldn't find this payment"}</Banner>
+        <div className={styles.actions}>{back}</div>
+      </section>
+    );
   }
 
   if (state === 'cancelled') {
     return (
       <section>
-        <h1 className={styles.title}>Scan to pay</h1>
+        <h1 className={styles.title}>Payment</h1>
+        {live(null)}
         <Banner>This payment was cancelled</Banner>
         <div className={styles.actions}>{back}</div>
       </section>
     );
   }
 
-  const conflict =
-    cancel.error instanceof ApiError && cancel.error.code === 'PAYMENT_NOT_CANCELLABLE';
-  const cancelFailed = cancel.isError && !conflict;
-  const timeout = state === 'timeout';
+  if (!payment) {
+    return (
+      <section>
+        <h1 className={styles.title}>Payment</h1>
+        {live(timeout ? 'Still processing' : 'Loading your payment…')}
+        <div className={styles.actions}>
+          {timeout ? <Button onClick={restart}>Check again</Button> : null}
+          {back}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section>
@@ -90,11 +111,11 @@ export function QrPage(): ReactElement {
         </p>
       </TicketStub>
 
-      <div aria-live="polite" className={styles.status}>
-        <p>{timeout ? 'Still processing' : 'Waiting for payment…'}</p>
-        {reconnecting ? <p className={styles.quiet}>Reconnecting…</p> : null}
-      </div>
+      {live(timeout ? 'Still processing' : 'Waiting for payment…')}
       {cancelFailed ? <Banner>{GENERIC}</Banner> : null}
+      {conflict && !cancel.isPending ? (
+        <Banner>{"That payment can't be switched right now. Try again."}</Banner>
+      ) : null}
 
       <div className={styles.actions}>
         {timeout ? <Button onClick={restart}>Check again</Button> : null}
