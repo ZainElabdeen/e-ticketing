@@ -44,3 +44,31 @@ Up to ~2 s between payment success and confirmation/ledger visibility, and a
 worker DB transaction stays open across two HTTP calls (5 s timeout each).
 Accepted at this volume. The SPA shows success from the payment itself, not
 from the outbox.
+
+## Amended 2026-11-14
+
+Ledger outages must not stall confirmations, because an unconfirmed order
+expires after 15 minutes. Within one worker run, the first Ledger outage
+(a timeout, an unreachable Ledger or a 5xx; never a 4xx such as 409
+`POSTING_CONFLICT` or 400, which are problems with one event and must not hold
+back the others) trips a breaker: later events in that batch still confirm the order, but are
+retried with `last_error = 'ledger skipped: unavailable earlier in this batch'`
+without calling the Ledger. A skipped event counts as an attempt. The breaker
+is a local variable of the run, so it resets on the next tick. Every downstream
+call also has a hard total timeout (`AbortSignal.timeout`), since axios
+`timeout` is only an idle timeout. If processing throws after the claim, the
+repository records the attempt in a separate statement so the event cannot
+loop forever below `FAILED`.
+The hard timeout comes from the validated `DOWNSTREAM_TIMEOUT_MS` and is always
+set (a non-positive value fails at startup). When the claiming transaction rolls
+back after the worker learned a confirm outcome in this attempt, the attempt
+recording also saves that outcome, so the retry does not confirm again. The
+attempt count, `FAILED` and the backoff are derived in SQL from the row's
+current `attempts`, and only for a still-`PENDING` row.
+
+Remaining risk: a process crash between the Ledger's 2xx and `COMMIT` still
+loses the outcome, because nothing was persisted yet. A later re-confirm could
+then answer differently (for example `NOT_CONFIRMABLE` after the order expired),
+the posting type would change, and the Ledger would answer `POSTING_CONFLICT`:
+the event ends `FAILED` and needs manual accounting. The full fix, committing
+the confirm outcome in its own transaction before posting, is deferred.

@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import {
   applyMigrations,
@@ -6,6 +7,7 @@ import {
   type HttpStub,
   type TestDatabase,
 } from '@eticket/testing';
+import { PrismaService } from '../src/common/prisma.service';
 import { OutboxRepository } from '../src/outbox/outbox.repository';
 import { OutboxWorker } from '../src/outbox/outbox.worker';
 import { startPaymentService, type RunningPaymentService } from './support/app';
@@ -245,6 +247,212 @@ describe('OutboxWorker', () => {
     spy.mockRestore();
     expect(await worker.runOnce()).toBe(1);
     expect((await row(eventId)).status).toBe('DONE');
+  });
+
+  describe('ledger breaker (per batch)', () => {
+    const SKIPPED = 'ledger skipped: unavailable earlier in this batch';
+
+    it('calls the ledger once per batch, still confirms every event, and recovers next run', async () => {
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, 'drop');
+      const ids: string[] = [];
+      for (let i = 0; i < 5; i++) ids.push((await seed()).eventId);
+      ticket.calls.length = 0;
+
+      expect(await worker.runOnce()).toBe(5);
+      expect(ledger.calls).toHaveLength(1);
+      expect(ticket.calls).toHaveLength(5);
+      const rows = await Promise.all(ids.map(row));
+      for (const r of rows) {
+        expect(r).toMatchObject({ status: 'PENDING', attempts: 1, confirm_outcome: 'CONFIRMED' });
+      }
+      expect(rows.filter((r) => r.last_error?.startsWith('ledger skipped'))).toHaveLength(4);
+      expect(rows.filter((r) => r.last_error === SKIPPED)).toHaveLength(4);
+
+      ledger.reset();
+      ledger.on('POST', POSTINGS, created);
+      ticket.calls.length = 0;
+      await Promise.all(ids.map(makeDue));
+      expect(await worker.runOnce()).toBe(5);
+      expect((await Promise.all(ids.map(row))).every((r) => r.status === 'DONE')).toBe(true);
+      expect(ledger.calls).toHaveLength(5);
+      expect(ticket.calls).toHaveLength(0);
+    });
+
+    it('does not trip on a 4xx: the 409 event is retried alone and the others finish in the same run', async () => {
+      ticket.on('POST', CONFIRM, ok);
+      const conflict = {
+        status: 409,
+        body: { statusCode: 409, code: 'POSTING_CONFLICT', message: 'x', correlationId: 'c' },
+      };
+      let n = 0;
+      ledger.on('POST', POSTINGS, () => (n++ === 0 ? conflict : created));
+      const ids: string[] = [];
+      for (let i = 0; i < 4; i++) ids.push((await seed()).eventId);
+
+      expect(await worker.runOnce()).toBe(4);
+      expect(ledger.calls).toHaveLength(4);
+      const rows = await Promise.all(ids.map(row));
+      expect(rows[0]).toMatchObject({ status: 'PENDING', attempts: 1 });
+      expect(rows[0]?.last_error).not.toBe(SKIPPED);
+      for (const r of rows.slice(1)) expect(r).toMatchObject({ status: 'DONE' });
+    });
+
+    it('trips on a 5xx like on an outage', async () => {
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, { status: 503, body: {} });
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i++) ids.push((await seed()).eventId);
+      expect(await worker.runOnce()).toBe(3);
+      expect(ledger.calls).toHaveLength(1);
+      const rows = await Promise.all(ids.map(row));
+      expect(rows.filter((r) => r.last_error === SKIPPED)).toHaveLength(2);
+    });
+
+    it('makes only one timed-out ledger call when failures are slow', async () => {
+      await boot({ DOWNSTREAM_TIMEOUT_MS: '300' });
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, { status: 201, body: {}, delayMs: 2000 });
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i++) ids.push((await seed()).eventId);
+
+      const t0 = Date.now();
+      expect(await worker.runOnce()).toBe(3);
+      expect(Date.now() - t0).toBeLessThan(900);
+      expect(ledger.calls).toHaveLength(1);
+      const rows = await Promise.all(ids.map(row));
+      expect(rows.every((r) => r.status === 'PENDING' && r.attempts === 1)).toBe(true);
+      await boot();
+    });
+
+    it('counts skipped events toward FAILED like real failures', async () => {
+      await boot({ OUTBOX_MAX_ATTEMPTS: '1' });
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, 'drop');
+      const a = await seed();
+      const b = await seed();
+      expect(await worker.runOnce()).toBe(2);
+      expect(ledger.calls).toHaveLength(1);
+      expect(await row(a.eventId)).toMatchObject({ status: 'FAILED', attempts: 1 });
+      expect(await row(b.eventId)).toMatchObject({
+        status: 'FAILED',
+        attempts: 1,
+        last_error: SKIPPED,
+      });
+      await boot();
+    });
+  });
+
+  describe('attempt counting when processing throws after the claim', () => {
+    it('records an attempt in a separate transaction, then FAILs at the max', async () => {
+      await boot({ OUTBOX_MAX_ATTEMPTS: '2' });
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, created);
+      const { eventId } = await seed();
+      // Test seam: the handler runs inside the claiming transaction, so a throwing
+      // handler stands in for a DB error or a transaction timeout after the claim.
+      const worker2 = worker as unknown as { deliver: (e: unknown) => Promise<unknown> };
+      const spy = jest.spyOn(worker2, 'deliver').mockRejectedValue(new Error('db exploded'));
+
+      expect(await worker.runOnce()).toBe(0);
+      const first = await row(eventId);
+      expect(first).toMatchObject({ status: 'PENDING', attempts: 1 });
+      expect(first.last_error).toContain('db exploded');
+      expect(first.secs_until_next).toBeGreaterThan(0.5);
+
+      await makeDue(eventId);
+      expect(await worker.runOnce()).toBe(0);
+      const second = await row(eventId);
+      expect(second).toMatchObject({ status: 'FAILED', attempts: 2 });
+      expect(second.processed_at).not.toBeNull();
+
+      spy.mockRestore();
+      await boot();
+    });
+
+    it('does nothing extra when the throw happens before any claim', async () => {
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, created);
+      const { eventId } = await seed();
+      const prisma = svc.app.get(PrismaService);
+      const spy = jest
+        .spyOn(prisma, '$transaction')
+        .mockRejectedValueOnce(new Error('cannot connect'));
+      expect(await worker.runOnce()).toBe(0);
+      spy.mockRestore();
+      expect(await row(eventId)).toMatchObject({ status: 'PENDING', attempts: 0 });
+    });
+  });
+
+  describe('recordFailedAttempt guards', () => {
+    it('does not touch or log FAILED for an event that is no longer PENDING', async () => {
+      await boot({ OUTBOX_MAX_ATTEMPTS: '1' });
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, created);
+      const { eventId } = await seed();
+      await sql.query(
+        `UPDATE payments.outbox_events SET status = 'DONE', processed_at = now() WHERE id = $1`,
+        [eventId],
+      );
+      const repo = svc.app.get(OutboxRepository);
+      const logger = (repo as unknown as { logger: Logger }).logger;
+      const errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined);
+      await (
+        repo as unknown as {
+          recordFailedAttempt: (id: string, e: unknown, o: string | null) => Promise<void>;
+        }
+      ).recordFailedAttempt(eventId, new Error('late'), null);
+      expect(await row(eventId)).toMatchObject({ status: 'DONE', attempts: 0, last_error: null });
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+      await boot();
+    });
+
+    it('keeps the confirm outcome when the claiming transaction rolls back after the ledger call', async () => {
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, created);
+      const { eventId } = await seed();
+      ticket.calls.length = 0;
+      const prisma = svc.app.get(PrismaService);
+      const realTx = prisma.$transaction.bind(prisma) as (
+        fn: (tx: Record<string, unknown>) => Promise<unknown>,
+        opts: unknown,
+      ) => Promise<unknown>;
+      // Fails the final status UPDATE, so the transaction rolls back after confirm and post.
+      const spy = jest.spyOn(prisma, '$transaction').mockImplementationOnce(((
+        fn: (tx: Record<string, unknown>) => Promise<unknown>,
+        opts: unknown,
+      ) =>
+        realTx(
+          (tx) =>
+            fn(
+              new Proxy(tx, {
+                get(target, prop) {
+                  if (prop === '$executeRaw') {
+                    return () => Promise.reject(new Error('done update failed'));
+                  }
+                  const v = target[prop as string];
+                  return typeof v === 'function' ? (v as () => unknown).bind(target) : v;
+                },
+              }),
+            ),
+          opts,
+        )) as never);
+
+      expect(await worker.runOnce()).toBe(0);
+      spy.mockRestore();
+      expect(ticket.calls).toHaveLength(1);
+      expect(await row(eventId)).toMatchObject({
+        status: 'PENDING',
+        attempts: 1,
+        confirm_outcome: 'CONFIRMED',
+      });
+
+      await makeDue(eventId);
+      expect(await worker.runOnce()).toBe(1);
+      expect(ticket.calls).toHaveLength(1);
+      expect(await row(eventId)).toMatchObject({ status: 'DONE', confirm_outcome: 'CONFIRMED' });
+    });
   });
 
   it('processes events in created_at order within one batch', async () => {

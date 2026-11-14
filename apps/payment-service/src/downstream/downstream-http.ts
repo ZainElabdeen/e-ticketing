@@ -1,10 +1,14 @@
 import type { HttpService } from '@nestjs/axios';
+import type { ConfigService } from '@nestjs/config';
 import { isAxiosError, type AxiosResponse } from 'axios';
 import { firstValueFrom } from 'rxjs';
+import type { EnvironmentVariables } from '../config/env';
 import { UpstreamTimeoutError, UpstreamUnavailableError } from '../payments/domain/errors';
 
 export type DownstreamName = 'ticket-service' | 'ledger-service';
 
+// ERR_CANCELED is what axios reports when the AbortSignal.timeout() below fires,
+// so it means "hard timeout" here and must map to UpstreamTimeoutError.
 const TIMEOUT_CODES = new Set(['ECONNABORTED', 'ETIMEDOUT', 'ERR_CANCELED']);
 
 export interface DownstreamRequest {
@@ -13,6 +17,17 @@ export interface DownstreamRequest {
   apiKey: string;
   correlationId: string;
   body?: unknown;
+  /** Hard total timeout for the whole call, from the validated DOWNSTREAM_TIMEOUT_MS. */
+  timeoutMs: number;
+}
+
+/** DOWNSTREAM_TIMEOUT_MS, or a startup error: an unbounded call would break the outbox tx budget. */
+export function downstreamTimeoutMs(config: ConfigService<EnvironmentVariables, true>): number {
+  const ms = config.get('DOWNSTREAM_TIMEOUT_MS', { infer: true });
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms <= 0) {
+    throw new Error('DOWNSTREAM_TIMEOUT_MS must be a positive number');
+  }
+  return ms;
 }
 
 /**
@@ -27,9 +42,13 @@ export async function callDownstream(
   downstream: DownstreamName,
   req: DownstreamRequest,
 ): Promise<AxiosResponse<unknown>> {
+  // axios `timeout` only fires on an idle socket, so a reply that trickles a byte at a
+  // time would never trip it. The signal bounds the whole call (the claiming
+  // transaction's timeout budget in OutboxRepository relies on that).
   try {
     return await firstValueFrom(
       http.request<unknown>({
+        signal: AbortSignal.timeout(req.timeoutMs),
         method: req.method,
         url: req.url,
         data: req.body,
@@ -50,7 +69,10 @@ export async function callDownstream(
 }
 
 export function unexpectedStatus(downstream: DownstreamName, status: number): Error {
-  return new UpstreamUnavailableError(`${downstream} answered with unexpected status ${status}`);
+  return new UpstreamUnavailableError(
+    `${downstream} answered with unexpected status ${status}`,
+    status,
+  );
 }
 
 /** The `code` of an error envelope, or undefined when the body is not one. */

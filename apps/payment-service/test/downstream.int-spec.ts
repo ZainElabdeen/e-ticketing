@@ -279,5 +279,17 @@ describe('downstream clients', () => {
       ledger.on('POST', /postings$/, { status: 201, body: {}, delayMs: 1500 });
       await expect(ledgers.post(posting, CID)).rejects.toBeInstanceOf(UpstreamTimeoutError);
     });
+
+    it('enforces a hard total timeout on a body that trickles without ever going idle', async () => {
+      // axios `timeout` is an idle timeout: one byte every 100 ms never trips it (300 ms here).
+      ledger.on('POST', /postings$/, {
+        status: 201,
+        body: { ...journalEntry(), description: 'x'.repeat(150) },
+        chunkDelayMs: 100,
+      });
+      const t0 = Date.now();
+      await expect(ledgers.post(posting, CID)).rejects.toBeInstanceOf(UpstreamTimeoutError);
+      expect(Date.now() - t0).toBeLessThan(1500);
+    });
   });
 });

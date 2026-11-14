@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Ledger Service API
-  version: 2.0.0
+  version: 2.1.0
   license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
   description: >
     Double-entry, append-only ledger. Producers post business facts with a
@@ -74,6 +74,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/JournalEntryPage' }
+        '400': { $ref: './common.yaml#/components/responses/ValidationError' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
 
   /v1/accounts:

@@ -2,7 +2,12 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { EnvironmentVariables } from '../config/env';
-import { callDownstream, errorCodeOf, unexpectedStatus } from './downstream-http';
+import {
+  callDownstream,
+  downstreamTimeoutMs,
+  errorCodeOf,
+  unexpectedStatus,
+} from './downstream-http';
 import { UpstreamUnavailableError } from './upstream-errors';
 
 export interface TicketOrder {
@@ -50,6 +55,7 @@ function parseOrder(data: unknown): TicketOrder {
 export class TicketClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
+  private readonly timeoutMs: number;
 
   constructor(
     private readonly http: HttpService,
@@ -57,6 +63,7 @@ export class TicketClient {
   ) {
     this.baseUrl = config.get<string>('TICKET_SERVICE_URL').replace(/\/+$/, '');
     this.apiKey = config.get<string>('INTERNAL_API_KEY_TICKET');
+    this.timeoutMs = downstreamTimeoutMs(config);
   }
 
   /** The order, or null when the Ticket Service has no such order (404). */
@@ -66,6 +73,7 @@ export class TicketClient {
       url: `${this.baseUrl}/v1/orders/${encodeURIComponent(orderId)}`,
       apiKey: this.apiKey,
       correlationId,
+      timeoutMs: this.timeoutMs,
     });
     if (res.status === 404) {
       return null;
@@ -91,6 +99,7 @@ export class TicketClient {
       apiKey: this.apiKey,
       correlationId,
       body: { transactionId },
+      timeoutMs: this.timeoutMs,
     });
     if (res.status === 200) {
       return 'CONFIRMED';

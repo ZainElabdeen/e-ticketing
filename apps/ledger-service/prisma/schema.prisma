@@ -1,6 +1,59 @@
 // The `ledger` schema is created by hand-written SQL migrations (ADR-0015).
-// This file carries no models: Phase 2 adds them with `prisma db pull` for the
-// client only. Never run `prisma migrate dev` — it would rewrite the SQL.
+// These models mirror that SQL for the client only. Never run
+// `prisma migrate dev` — it would rewrite the SQL. CHECK constraints, the
+// balance function, the deferred constraint triggers and the append-only
+// REVOKE are not modelled by Prisma; test/schema.int-spec.ts covers them.
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
 datasource db {
   provider = "postgresql"
+}
+
+model Account {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code     String @unique(map: "accounts_code_key")
+  name     String
+  type     String
+  currency String @default("AED") @db.Char(3)
+
+  lines JournalLine[]
+
+  @@map("accounts")
+}
+
+model JournalEntry {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transactionId    String   @unique(map: "journal_entries_transaction_id_key") @map("transaction_id") @db.Uuid
+  postingType      String   @map("posting_type")
+  paymentReference String   @map("payment_reference")
+  orderId          String   @map("order_id") @db.Uuid
+  description      String
+  currency         String   @db.Char(3)
+  correlationId    String?  @map("correlation_id")
+  postedAt         DateTime @default(now()) @map("posted_at") @db.Timestamptz(6)
+
+  lines JournalLine[]
+
+  @@index([postedAt], map: "journal_entries_posted_at_idx")
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journalEntryId String @map("journal_entry_id") @db.Uuid
+  accountId      String @map("account_id") @db.Uuid
+  direction      String
+  amountMinor    BigInt @map("amount_minor")
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_lines_journal_entry_id_fkey")
+  account      Account      @relation(fields: [accountId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_lines_account_id_fkey")
+
+  @@index([journalEntryId], map: "journal_lines_journal_entry_id_idx")
+  @@index([accountId], map: "journal_lines_account_id_idx")
+  @@map("journal_lines")
 }

@@ -27,6 +27,14 @@ export type EventUpdate =
   | { kind: 'DONE'; confirmOutcome: ConfirmOutcome }
   | { kind: 'RETRY'; confirmOutcome: ConfirmOutcome | null; error: string };
 
+/**
+ * Written by the handler as soon as a confirm outcome is known, and read by the
+ * repository after a rollback so the outcome survives it (see recordFailedAttempt).
+ */
+export interface ConfirmHolder {
+  confirmOutcome: ConfirmOutcome | null;
+}
+
 const MAX_ERROR_LENGTH = 500;
 /** Slack on top of the two downstream calls the claiming transaction spans. */
 const TX_MARGIN_MS = 5000;
@@ -50,7 +58,64 @@ export class OutboxRepository {
    * (ADR-0006: the two HTTP calls are bounded by DOWNSTREAM_TIMEOUT_MS) and
    * applies its update. False when nothing is due.
    */
-  async processOne(handler: (event: ClaimedEvent) => Promise<EventUpdate>): Promise<boolean> {
+  async processOne(
+    handler: (event: ClaimedEvent) => Promise<EventUpdate>,
+    holder: ConfirmHolder = { confirmOutcome: null },
+  ): Promise<boolean> {
+    let claimedId: string | undefined;
+    try {
+      return await this.claimAndRun(handler, (id) => (claimedId = id));
+    } catch (err) {
+      // The claiming transaction rolled back (a DB error or its timeout), so the event is
+      // unchanged and would be re-claimed forever without ever reaching FAILED. Count the
+      // attempt in a separate short statement. Nothing to do if the claim never happened.
+      if (claimedId) {
+        await this.recordFailedAttempt(claimedId, err, holder.confirmOutcome);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * FAILED and the backoff are derived in SQL from the row's current attempts, so a
+   * stale in-memory count cannot decide them. Only touches a still-PENDING row. The
+   * confirm outcome learned in the rolled-back attempt is saved too, so a retry never
+   * asks the Ticket Service again (a crash before COMMIT can still lose it: ADR-0006).
+   */
+  private async recordFailedAttempt(
+    eventId: string,
+    cause: unknown,
+    confirmOutcome: ConfirmOutcome | null,
+  ): Promise<void> {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const error = message.slice(0, MAX_ERROR_LENGTH);
+    let rows: Array<{ status: string; attempts: number }>;
+    try {
+      rows = await this.prisma.$queryRaw<Array<{ status: string; attempts: number }>>`
+        UPDATE payments.outbox_events
+        SET attempts = attempts + 1,
+            last_error = ${error},
+            confirm_outcome = COALESCE(${confirmOutcome}::text, confirm_outcome),
+            next_attempt_at = now() + make_interval(secs => LEAST(power(2, attempts + 1), 300)::float8),
+            status = CASE WHEN attempts + 1 >= ${this.maxAttempts}::int THEN 'FAILED' ELSE status END,
+            processed_at = CASE WHEN attempts + 1 >= ${this.maxAttempts}::int THEN now() ELSE processed_at END
+        WHERE id = ${eventId}::uuid AND status = 'PENDING'
+        RETURNING status, attempts`;
+    } catch (updateErr) {
+      // The original error is the one to surface; the event stays due and is retried.
+      this.logger.error({ eventId, err: updateErr }, 'could not record failed attempt');
+      return;
+    }
+    const updated = rows[0];
+    if (updated?.status === 'FAILED') {
+      this.logger.error({ eventId, attempts: updated.attempts }, 'outbox event FAILED');
+    }
+  }
+
+  private claimAndRun(
+    handler: (event: ClaimedEvent) => Promise<EventUpdate>,
+    onClaim: (id: string) => void,
+  ): Promise<boolean> {
     return this.prisma.$transaction(
       async (tx) => {
         const rows = await tx.$queryRaw<
@@ -68,6 +133,7 @@ export class OutboxRepository {
           LIMIT 1`;
         const row = rows[0];
         if (!row) return false;
+        onClaim(row.id);
 
         const update = await handler({
           id: row.id,

@@ -8,8 +8,13 @@ export interface StubCall {
   body: unknown;
 }
 
-/** `'drop'` destroys the socket, so the caller sees a connection error. */
-export type StubReply = { status: number; body?: unknown; delayMs?: number } | 'drop';
+/**
+ * `'drop'` destroys the socket, so the caller sees a connection error.
+ * `chunkDelayMs` writes the headers at once, then the JSON body one byte every
+ * `chunkDelayMs`: a reply that is never idle but takes a long time overall.
+ */
+export type StubReply =
+  { status: number; body?: unknown; delayMs?: number; chunkDelayMs?: number } | 'drop';
 
 export interface HttpStub {
   url: string;
@@ -112,7 +117,40 @@ export async function startHttpStub(): Promise<HttpStub> {
         return;
       }
     }
+    if (reply.chunkDelayMs && reply.body !== undefined) {
+      await trickle(res, reply.status, JSON.stringify(reply.body), reply.chunkDelayMs);
+      return;
+    }
     send(res, reply.status, reply.body);
+  }
+
+  async function trickle(
+    res: ServerResponse,
+    status: number,
+    payload: string,
+    chunkDelayMs: number,
+  ): Promise<void> {
+    const bytes = Buffer.from(payload);
+    res.writeHead(status, { 'content-type': 'application/json' });
+    res.flushHeaders();
+    for (let i = 0; i < bytes.length; i++) {
+      const completed = await new Promise<boolean>((resolve) => {
+        const pending = {
+          timer: setTimeout(() => {
+            pendingDelays.delete(pending);
+            resolve(true);
+          }, chunkDelayMs),
+          release: () => resolve(false),
+        };
+        pendingDelays.add(pending);
+      });
+      if (!completed || res.destroyed) {
+        res.destroy();
+        return;
+      }
+      res.write(bytes.subarray(i, i + 1));
+    }
+    res.end();
   }
 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));

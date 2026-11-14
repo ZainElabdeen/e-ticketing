@@ -1,4 +1,7 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
+import { correlationIdOf, type CorrelatedRequest } from './correlation-id';
+
+const logger = new Logger('JsonParseError');
 
 interface ParseFailure {
   type?: unknown;
@@ -27,9 +30,16 @@ export const MALFORMED_JSON_MESSAGE = 'Malformed JSON body';
  */
 export function jsonParseErrorMiddleware(
   err: unknown,
-  _req: unknown,
+  req: CorrelatedRequest,
   _res: unknown,
   next: (err?: unknown) => void,
 ): void {
-  next(isJsonParseFailure(err) ? new BadRequestException(MALFORMED_JSON_MESSAGE) : err);
+  if (!isJsonParseFailure(err)) {
+    next(err);
+    return;
+  }
+  // Runs before pino-http, so nothing else records this request. Fixed text and no
+  // parser message: the body can hold a card number.
+  logger.warn({ correlationId: correlationIdOf(req), statusCode: 400 }, 'malformed request body');
+  next(new BadRequestException(MALFORMED_JSON_MESSAGE));
 }

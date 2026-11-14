@@ -101,4 +101,25 @@ describe('startHttpStub', () => {
     stub.reset();
     expect(await pending).toBe('failed');
   });
+
+  it('trickles the body one byte per chunkDelayMs after sending headers at once', async () => {
+    stub.on('GET', /^\/slow$/, { status: 200, body: { a: 1 }, chunkDelayMs: 50 });
+    const t0 = Date.now();
+    const res = await fetch(`${stub.url}/slow`);
+    expect(Date.now() - t0).toBeLessThan(40);
+    expect(await res.json()).toEqual({ a: 1 });
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(5 * 50 - 10);
+  });
+
+  it('reset() cancels a trickling reply', async () => {
+    stub.on('GET', /^\/slow$/, { status: 200, body: { a: 'x'.repeat(200) }, chunkDelayMs: 1000 });
+    const res = await fetch(`${stub.url}/slow`);
+    const pending = res.text().then(
+      () => 'answered',
+      () => 'failed',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    stub.reset();
+    expect(await pending).toBe('failed');
+  });
 });
