@@ -24,9 +24,3 @@ public sealed class OrderNotConfirmableException(string message = "Order cannot 
     public override string Code => "ORDER_NOT_CONFIRMABLE";
     public override int StatusCode => 409;
 }
-
-public sealed class RequestValidationException(string message) : DomainException(message)
-{
-    public override string Code => "VALIDATION_ERROR";
-    public override int StatusCode => 400;
-}

@@ -82,6 +82,8 @@ public sealed partial class OrdersTests(PostgresFixture db)
     [InlineData("{}")]
     [InlineData("null")]
     [InlineData("{\"items\":null}")]
+    [InlineData("{\"items\":\"x\"}")]
+    [InlineData("{\"items\":{}}")]
     [InlineData("{\"items\":[]}")]
     [InlineData("{\"items\":[null]}")]
     [InlineData("{\"items\":[{\"ticketTypeCode\":\"GOLD\",\"quantity\":1},{\"ticketTypeCode\":\"PREMIUM\",\"quantity\":1},{\"ticketTypeCode\":\"VIP\",\"quantity\":1},{\"ticketTypeCode\":\"GOLD\",\"quantity\":1}]}")]

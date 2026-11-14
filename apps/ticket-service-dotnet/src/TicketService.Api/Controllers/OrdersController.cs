@@ -1,23 +1,17 @@
-using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using TicketService.Api.Application;
 using TicketService.Api.Contracts;
-using TicketService.Api.Domain;
+using TicketService.Api.Http;
 
 namespace TicketService.Api.Controllers;
 
 [ApiController]
 [Route("v1/orders")]
-public sealed class OrdersController(OrdersService service, IValidator<CreateOrderRequest> validator) : ControllerBase
+public sealed class OrdersController(OrdersService service) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateOrderRequest? request, CancellationToken ct)
     {
-        var result = await validator.ValidateAsync(request ?? new CreateOrderRequest(), ct);
-        if (!result.IsValid)
-        {
-            throw new RequestValidationException(string.Join("; ", result.Errors.Select(e => e.ErrorMessage).Distinct()));
-        }
         return StatusCode(StatusCodes.Status201Created, await service.CreateOrderAsync(request!, ct));
     }
 

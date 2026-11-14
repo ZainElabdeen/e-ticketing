@@ -97,14 +97,15 @@ public sealed class HttpBehaviourTests(PostgresFixture db)
         await using var factory = new TicketServiceFactory(db);
         using var client = factory.CreateClient();
 
+        var confirm = $"/v1/internal/orders/{Guid.NewGuid()}/confirm";
         await EnvelopeOf(
-            await client.SendAsync(Request(HttpMethod.Post, "/v1/internal/test", factory.PublicKey, "{}")),
+            await client.SendAsync(Request(HttpMethod.Post, confirm, factory.PublicKey, "{}")),
             403, "FORBIDDEN");
         await EnvelopeOf(
             await client.SendAsync(Request(HttpMethod.Post, "/v1/internal/forgot", factory.PublicKey, "{}")),
             403, "FORBIDDEN");
 
-        foreach (var path in new[] { "/V1/INTERNAL/test", "//v1//internal/test", "/v1/Internal/forgot" })
+        foreach (var path in new[] { confirm.ToUpperInvariant(), confirm.Replace("/", "//"), "/v1/Internal/forgot" })
         {
             var response = await client.SendAsync(Request(HttpMethod.Post, path, factory.PublicKey, "{}"));
             Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound, path);
@@ -117,9 +118,11 @@ public sealed class HttpBehaviourTests(PostgresFixture db)
         await using var factory = new TicketServiceFactory(db);
         using var client = factory.CreateClient();
 
-        var response = await client.SendAsync(Request(HttpMethod.Post, "/v1/internal/test", factory.InternalKey, "{}"));
+        var response = await client.SendAsync(Request(HttpMethod.Post,
+            $"/v1/internal/orders/{Guid.NewGuid()}/confirm", factory.InternalKey,
+            $"{{\"transactionId\":\"{Guid.NewGuid()}\"}}"));
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await EnvelopeOf(response, 404, "NOT_FOUND");
     }
 
     [Fact]

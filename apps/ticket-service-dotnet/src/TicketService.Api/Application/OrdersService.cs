@@ -13,6 +13,9 @@ public sealed class OrdersService(OrdersRepository repository, TicketServiceOpti
             options.OrderTtlMinutes,
             ct);
 
+    public Task<OrderView> ConfirmOrderAsync(Guid orderId, Guid transactionId, CancellationToken ct) =>
+        repository.ConfirmAsync(orderId, transactionId, ct);
+
     public async Task<OrderView> GetOrderAsync(Guid id, CancellationToken ct) =>
         await repository.FindAsync(id, ct) ?? throw new OrderNotFoundException($"Order {id} not found");
 }

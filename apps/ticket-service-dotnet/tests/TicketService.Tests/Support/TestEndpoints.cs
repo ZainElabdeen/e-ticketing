@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using TicketService.Api.Domain;
-using TicketService.Api.Http;
 
 namespace TicketService.Tests.Support;
 
@@ -24,10 +23,6 @@ public sealed class TestEndpointsController : ControllerBase
 
     [HttpGet("v1/test/quota")]
     public IActionResult Quota() => throw new QuotaExceededException("GOLD");
-
-    [InternalScope]
-    [HttpPost("v1/internal/test")]
-    public IActionResult InternalOnly() => Ok(new { internalOnly = true });
 
     // No [InternalScope]: only the path check protects it.
     [HttpPost("v1/internal/forgot")]

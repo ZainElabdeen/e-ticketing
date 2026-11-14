@@ -50,6 +50,15 @@ public partial class Program
         builder.Services.AddScoped<OrdersRepository>();
         builder.Services.AddScoped<TicketTypesService>();
         builder.Services.AddScoped<OrdersService>();
+        builder.Services.AddScoped<OrderExpiryRunner>();
+        // Decided at host build, when the final configuration is known: a disabled job is simply not registered.
+        builder.Host.ConfigureServices((context, services) =>
+        {
+            if (EnvLoader.Load(envOverride ?? ReadEnv(context.Configuration)).ExpiryEnabled)
+            {
+                services.AddHostedService<OrderExpiryJob>();
+            }
+        });
         builder.Host.UseSerilog((_, services, logger) =>
         {
             var options = services.GetRequiredService<TicketServiceOptions>();
@@ -65,7 +74,7 @@ public partial class Program
             }
         });
         builder.Services
-            .AddControllers()
+            .AddControllers(mvc => mvc.Filters.Add<ValidateBodyFilter>())
             .AddJsonOptions(json =>
             {
                 JsonSetup.Apply(json.JsonSerializerOptions);
