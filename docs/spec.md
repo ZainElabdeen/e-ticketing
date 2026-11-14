@@ -473,8 +473,8 @@ Gateway routes, JWT required:
 - `GET /v1/backoffice/ticket-availability` → Ticket Service
   `GET /v1/ticket-types`.
 
-Admin: single user from env (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, bcrypt cost
-12). JWT: HS256, claims `sub` (email), `iat`, `exp` (1 h), `iss =
+Admin: single user from env (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH_B64`: base64 of a bcrypt cost-12
+hash, made by `infra/scripts/admin-hash.mjs`, ADR-0022). JWT: HS256, claims `sub` (email), `iat`, `exp` (1 h), `iss =
 e-ticketing-gateway`. Expiry is the only revocation (ADR-0010).
 
 ## 5. Web app (apps/web)
@@ -575,12 +575,14 @@ The total on `/` is a preview from listed prices; the server total from
 | `PUBLIC_API_KEY_TICKET` / `_PAYMENT` / `_LEDGER` | gateway (sends), each service (accepts its own) | Public-scope keys |
 | `INTERNAL_API_KEY_TICKET` / `_LEDGER` | payment (sends), ticket and ledger (accept) | Internal-scope keys |
 | `JWT_SECRET` | gateway | HS256 secret, ≥ 32 bytes |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` | gateway | Backoffice admin |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH_B64` | gateway | Backoffice admin; the hash is base64 of a bcrypt cost-12 hash (`infra/scripts/admin-hash.mjs`, ADR-0022) |
+| `TRUST_PROXY` (0) | gateway | Proxy hops trusted for the client IP (0–5) |
+| `RATE_LIMIT_DEFAULT_PER_MIN` (100), `RATE_LIMIT_ORDERS_PER_MIN` (5), `RATE_LIMIT_LOGIN_PER_MIN` (10) | gateway | Per-IP rate limits (§7) |
 | `WEB_ORIGIN` | gateway | CORS allowed origin |
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
 | `ORDER_TTL_MINUTES` (15), `QR_SUCCESS_DELAY_SECONDS` (8) | ticket, payment | Business timings |
-| `DOWNSTREAM_TIMEOUT_MS` (5000) | payment | Timeout per call to the Ticket and Ledger Services (100–30000) |
+| `DOWNSTREAM_TIMEOUT_MS` (5000) | gateway, payment | Timeout per downstream call (100–30000) |
 | `QR_JOB_INTERVAL_SECONDS` (1), `QR_JOB_BATCH_SIZE` (50), `QR_JOB_ENABLED` (true) | payment | QR success job cadence (§4.2); `false` only in tests that drive the job by hand |
 | `OUTBOX_INTERVAL_SECONDS` (2), `OUTBOX_BATCH_SIZE` (10), `OUTBOX_MAX_ATTEMPTS` (10), `OUTBOX_ENABLED` (true) | payment | Outbox worker cadence and retry cap (§4.2); `false` only in tests that drive the worker by hand |
 | `ORDER_EXPIRY_INTERVAL_SECONDS` (60), `ORDER_EXPIRY_BATCH_SIZE` (100), `ORDER_EXPIRY_ENABLED` (true) | ticket | Expiry job cadence (§4.1); `false` only in tests that drive the job by hand |
@@ -695,3 +697,4 @@ QR → result → backoffice → balances) ships with it.
 | [0019](./adr/0019-nestjs-axios-outbound-http.md) | `@nestjs/axios` + axios for service-to-service HTTP, Promise-only client API | Built-in `fetch`; `openapi-fetch` |
 | [0020](./adr/0020-shared-nest-common-package.md) | Shared NestJS plumbing in @eticket/nest-common | Copy per service |
 | [0021](./adr/0021-ticket-service-dotnet-port.md) | .NET Ticket Service: one web project, EF Core on the Prisma-owned schema, raw SQL for locks, envelope middleware; contract suite is the parity gate | Minimal APIs, four assemblies, EF migrations, Dapper |
+| [0022](./adr/0022-gateway-auth-libraries-and-admin-hash.md) | `@nestjs/jwt` + `bcryptjs`; admin hash stored as base64 (`ADMIN_PASSWORD_HASH_B64`); expiry-only revocation | `jose`, native `bcrypt`, `$$` escaping, a secret file |
