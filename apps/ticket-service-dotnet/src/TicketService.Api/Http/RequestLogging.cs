@@ -11,6 +11,9 @@ public static class LogSettings
 {
     public const string Service = "ticket-service-dotnet";
 
+    /// <summary>Above Fatal, so no event reaches a sink: pino's <c>silent</c>.</summary>
+    public const LogEventLevel Silent = LogEventLevel.Fatal + 1;
+
     /// <summary>pino-style level names map to Serilog's minimum level.</summary>
     public static LogEventLevel Parse(string level) => level.ToLowerInvariant() switch
     {
@@ -19,6 +22,7 @@ public static class LogSettings
         "warn" => LogEventLevel.Warning,
         "error" => LogEventLevel.Error,
         "fatal" => LogEventLevel.Fatal,
+        "silent" => Silent,
         _ => LogEventLevel.Information,
     };
 }

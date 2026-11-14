@@ -51,7 +51,8 @@ public partial class Program
         builder.Services.AddScoped<TicketTypesService>();
         builder.Services.AddScoped<OrdersService>();
         builder.Services.AddScoped<OrderExpiryRunner>();
-        // Decided at host build, when the final configuration is known: a disabled job is simply not registered.
+        // WebApplicationBuilder runs this callback immediately, so the job is decided from the configuration
+        // as it is now (environment, command line, envOverride); a disabled job is simply not registered.
         builder.Host.ConfigureServices((context, services) =>
         {
             if (EnvLoader.Load(envOverride ?? ReadEnv(context.Configuration)).ExpiryEnabled)

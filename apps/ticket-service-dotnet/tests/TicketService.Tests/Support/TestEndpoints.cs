@@ -5,7 +5,7 @@ namespace TicketService.Tests.Support;
 
 public sealed record EchoRequest(int Quantity);
 
-/// <summary>Test-only routes that exercise the HTTP pipeline before the real controllers exist.</summary>
+/// <summary>Test-only routes that exercise pipeline behaviour (errors, cancellation, key scopes) the real controllers cannot trigger.</summary>
 [ApiController]
 public sealed class TestEndpointsController : ControllerBase
 {

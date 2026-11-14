@@ -1,4 +1,6 @@
+using Serilog.Events;
 using TicketService.Api.Config;
+using TicketService.Api.Http;
 
 namespace TicketService.Tests.Unit;
 
@@ -102,6 +104,66 @@ public sealed class EnvLoaderTests
         var options = EnvLoader.Load(env);
 
         Assert.Equal("p@ss/w:rd%", new Npgsql.NpgsqlConnectionStringBuilder(options.ConnectionString).Password);
+    }
+
+    [Fact]
+    public void Caps_the_pool_at_ten_like_the_nest_service()
+    {
+        var options = EnvLoader.Load(Valid());
+
+        Assert.Equal(10, new Npgsql.NpgsqlConnectionStringBuilder(options.ConnectionString).MaxPoolSize);
+    }
+
+    [Fact]
+    public void Honours_the_prisma_connection_limit()
+    {
+        var env = Valid();
+        env["DATABASE_URL"] = "postgresql://tickets_app:secret@db.local:5433/eticketing?schema=tickets&connection_limit=5";
+
+        var options = EnvLoader.Load(env);
+
+        Assert.Equal(5, new Npgsql.NpgsqlConnectionStringBuilder(options.ConnectionString).MaxPoolSize);
+        Assert.Equal("tickets", options.Schema);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-3")]
+    [InlineData("abc")]
+    public void Ignores_an_invalid_connection_limit(string limit)
+    {
+        var env = Valid();
+        env["DATABASE_URL"] = $"postgresql://tickets_app:secret@db.local:5433/eticketing?schema=tickets&connection_limit={limit}";
+
+        var options = EnvLoader.Load(env);
+
+        Assert.Equal(10, new Npgsql.NpgsqlConnectionStringBuilder(options.ConnectionString).MaxPoolSize);
+    }
+
+    [Fact]
+    public void Bounds_lock_waits_with_a_ten_second_command_timeout()
+    {
+        var options = EnvLoader.Load(Valid());
+
+        Assert.Equal(10, new Npgsql.NpgsqlConnectionStringBuilder(options.ConnectionString).CommandTimeout);
+    }
+
+    [Theory]
+    [InlineData("trace", LogEventLevel.Verbose)]
+    [InlineData("debug", LogEventLevel.Debug)]
+    [InlineData("info", LogEventLevel.Information)]
+    [InlineData("warn", LogEventLevel.Warning)]
+    [InlineData("error", LogEventLevel.Error)]
+    [InlineData("fatal", LogEventLevel.Fatal)]
+    public void Maps_pino_level_names(string name, LogEventLevel expected)
+    {
+        Assert.Equal(expected, LogSettings.Parse(name));
+    }
+
+    [Fact]
+    public void Silent_sits_above_every_level_so_nothing_is_written()
+    {
+        Assert.True(LogSettings.Parse("silent") > LogEventLevel.Fatal);
     }
 
     [Fact]

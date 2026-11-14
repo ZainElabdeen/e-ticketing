@@ -13,9 +13,11 @@ public sealed class HealthController(NpgsqlDataSource dataSource, ILogger<Health
 
     /// <summary>Liveness never touches the database.</summary>
     [HttpGet("live")]
+    [HttpHead("live")]
     public IActionResult Live() => Ok(new { status = "ok" });
 
     [HttpGet("ready")]
+    [HttpHead("ready")]
     public async Task<IActionResult> Ready(CancellationToken requestAborted)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
@@ -29,7 +31,7 @@ public sealed class HealthController(NpgsqlDataSource dataSource, ILogger<Health
         }
         catch (Exception ex) when (!requestAborted.IsCancellationRequested)
         {
-            logger.LogDebug(ex, "Readiness check failed");
+            logger.LogWarning(ex, "Readiness check failed");
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
                 new { status = "error", details = new { database = new { status = "down" } } });
         }

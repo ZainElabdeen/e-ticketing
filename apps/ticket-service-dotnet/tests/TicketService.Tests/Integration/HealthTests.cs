@@ -33,6 +33,20 @@ public sealed class HealthTests(PostgresFixture db)
         Assert.Equal("ok", await StatusOf(response));
     }
 
+    [Theory]
+    [InlineData("/health/live")]
+    [InlineData("/health/ready")]
+    public async Task Head_works_without_a_key_and_matches_get(string path)
+    {
+        await using var factory = new TicketServiceFactory(db);
+        using var client = factory.CreateClient();
+
+        var response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, path));
+
+        // The in-memory test server does not strip HEAD bodies; Kestrel does, so only the status is asserted.
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     [Fact]
     public async Task Ready_is_503_quickly_when_the_database_is_unreachable_and_live_stays_200()
     {
