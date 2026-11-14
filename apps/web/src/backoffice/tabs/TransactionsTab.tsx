@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { useApi } from '../../api/client';
 import { call } from '../../api/errors';
@@ -14,6 +14,7 @@ const METHODS: Record<string, string> = { CARD: 'Card', QR: 'QR' };
 export function TransactionsTab({ page, onPage }: TabProps): ReactElement {
   const api = useApi();
   const q = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ['backoffice', 'transactions', page],
     queryFn: () =>
       call(

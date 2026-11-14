@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { useApi } from '../../api/client';
 import { call } from '../../api/errors';
@@ -17,6 +17,7 @@ const POSTING: Record<string, string> = {
 export function LedgerEntriesTab({ page, onPage }: TabProps): ReactElement {
   const api = useApi();
   const q = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ['backoffice', 'ledger-entries', page],
     queryFn: () =>
       call(
@@ -57,8 +58,11 @@ export function LedgerEntriesTab({ page, onPage }: TabProps): ReactElement {
               <tbody key={entry.id}>
                 <tr className={styles.group}>
                   <th scope="colgroup" colSpan={3}>
+                    <span className={styles.hidden}>Posted </span>
                     <span>{formatDateTime(entry.postedAt)}</span>
+                    <span className={styles.hidden}>Reference </span>
                     <span>{entry.paymentReference}</span>
+                    <span className={styles.hidden}>Type </span>
                     <span>{POSTING[entry.postingType] ?? entry.postingType}</span>
                   </th>
                 </tr>
@@ -77,7 +81,7 @@ export function LedgerEntriesTab({ page, onPage }: TabProps): ReactElement {
                     </td>
                   </tr>
                 ))}
-                <tr className={styles.total}>
+                <tr className={`${styles.total} ${debit === credit ? '' : styles.bad}`}>
                   <td>Totals</td>
                   <td className={styles.num}>{formatMinor(debit, entry.currency)}</td>
                   <td className={styles.num}>{formatMinor(credit, entry.currency)}</td>

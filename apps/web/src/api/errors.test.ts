@@ -1,4 +1,4 @@
-import { ApiError, call, unwrap } from './errors';
+import { ApiError, call, isRetryable, unwrap } from './errors';
 
 const envelope = (statusCode: number, code: string) => ({
   statusCode,
@@ -56,4 +56,13 @@ describe('call', () => {
       call(Promise.resolve({ data: 5, response: new Response(null, { status: 200 }) })),
     ).resolves.toBe(5);
   });
+});
+
+describe('isRetryable', () => {
+  const err = (status: number) => new ApiError({ status, code: 'X', message: 'm' });
+  it.each([0, 500, 503])('retries status %i', (s) => expect(isRetryable(err(s))).toBe(true));
+  it.each([400, 401, 404, 429])('does not retry status %i', (s) =>
+    expect(isRetryable(err(s))).toBe(false),
+  );
+  it('retries a plain Error', () => expect(isRetryable(new Error('x'))).toBe(true));
 });

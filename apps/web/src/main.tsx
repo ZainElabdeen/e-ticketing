@@ -3,7 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
 import { ApiProvider, createApi } from './api/client';
-import { ApiError } from './api/errors';
+import { isRetryable } from './api/errors';
 import { AuthProvider } from './backoffice/AuthProvider';
 import { getSessionToken } from './backoffice/session';
 import { createRouter } from './app/router';
@@ -12,8 +12,8 @@ import './styles/global.css';
 const api = createApi({ getToken: getSessionToken });
 const queryClient = new QueryClient({
   defaultOptions: {
-    // Client errors (4xx, including 401 and 429) are not retried; transient failures twice.
-    queries: { retry: (count, e) => !(e instanceof ApiError && e.status < 500) && count < 2 },
+    // Client errors (4xx, including 401 and 429) are not retried; network errors and 5xx twice.
+    queries: { retry: (count, e) => count < 2 && isRetryable(e) },
   },
 });
 const router = createRouter();

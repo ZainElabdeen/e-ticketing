@@ -1,6 +1,9 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useQuery } from '@tanstack/react-query';
+import { useApi } from '../api/client';
+import { call } from '../api/errors';
 import { renderWithApp, stubFetch, type StubRoute } from '../test/render';
 import { BackofficePage } from './BackofficePage';
 import { LoginPage } from './LoginPage';
@@ -318,6 +321,86 @@ describe('BackofficePage', () => {
     });
     expect(screen.getByText('Your session ended. Sign in again.')).toBeInTheDocument();
     expect(screen.getByTestId('where')).toHaveTextContent('/backoffice/login');
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  });
+
+  it('redirects with the notice when the session is already expired at render', () => {
+    saveSession('jwt', 60, () => Date.now() - 120_000);
+    renderBackoffice([txPage(2)]);
+    expect(screen.getByTestId('where')).toHaveTextContent('/backoffice/login');
+    expect(screen.getByText('Your session ended. Sign in again.')).toBeInTheDocument();
+  });
+
+  it('a 401 on a non-backoffice query does not log out', async () => {
+    saveSession('jwt', 3600);
+    function Probe(): React.ReactElement {
+      const api = useApi();
+      const q = useQuery({
+        queryKey: ['payment', 'p-1'],
+        queryFn: () => call(api.GET('/v1/ticket-types')),
+        retry: false,
+      });
+      return <p>{q.isError ? 'probe failed' : 'probe loading'}</p>;
+    }
+    const fetch = stubFetch([
+      {
+        method: 'GET',
+        path: '/v1/ticket-types',
+        status: 401,
+        body: { code: 'UNAUTHORIZED', message: 'x' },
+      },
+      txPage(2),
+    ]);
+    renderWithApp(
+      <RequireAuth>
+        <Probe />
+      </RequireAuth>,
+      { fetch },
+    );
+    expect(await screen.findByText('probe failed')).toBeInTheDocument();
+    expect(window.sessionStorage.getItem('eticket.backoffice.session')).not.toBeNull();
+    expect(screen.queryByText('Your session ended. Sign in again.')).not.toBeInTheDocument();
+  });
+
+  it('flags a ledger entry whose debits and credits differ', async () => {
+    saveSession('jwt', 3600);
+    const line = (id: string, direction: string, amountMinor: number) => ({
+      id,
+      accountCode: '1100',
+      accountName: 'Clearing',
+      direction,
+      amountMinor,
+    });
+    renderBackoffice(
+      [
+        {
+          method: 'GET',
+          path: '/v1/backoffice/ledger-entries',
+          status: 200,
+          body: {
+            page: 1,
+            pageSize: 20,
+            total: 1,
+            data: [
+              {
+                id: 'e-1',
+                transactionId: 't-1',
+                postingType: 'TICKET_SALE',
+                orderId: 'o-1',
+                paymentReference: 'PAY-X',
+                currency: 'AED',
+                postedAt: '2026-11-14T13:05:00.000Z',
+                lines: [line('a', 'DEBIT', 70000), line('b', 'CREDIT', 60000)],
+              },
+            ],
+          },
+        },
+      ],
+      '/backoffice?tab=ledger',
+    );
+    const totals = (await screen.findByText('Totals')).closest('tr')!;
+    expect(totals.className).toContain('bad');
+    expect(screen.getByText('Posted')).toBeInTheDocument();
+    expect(screen.getByText('Reference')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
   });
 });

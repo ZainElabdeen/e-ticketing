@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useApi, type Api } from '../api/client';
-import { ApiError, call } from '../api/errors';
+import { ApiError, call, isRetryable } from '../api/errors';
 import type { CardDetails, Order } from '../api/types';
 import { formatMinor } from '../lib/money';
 import { formatRemaining } from '../lib/time';
@@ -41,7 +41,7 @@ export function CheckoutPage(): ReactElement {
     queryKey: orderKey(orderId),
     queryFn: () => call(api.GET('/v1/orders/{orderId}', { params: { path: { orderId } } })),
     refetchOnWindowFocus: false,
-    retry: (count, e) => !(e instanceof ApiError && e.status < 500) && count < 2,
+    retry: (count, e) => count < 2 && isRetryable(e),
     refetchInterval: (q) => (otherWindow && q.state.data?.status === 'PENDING' ? 2000 : false),
   });
 

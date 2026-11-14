@@ -3,7 +3,7 @@ import { Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { renderWithApp, stubFetch, type StubRoute } from '../test/render';
 import { LoginPage } from './LoginPage';
-import { clearSession } from './session';
+import { clearSession, saveSession } from './session';
 
 const login = (status: number, body: unknown): StubRoute => ({
   method: 'POST',
@@ -83,5 +83,22 @@ describe('LoginPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByText('Enter a valid email address')).toBeInTheDocument();
     expect(fetch.calls).toHaveLength(0);
+  });
+
+  it('a double click on Sign in sends one request', async () => {
+    const { fetch } = renderLogin([login(200, { accessToken: 'jwt-1', expiresIn: 3600 })]);
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'admin@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct-horse' } });
+    const button = screen.getByRole('button', { name: 'Sign in' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(await screen.findByText('Backoffice home')).toBeInTheDocument();
+    expect(fetch.calls).toHaveLength(1);
+  });
+
+  it('redirects to the backoffice when a session already exists', async () => {
+    saveSession('jwt', 3600);
+    renderLogin([]);
+    expect(await screen.findByText('Backoffice home')).toBeInTheDocument();
   });
 });

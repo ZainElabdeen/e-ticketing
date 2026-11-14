@@ -6,19 +6,32 @@ export type Session = { token: string; expiresAt: number };
 
 // The memory copy is the source of truth; sessionStorage only survives a reload of the tab.
 let memory: Session | null = null;
+// True when the last load found a stored session that had already expired.
+let endedByExpiry = false;
 
 export function saveSession(
   token: string,
   expiresInSeconds: number,
   now: () => number = Date.now,
 ): void {
+  endedByExpiry = false;
   memory = { token, expiresAt: now() + expiresInSeconds * 1000 };
   safeSession.set(KEY, JSON.stringify(memory));
 }
 
-export function clearSession(): void {
+function wipe(): void {
   memory = null;
   safeSession.remove(KEY);
+}
+
+export function clearSession(): void {
+  endedByExpiry = false;
+  wipe();
+}
+
+/** True when a session was found expired on load (a reload or a return after the hour). */
+export function sessionEndedByExpiry(): boolean {
+  return endedByExpiry;
 }
 
 function parse(raw: string | null): Session | null {
@@ -38,7 +51,8 @@ function parse(raw: string | null): Session | null {
 export function loadSession(now: () => number = Date.now): Session | null {
   const session = memory ?? parse(safeSession.get(KEY));
   if (!session || session.expiresAt <= now()) {
-    clearSession();
+    if (session) endedByExpiry = true;
+    wipe();
     return null;
   }
   memory = session;

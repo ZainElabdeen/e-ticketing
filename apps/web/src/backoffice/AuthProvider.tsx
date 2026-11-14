@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { useApi } from '../api/client';
 import { ApiError, call } from '../api/errors';
-import { clearSession, loadSession, saveSession } from './session';
+import { clearSession, loadSession, saveSession, sessionEndedByExpiry } from './session';
 
 export const SESSION_ENDED = 'Your session ended. Sign in again.';
 
@@ -20,6 +20,7 @@ export type Auth = {
   login: (email: string, password: string) => Promise<void>;
   logout: (reason?: 'expired') => void;
   notice: string | null;
+  clearNotice: () => void;
 };
 
 const AuthContext = createContext<Auth | null>(null);
@@ -28,7 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactElemen
   const api = useApi();
   const queryClient = useQueryClient();
   const [token, setToken] = useState<string | null>(() => loadSession()?.token ?? null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(() =>
+    sessionEndedByExpiry() ? SESSION_ENDED : null,
+  );
 
   const logout = useCallback(
     (reason?: 'expired') => {
@@ -67,7 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactElemen
     [queryClient, logout],
   );
 
-  const value = useMemo(() => ({ token, login, logout, notice }), [token, login, logout, notice]);
+  const clearNotice = useCallback(() => setNotice(null), []);
+  const value = useMemo(
+    () => ({ token, login, logout, notice, clearNotice }),
+    [token, login, logout, notice, clearNotice],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

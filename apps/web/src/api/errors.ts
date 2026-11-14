@@ -66,3 +66,9 @@ export async function call<T>(p: Promise<Result<T>>): Promise<T> {
   }
   return unwrap(result);
 }
+
+/** Network errors (status 0) and 5xx retry; other 4xx (401, 429 included) never do. */
+export function isRetryable(e: unknown): boolean {
+  if (!(e instanceof ApiError)) return true;
+  return e.status === 0 || e.status >= 500;
+}

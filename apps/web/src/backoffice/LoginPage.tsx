@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate } from 'react-router';
 import { z } from 'zod';
@@ -32,7 +32,12 @@ function messageFor(e: unknown): string {
 }
 
 export function LoginPage(): ReactElement {
-  const { token, login, notice } = useAuth();
+  const { token, login, notice, clearNotice } = useAuth();
+  // Show the expiry notice once: keep it locally, then clear it from the auth state.
+  const [shownNotice] = useState(notice);
+  useEffect(() => {
+    clearNotice();
+  }, [clearNotice]);
   const [failure, setFailure] = useState<string | null>(null);
   const {
     register,
@@ -71,7 +76,7 @@ export function LoginPage(): ReactElement {
   return (
     <section className={styles.page}>
       <h1>Sign in</h1>
-      {notice ? <Banner tone="info">{notice}</Banner> : null}
+      {shownNotice ? <Banner tone="info">{shownNotice}</Banner> : null}
       {failure ? <Banner>{failure}</Banner> : null}
       <form
         className={styles.form}
