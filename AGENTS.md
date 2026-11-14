@@ -85,6 +85,7 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 ## Commands
 
 - Node 26 (`nvm use`), then `corepack enable` and `pnpm install`
+- Prerequisite for the root gate (`pnpm lint|build|test|test:int`): .NET SDK 10.0.404 (see `global.json`), on `PATH` or in `~/.dotnet` (official `dotnet-install.sh`)
 - Lint: `pnpm lint` | Format: `pnpm format:check` | Build: `pnpm build`
 - Unit tests: `pnpm test` | DB integration tests (Docker running): `pnpm test:int`
 - Contracts: `pnpm --filter @eticket/contracts lint` | regenerate types: `pnpm --filter @eticket/contracts generate`

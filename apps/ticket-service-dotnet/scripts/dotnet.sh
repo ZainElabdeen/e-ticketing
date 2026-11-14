@@ -7,4 +7,8 @@ if [ -x "$HOME/.dotnet/dotnet" ]; then
 fi
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
+if ! command -v dotnet >/dev/null 2>&1; then
+  echo "ticket-service-dotnet: .NET SDK not found — install SDK 10.0.404 (see global.json) or run the official dotnet-install.sh into ~/.dotnet" >&2
+  exit 1
+fi
 exec dotnet "$@"

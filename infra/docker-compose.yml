@@ -89,6 +89,9 @@ services:
       INTERNAL_API_KEY_TICKET: ${INTERNAL_API_KEY_TICKET:?set INTERNAL_API_KEY_TICKET in infra/.env}
       SWAGGER_ENABLED: 'true'
       LOG_LEVEL: info
+    # Longer than the host's 15 s ShutdownTimeout, so compose does not SIGKILL while in-flight
+    # requests and the expiry job are still draining.
+    stop_grace_period: 20s
     ports:
       # Local only; services are not public (spec section 6).
       - '127.0.0.1:3001:3001'
