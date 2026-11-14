@@ -532,7 +532,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Downstream service unreachable (code UPSTREAM_UNAVAILABLE) */
+        /** @description Downstream service unreachable, or it rejected the gateway's key with 401/403 (code UPSTREAM_UNAVAILABLE) */
         UpstreamUnavailable: {
             headers: {
                 [name: string]: unknown;

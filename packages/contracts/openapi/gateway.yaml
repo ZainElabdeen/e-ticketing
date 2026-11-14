@@ -7,7 +7,9 @@ info:
     The only public backend. Holds public-scope API keys, rate limits, applies
     CORS and security headers, issues correlation IDs and backoffice JWTs, and
     proxies 1:1 to services (ADR-0012). Downstream 4xx/5xx bodies pass through
-    unchanged. Connection failure → 502 UPSTREAM_UNAVAILABLE; 5 s timeout →
+    unchanged, except a downstream 401/403 (the gateway's own key rejected),
+    which becomes 502 UPSTREAM_UNAVAILABLE. Connection failure → 502
+    UPSTREAM_UNAVAILABLE; 5 s timeout →
     504 UPSTREAM_TIMEOUT. Request/response shapes are the downstream schemas,
     referenced, not copied. Served under /api by the ingress.
 servers:
@@ -323,7 +325,7 @@ components:
         application/json:
           schema: { $ref: './common.yaml#/components/schemas/Error' }
     UpstreamUnavailable:
-      description: Downstream service unreachable (code UPSTREAM_UNAVAILABLE)
+      description: Downstream service unreachable, or it rejected the gateway's key with 401/403 (code UPSTREAM_UNAVAILABLE)
       content:
         application/json:
           schema: { $ref: './common.yaml#/components/schemas/Error' }
