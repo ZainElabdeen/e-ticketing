@@ -21,16 +21,30 @@ the database can see.
 - **A middleware pipeline replicates the NestJS envelope and key scopes**:
   correlation ID, API key with `[InternalScope]` metadata plus a normalized path
   check, error envelope (never ProblemDetails), strict System.Text.Json binding.
-- **Serilog compact JSON** to stdout with the spec section 7 fields.
+- **Serilog with a custom `JsonLogFormatter`** to stdout, emitting the spec section 7 fields.
 - **`/docs` serves the contract file** (`packages/contracts/dist/ticket-service.json`,
   copied at build), so docs and the contract cannot drift.
 - **Compose runs the .NET image as `ticket-service`.** The NestJS service stays
   as the reference under the `reference` profile on host port 3011.
 - **The contract suite is the parity gate.** Both implementations must pass the
-  identical suite (38/38 for the ticket suite) before the switch.
+  identical suite (the full ticket contract suite) before the switch.
 - The Docker image bundles the contract in an early Node stage, so a clean
-  checkout builds with `docker compose up --build`, and sets no RID so it builds
-  for `linux/arm64` too.
+  checkout builds with `docker compose up --build`. It sets no RID and uses
+  multi-arch base images, so `linux/arm64` builds should work; verified in Phase 7.
+
+## Known differences from the NestJS reference
+
+None of these is contract-visible as a failure; the contract suite passes on both.
+
+- Routing is case-insensitive: `/V1/ORDERS` gives 200 and `/V1/INTERNAL/...`
+  gives 403 (the path check is normalized); Nest gives 404 for both.
+- A wrong method on a known path gives 404, not 405.
+- A non-JSON content type gives 400 `VALIDATION_ERROR` (Nest measured the same).
+- The log `route` field uses the `{orderId}` template format.
+- The log `service` field is `ticket-service-dotnet`.
+- Some 400 message wordings differ; status and code match.
+- `quantity: 1.0` is rejected.
+- Nil or non-RFC UUIDs are accepted where Nest rejects them.
 
 ## Alternatives
 
