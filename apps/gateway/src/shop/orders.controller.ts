@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import type { CorrelatedRequest } from '@eticket/nest-common';
 import { correlationIdOf } from '@eticket/nest-common';
+import { pathSegment } from './path-segment';
 import { DownstreamClient, relay, type RelayTarget } from '../downstream/downstream.client';
 
 @Controller('v1/orders')
@@ -30,7 +31,7 @@ export class OrdersController {
   ): Promise<void> {
     relay(
       res,
-      await this.downstream.send('ticket', 'GET', `/v1/orders/${encodeURIComponent(orderId)}`, {
+      await this.downstream.send('ticket', 'GET', `/v1/orders/${pathSegment(orderId)}`, {
         correlationId: correlationIdOf(req),
       }),
     );

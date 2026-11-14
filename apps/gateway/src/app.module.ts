@@ -46,14 +46,8 @@ export function createAppModule(
         }),
       }),
       TerminusModule,
-      HttpModule.registerAsync({
-        inject: [ConfigService],
-        useFactory: (config: ConfigService<EnvironmentVariables, true>) => ({
-          timeout: config.get('DOWNSTREAM_TIMEOUT_MS'),
-          validateStatus: () => true,
-          maxRedirects: 0,
-        }),
-      }),
+      // Timeout, status and redirect handling are set per call (DownstreamClient, HealthController).
+      HttpModule,
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],

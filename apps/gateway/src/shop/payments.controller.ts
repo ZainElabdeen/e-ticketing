@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Req, Res } from '@nestjs/common';
 import type { CorrelatedRequest } from '@eticket/nest-common';
 import { correlationIdOf } from '@eticket/nest-common';
+import { pathSegment } from './path-segment';
 import { DownstreamClient, relay, type RelayTarget } from '../downstream/downstream.client';
 
 @Controller('v1/payments')
@@ -32,17 +33,13 @@ export class PaymentsController {
   ): Promise<void> {
     relay(
       res,
-      await this.downstream.send(
-        'payment',
-        'GET',
-        `/v1/payments/${encodeURIComponent(paymentId)}`,
-        { correlationId: correlationIdOf(req) },
-      ),
+      await this.downstream.send('payment', 'GET', `/v1/payments/${pathSegment(paymentId)}`, {
+        correlationId: correlationIdOf(req),
+      }),
     );
   }
 
   @Post(':paymentId/cancel')
-  @HttpCode(200)
   async cancel(
     @Req() req: CorrelatedRequest,
     @Res() res: RelayTarget,
@@ -53,7 +50,7 @@ export class PaymentsController {
       await this.downstream.send(
         'payment',
         'POST',
-        `/v1/payments/${encodeURIComponent(paymentId)}/cancel`,
+        `/v1/payments/${pathSegment(paymentId)}/cancel`,
         { correlationId: correlationIdOf(req) },
       ),
     );

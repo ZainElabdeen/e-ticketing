@@ -1,4 +1,5 @@
 import { startHttpStub, type HttpStub } from '@eticket/testing';
+import { request as rawRequest } from 'node:http';
 import request from 'supertest';
 import { PUBLIC_KEYS, startGateway, type RunningGateway } from './support/app';
 
@@ -64,11 +65,18 @@ describe('shop routes', () => {
       expect(r.body).toEqual(envelope);
     });
 
-    it('encodes path params so they cannot traverse', async () => {
+    it('refuses a path param that decodes to a separator without calling downstream', async () => {
+      stubs.ticket.on('GET', /^\/v1\/orders\//, { status: 200, body: {} });
+      const r = await request(gw.baseUrl).get('/v1/orders/abc%2F..%2Fx');
+      expect(r.status).toBe(404);
+      expect(r.body).toMatchObject({ code: 'NOT_FOUND' });
+      expect(stubs.ticket.calls).toHaveLength(0);
+    });
+
+    it('encodes path params it does forward', async () => {
       stubs.ticket.on('GET', /^\/v1\/orders\//, { status: 404, body: { code: 'NOT_FOUND' } });
-      await request(gw.baseUrl).get('/v1/orders/abc%2F..%2Fx');
-      expect(stubs.ticket.calls).toHaveLength(1);
-      expect(stubs.ticket.calls[0]!.path).toBe('/v1/orders/abc%2F..%2Fx');
+      await request(gw.baseUrl).get('/v1/orders/a%20b%3Fx');
+      expect(stubs.ticket.calls[0]!.path).toBe('/v1/orders/a%20b%3Fx');
     });
 
     it('GET /v1/orders/:id passes through', async () => {
@@ -131,11 +139,17 @@ describe('shop routes', () => {
         .set('Authorization', 'Bearer x')
         .set('X-Api-Key', 'client-key')
         .set('Cookie', 'a=b')
-        .set('X-Forwarded-For', '1.2.3.4');
+        .set('X-Forwarded-For', '1.2.3.4')
+        .set('X-Forwarded-Host', 'evil.example')
+        .set('X-Forwarded-Proto', 'https')
+        .set('Host', 'evil.example');
       const h = stubs.ticket.calls[0]!.headers;
       expect(h['authorization']).toBeUndefined();
       expect(h['cookie']).toBeUndefined();
       expect(h['x-forwarded-for']).toBeUndefined();
+      expect(h['x-forwarded-host']).toBeUndefined();
+      expect(h['x-forwarded-proto']).toBeUndefined();
+      expect(h['host']).not.toBe('evil.example');
       expect(h['x-api-key']).toBe(PUBLIC_KEYS.ticket);
     });
 
@@ -214,6 +228,47 @@ describe('shop routes', () => {
       const r = await request(gw.baseUrl).get('/v1/ticket-types');
       expect(r.status).toBe(500);
       expect(r.body).toEqual(envelope);
+    });
+  });
+
+  describe('dot-segment path params', () => {
+    const raw = (method: string, path: string): Promise<{ status: number; body: string }> =>
+      new Promise((resolve, reject) => {
+        const url = new URL(gw.baseUrl);
+        // http.request sends the path as given, unlike supertest/axios which may normalise it.
+        const req = rawRequest(
+          { host: url.hostname, port: url.port, method, path, headers: { 'content-length': '0' } },
+          (res) => {
+            let body = '';
+            res.on('data', (c: Buffer) => (body += c.toString()));
+            res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+          },
+        );
+        req.on('error', reject);
+        req.end();
+      });
+
+    it.each([
+      ['GET', '/v1/orders/..'],
+      ['GET', '/v1/orders/.'],
+      ['GET', '/v1/payments/..'],
+      ['POST', '/v1/payments/../cancel'],
+      ['POST', '/v1/payments/%2E%2E/cancel'],
+      ['POST', '/v1/payments/./cancel'],
+    ])('%s %s never leaves the mapped route', async (method, path) => {
+      for (const stub of [stubs.ticket, stubs.payment]) {
+        stub.on('GET', /.*/, { status: 200, body: {} });
+        stub.on('POST', /.*/, { status: 200, body: {} });
+      }
+      const r = await raw(method, path);
+      const calls = [...stubs.ticket.calls, ...stubs.payment.calls];
+      for (const call of calls) {
+        expect(['/v1/', '/v1/cancel', '/v1/payments/cancel']).not.toContain(call.path);
+        expect(call.path).toMatch(/^\/v1\/(orders|payments)\/(%2E|[^./])/);
+      }
+      expect(r.status).toBe(404);
+      expect(JSON.parse(r.body)).toMatchObject({ code: 'NOT_FOUND' });
+      expect(calls).toHaveLength(0);
     });
   });
 

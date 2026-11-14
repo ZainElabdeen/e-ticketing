@@ -79,6 +79,15 @@ export class DownstreamClient {
     if (opts.idempotencyKey !== undefined) {
       headers['Idempotency-Key'] = opts.idempotencyKey;
     }
+    // Defense in depth: axios resolves dot segments, which would leave the mapped route.
+    if (
+      path
+        .split('?')[0]!
+        .split('/')
+        .some((segment) => segment === '.' || segment === '..')
+    ) {
+      throw new UpstreamUnavailableError(`${name} request path is invalid`);
+    }
     const timeoutMs = this.config.get('DOWNSTREAM_TIMEOUT_MS', { infer: true });
     let res;
     try {
