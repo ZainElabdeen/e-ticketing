@@ -1,46 +1,21 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Reflector } from '@nestjs/core';
-import {
-  InjectThrottlerOptions,
-  InjectThrottlerStorage,
-  ThrottlerGuard,
-  type ThrottlerModuleOptions,
-  type ThrottlerRequest,
-  type ThrottlerStorage,
-} from '@nestjs/throttler';
-import type { EnvironmentVariables } from '../config/env';
-import { RATE_LIMIT_SCOPE, type RateLimitScope } from './rate-limit';
-
-const SCOPE_KEYS = {
-  orders: 'RATE_LIMIT_ORDERS_PER_MIN',
-  login: 'RATE_LIMIT_LOGIN_PER_MIN',
-} as const satisfies Record<RateLimitScope, keyof EnvironmentVariables>;
+import { createHash } from 'node:crypto';
+import { Injectable, type ExecutionContext } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 /**
- * Per client IP (`req.ip`, which Express derives from `trust proxy`), one
- * counter per route. A route tagged with @RateLimit gets its own env-driven
- * limit; everything else uses the default. Rejected calls do not extend the
- * window, and `Retry-After` is the seconds until the oldest hit expires.
+ * Two buckets per client IP (`req.ip`, which Express derives from
+ * `trust proxy`):
+ * - `default`: ONE pool shared by every non-health route;
+ * - `scoped`: a per-scope budget for routes tagged with @RateLimit.
+ * The wire contract carries a plain `Retry-After`, whichever bucket tripped.
  */
 @Injectable()
 export class GatewayThrottlerGuard extends ThrottlerGuard {
-  constructor(
-    @InjectThrottlerOptions() options: ThrottlerModuleOptions,
-    @InjectThrottlerStorage() storage: ThrottlerStorage,
-    reflector: Reflector,
-    private readonly config: ConfigService<EnvironmentVariables, true>,
-  ) {
-    super(options, storage, reflector);
-  }
-
-  protected override async handleRequest(props: ThrottlerRequest): Promise<boolean> {
-    const scope = this.reflector.getAllAndOverride<RateLimitScope | undefined>(RATE_LIMIT_SCOPE, [
-      props.context.getHandler(),
-      props.context.getClass(),
-    ]);
-    const limit = scope ? this.config.get(SCOPE_KEYS[scope], { infer: true }) : props.limit;
-    return super.handleRequest({ ...props, limit, blockDuration: 0 });
+  protected override generateKey(context: ExecutionContext, tracker: string, name: string): string {
+    if (name === 'default') {
+      return createHash('sha256').update(`${tracker}:default`).digest('hex');
+    }
+    return super.generateKey(context, tracker, name);
   }
 
   protected override setResponseHeader(
@@ -48,7 +23,6 @@ export class GatewayThrottlerGuard extends ThrottlerGuard {
     name: string,
     value: string | number,
   ): void {
-    // The library can report 0 s when the window ends within the second.
-    super.setResponseHeader(res, name, name === 'Retry-After' ? Math.max(1, Number(value)) : value);
+    super.setResponseHeader(res, name === 'Retry-After-scoped' ? 'Retry-After' : name, value);
   }
 }

@@ -1,6 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
 
-export const RATE_LIMIT_WINDOW_MS = 60_000;
 export const RATE_LIMIT_SCOPE = 'gateway:rate-limit-scope';
 
 /** Names a per-route budget; the limit itself comes from validated config. */

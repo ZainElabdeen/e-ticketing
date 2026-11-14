@@ -144,6 +144,14 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(1)
   RATE_LIMIT_LOGIN_PER_MIN: number = 10;
+
+  /** Rate-limit window length. Only tests shorten it; production keeps 60 s. */
+  @Expose()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  @Max(3_600_000)
+  RATE_LIMIT_WINDOW_MS: number = 60_000;
 }
 
 /** Throws one Error that lists every invalid variable. */
