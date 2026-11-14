@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import {
   applyMigrations,
@@ -278,6 +279,36 @@ describe('OutboxWorker', () => {
       expect(ticket.calls).toHaveLength(0);
     });
 
+    it('does not trip on a 4xx: the 409 event is retried alone and the others finish in the same run', async () => {
+      ticket.on('POST', CONFIRM, ok);
+      const conflict = {
+        status: 409,
+        body: { statusCode: 409, code: 'POSTING_CONFLICT', message: 'x', correlationId: 'c' },
+      };
+      let n = 0;
+      ledger.on('POST', POSTINGS, () => (n++ === 0 ? conflict : created));
+      const ids: string[] = [];
+      for (let i = 0; i < 4; i++) ids.push((await seed()).eventId);
+
+      expect(await worker.runOnce()).toBe(4);
+      expect(ledger.calls).toHaveLength(4);
+      const rows = await Promise.all(ids.map(row));
+      expect(rows[0]).toMatchObject({ status: 'PENDING', attempts: 1 });
+      expect(rows[0]?.last_error).not.toBe(SKIPPED);
+      for (const r of rows.slice(1)) expect(r).toMatchObject({ status: 'DONE' });
+    });
+
+    it('trips on a 5xx like on an outage', async () => {
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, { status: 503, body: {} });
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i++) ids.push((await seed()).eventId);
+      expect(await worker.runOnce()).toBe(3);
+      expect(ledger.calls).toHaveLength(1);
+      const rows = await Promise.all(ids.map(row));
+      expect(rows.filter((r) => r.last_error === SKIPPED)).toHaveLength(2);
+    });
+
     it('makes only one timed-out ledger call when failures are slow', async () => {
       await boot({ DOWNSTREAM_TIMEOUT_MS: '300' });
       ticket.on('POST', CONFIRM, ok);
@@ -350,6 +381,77 @@ describe('OutboxWorker', () => {
       expect(await worker.runOnce()).toBe(0);
       spy.mockRestore();
       expect(await row(eventId)).toMatchObject({ status: 'PENDING', attempts: 0 });
+    });
+  });
+
+  describe('recordFailedAttempt guards', () => {
+    it('does not touch or log FAILED for an event that is no longer PENDING', async () => {
+      await boot({ OUTBOX_MAX_ATTEMPTS: '1' });
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, created);
+      const { eventId } = await seed();
+      await sql.query(
+        `UPDATE payments.outbox_events SET status = 'DONE', processed_at = now() WHERE id = $1`,
+        [eventId],
+      );
+      const repo = svc.app.get(OutboxRepository);
+      const logger = (repo as unknown as { logger: Logger }).logger;
+      const errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined);
+      await (
+        repo as unknown as {
+          recordFailedAttempt: (id: string, e: unknown, o: string | null) => Promise<void>;
+        }
+      ).recordFailedAttempt(eventId, new Error('late'), null);
+      expect(await row(eventId)).toMatchObject({ status: 'DONE', attempts: 0, last_error: null });
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+      await boot();
+    });
+
+    it('keeps the confirm outcome when the claiming transaction rolls back after the ledger call', async () => {
+      ticket.on('POST', CONFIRM, ok);
+      ledger.on('POST', POSTINGS, created);
+      const { eventId } = await seed();
+      ticket.calls.length = 0;
+      const prisma = svc.app.get(PrismaService);
+      const realTx = prisma.$transaction.bind(prisma) as (
+        fn: (tx: Record<string, unknown>) => Promise<unknown>,
+        opts: unknown,
+      ) => Promise<unknown>;
+      // Fails the final status UPDATE, so the transaction rolls back after confirm and post.
+      const spy = jest.spyOn(prisma, '$transaction').mockImplementationOnce(((
+        fn: (tx: Record<string, unknown>) => Promise<unknown>,
+        opts: unknown,
+      ) =>
+        realTx(
+          (tx) =>
+            fn(
+              new Proxy(tx, {
+                get(target, prop) {
+                  if (prop === '$executeRaw') {
+                    return () => Promise.reject(new Error('done update failed'));
+                  }
+                  const v = target[prop as string];
+                  return typeof v === 'function' ? (v as () => unknown).bind(target) : v;
+                },
+              }),
+            ),
+          opts,
+        )) as never);
+
+      expect(await worker.runOnce()).toBe(0);
+      spy.mockRestore();
+      expect(ticket.calls).toHaveLength(1);
+      expect(await row(eventId)).toMatchObject({
+        status: 'PENDING',
+        attempts: 1,
+        confirm_outcome: 'CONFIRMED',
+      });
+
+      await makeDue(eventId);
+      expect(await worker.runOnce()).toBe(1);
+      expect(ticket.calls).toHaveLength(1);
+      expect(await row(eventId)).toMatchObject({ status: 'DONE', confirm_outcome: 'CONFIRMED' });
     });
   });
 
