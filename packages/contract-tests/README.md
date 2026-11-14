@@ -1,6 +1,6 @@
 # contract-tests
 
-Black-box contract suites for the Ticket Service and the Payment Service. It checks the public and
+Black-box contract suites for the Ticket, Payment and Ledger Services. It checks the public and
 internal HTTP API against the bundled OpenAPI contract
 (`@eticket/contracts`, validated with Ajv): health, API-key scopes, ticket
 types, order creation and quota, order lookup, confirmation, and the error
@@ -53,7 +53,27 @@ pnpm --filter @eticket/contract-tests test:contract:payment
 | `CONTRACT_TICKET_API_KEY`   | yes      | The Ticket Service public API key                      |
 | `CONTRACT_QR_DELAY_SECONDS` | no       | The target's `QR_SUCCESS_DELAY_SECONDS`; defaults to 8 |
 
-`test:contract` runs both suites, so it needs both the ticket variables (`CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY`) and the payment variables above.
+## Ledger Service area
+
+`test:contract:ledger` checks the Ledger Service: health, API-key scopes
+(the public key is refused on `/v1/internal/*`), idempotent double-entry
+postings, conflict detection, journal entries, account balances, and the error
+envelope. It needs only the Ledger Service.
+
+```bash
+CONTRACT_LEDGER_BASE_URL=http://127.0.0.1:3003 \
+CONTRACT_LEDGER_API_KEY=<ledger public key> \
+CONTRACT_LEDGER_INTERNAL_API_KEY=<ledger internal key> \
+pnpm --filter @eticket/contract-tests test:contract:ledger
+```
+
+| Variable                           | Required | Meaning                             |
+| ---------------------------------- | -------- | ----------------------------------- |
+| `CONTRACT_LEDGER_BASE_URL`         | yes      | Ledger Service base URL             |
+| `CONTRACT_LEDGER_API_KEY`          | yes      | The Ledger Service public API key   |
+| `CONTRACT_LEDGER_INTERNAL_API_KEY` | yes      | The Ledger Service internal API key |
+
+`test:contract` runs all three suites, so it needs the ticket variables (`CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY`), the payment variables and the ledger variables above. Run the suites in order ticket, payment, ledger on a fresh volume.
 
 ## Warning: the suite mutates the target
 
