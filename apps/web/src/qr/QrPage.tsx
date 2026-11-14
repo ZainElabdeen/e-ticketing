@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
-import { useEffect, type ReactElement } from 'react';
+import { useEffect, useRef, type ReactElement } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useApi } from '../api/client';
 import { ApiError, call } from '../api/errors';
@@ -25,12 +25,17 @@ export function QrPage(): ReactElement {
     if (state === 'succeeded') void navigate(`/result/${paymentId}`, { replace: true });
   }, [state, paymentId, navigate]);
 
+  // A ref, not isPending: two clicks can land before React re-renders the disabled button.
+  const cancelling = useRef(false);
   const cancel = useMutation({
     mutationFn: () =>
       call(api.POST('/v1/payments/{paymentId}/cancel', { params: { path: { paymentId } } })),
     onSuccess: () => {
       forgetPayment(orderId);
       void navigate(`/checkout/${orderId}?method=card`, { replace: true });
+    },
+    onSettled: () => {
+      cancelling.current = false;
     },
     onError: async (e) => {
       if (e instanceof ApiError && e.code === 'PAYMENT_NOT_CANCELLABLE') {
@@ -123,7 +128,9 @@ export function QrPage(): ReactElement {
           variant="quiet"
           disabled={cancel.isPending}
           onClick={() => {
-            if (!cancel.isPending) cancel.mutate();
+            if (cancelling.current) return;
+            cancelling.current = true;
+            cancel.mutate();
           }}
         >
           Use card instead
