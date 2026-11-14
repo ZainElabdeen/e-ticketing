@@ -116,8 +116,9 @@ services:
         condition: service_completed_successfully
       ticket-service:
         condition: service_healthy
+      # Started, not healthy: payment must boot and keep confirming orders while the Ledger is down.
       ledger-service:
-        condition: service_healthy
+        condition: service_started
     environment:
       PORT: 3002
       DATABASE_URL: postgresql://payments_app:${PAYMENTS_APP_PASSWORD:?set PAYMENTS_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=payments
