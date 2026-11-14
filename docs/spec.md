@@ -473,8 +473,8 @@ Gateway routes, JWT required:
 - `GET /v1/backoffice/ticket-availability` → Ticket Service
   `GET /v1/ticket-types`.
 
-Admin: single user from env (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, bcrypt cost
-12). JWT: HS256, claims `sub` (email), `iat`, `exp` (1 h), `iss =
+Admin: single user from env (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH_B64`: base64 of a bcrypt cost-12
+hash, made by `infra/scripts/admin-hash.mjs`, ADR-0022). JWT: HS256, claims `sub` (email), `iat`, `exp` (1 h), `iss =
 e-ticketing-gateway`. Expiry is the only revocation (ADR-0010).
 
 ## 5. Web app (apps/web)
@@ -545,7 +545,9 @@ The total on `/` is a preview from listed prices; the server total from
   inside the cluster.
 - Gateway behavior on downstream failure: 5 s timeout per call. Connection
   failure → `502 UPSTREAM_UNAVAILABLE`; timeout → `504 UPSTREAM_TIMEOUT`.
-  Downstream 4xx/5xx bodies are passed through unchanged (status and envelope).
+  Downstream 4xx/5xx bodies are passed through unchanged (status and envelope),
+  except a downstream 401 or 403: that means the gateway's own key is wrong, so it
+  becomes `502 UPSTREAM_UNAVAILABLE` and a warn log names the service and status.
   The gateway never retries non-idempotent calls; `POST /v1/payments` is safe
   for the *client* to retry because of the idempotency key.
 
@@ -575,12 +577,16 @@ The total on `/` is a preview from listed prices; the server total from
 | `PUBLIC_API_KEY_TICKET` / `_PAYMENT` / `_LEDGER` | gateway (sends), each service (accepts its own) | Public-scope keys |
 | `INTERNAL_API_KEY_TICKET` / `_LEDGER` | payment (sends), ticket and ledger (accept) | Internal-scope keys |
 | `JWT_SECRET` | gateway | HS256 secret, ≥ 32 bytes |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` | gateway | Backoffice admin |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH_B64` | gateway | Backoffice admin; the hash is base64 of a bcrypt cost-12 hash (`infra/scripts/admin-hash.mjs`, ADR-0022) |
+| `ADMIN_PASSWORD_DEV` | smoke test, contract runner | Plaintext admin password (the one that was hashed), local dev and smoke only; never in K3s or CI secrets other than for smoke |
+| `TRUST_PROXY` (0) | gateway | Proxy hops trusted for the client IP (0–5) |
+| `RATE_LIMIT_DEFAULT_PER_MIN` (100), `RATE_LIMIT_ORDERS_PER_MIN` (5), `RATE_LIMIT_LOGIN_PER_MIN` (10) | gateway | Per-IP rate limits (§7) |
+| `RATE_LIMIT_WINDOW_MS` (60000) | gateway | Test-only: shortens the rate-limit window; never set in compose or K3s |
 | `WEB_ORIGIN` | gateway | CORS allowed origin |
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
 | `ORDER_TTL_MINUTES` (15), `QR_SUCCESS_DELAY_SECONDS` (8) | ticket, payment | Business timings |
-| `DOWNSTREAM_TIMEOUT_MS` (5000) | payment | Timeout per call to the Ticket and Ledger Services (100–30000) |
+| `DOWNSTREAM_TIMEOUT_MS` (5000) | gateway, payment | Timeout per downstream call (100–30000) |
 | `QR_JOB_INTERVAL_SECONDS` (1), `QR_JOB_BATCH_SIZE` (50), `QR_JOB_ENABLED` (true) | payment | QR success job cadence (§4.2); `false` only in tests that drive the job by hand |
 | `OUTBOX_INTERVAL_SECONDS` (2), `OUTBOX_BATCH_SIZE` (10), `OUTBOX_MAX_ATTEMPTS` (10), `OUTBOX_ENABLED` (true) | payment | Outbox worker cadence and retry cap (§4.2); `false` only in tests that drive the worker by hand |
 | `ORDER_EXPIRY_INTERVAL_SECONDS` (60), `ORDER_EXPIRY_BATCH_SIZE` (100), `ORDER_EXPIRY_ENABLED` (true) | ticket | Expiry job cadence (§4.1); `false` only in tests that drive the job by hand |
@@ -588,6 +594,9 @@ The total on `/` is a preview from listed prices; the server total from
 | `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests (ticket) | Target under test (public and internal-scope keys) |
 | `CONTRACT_PAYMENT_BASE_URL`, `CONTRACT_PAYMENT_API_KEY`, `CONTRACT_TICKET_BASE_URL`, `CONTRACT_TICKET_API_KEY`, `CONTRACT_QR_DELAY_SECONDS` (8) | contract tests (payment) | Payment target, plus the Ticket Service it creates orders on; the delay must equal the target's `QR_SUCCESS_DELAY_SECONDS` |
 | `CONTRACT_LEDGER_BASE_URL`, `CONTRACT_LEDGER_API_KEY`, `CONTRACT_LEDGER_INTERNAL_API_KEY` | contract tests (ledger) | Ledger target under test (public and internal-scope keys) |
+| `CONTRACT_GATEWAY_BASE_URL`, `CONTRACT_ADMIN_EMAIL`, `CONTRACT_ADMIN_PASSWORD` | contract tests (gateway) | Gateway target and the admin credentials it logs in with; the suite stays inside the production rate limits (at most 4 orders, 6 logins, 60 requests). `infra/scripts/contract.sh` maps them from `ADMIN_EMAIL` and `ADMIN_PASSWORD_DEV` |
+| `GATEWAY_HOST_PORT` (3000), `POSTGRES_HOST_PORT` (5432) | compose, smoke, contract runner | Host ports (bound to 127.0.0.1) when another project holds 3000 or 5432; smoke and `contract.sh gateway` derive the Gateway URL from `GATEWAY_HOST_PORT` |
+| `SMOKE_GATEWAY_URL` | smoke test | Overrides the Gateway URL the smoke test uses (default `http://127.0.0.1:${GATEWAY_HOST_PORT:-3000}`); `CONTRACT_GATEWAY_BASE_URL` does the same for `contract.sh gateway` |
 | `CONTRACT_ORDER_TTL_MINUTES` (15) | contract tests | Must equal the target's `ORDER_TTL_MINUTES` |
 
 ## 8. Testing strategy
@@ -695,3 +704,4 @@ QR → result → backoffice → balances) ships with it.
 | [0019](./adr/0019-nestjs-axios-outbound-http.md) | `@nestjs/axios` + axios for service-to-service HTTP, Promise-only client API | Built-in `fetch`; `openapi-fetch` |
 | [0020](./adr/0020-shared-nest-common-package.md) | Shared NestJS plumbing in @eticket/nest-common | Copy per service |
 | [0021](./adr/0021-ticket-service-dotnet-port.md) | .NET Ticket Service: one web project, EF Core on the Prisma-owned schema, raw SQL for locks, envelope middleware; contract suite is the parity gate | Minimal APIs, four assemblies, EF migrations, Dapper |
+| [0022](./adr/0022-gateway-auth-libraries-and-admin-hash.md) | `@nestjs/jwt` + `bcryptjs`; admin hash stored as base64 (`ADMIN_PASSWORD_HASH_B64`); expiry-only revocation | `jose`, native `bcrypt`, `$$` escaping, a secret file |

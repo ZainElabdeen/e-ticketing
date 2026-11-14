@@ -5,3 +5,5 @@ export { paymentTargetFromEnv, type PaymentContractTarget } from './payment-serv
 export { runPaymentServiceContract } from './payment-service/suite';
 export { ledgerTargetFromEnv, type LedgerContractTarget } from './ledger-service/target';
 export { runLedgerServiceContract } from './ledger-service/suite';
+export { gatewayTargetFromEnv, type GatewayContractTarget } from './gateway/target';
+export { runGatewayContract } from './gateway/suite';

@@ -1,17 +1,19 @@
 openapi: 3.0.3
 info:
   title: Gateway (BFF) API
-  version: 2.0.0
+  version: 2.1.1
   license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
   description: >
     The only public backend. Holds public-scope API keys, rate limits, applies
     CORS and security headers, issues correlation IDs and backoffice JWTs, and
     proxies 1:1 to services (ADR-0012). Downstream 4xx/5xx bodies pass through
-    unchanged. Connection failure → 502 UPSTREAM_UNAVAILABLE; 5 s timeout →
+    unchanged, except a downstream 401/403 (the gateway's own key rejected),
+    which becomes 502 UPSTREAM_UNAVAILABLE. Connection failure → 502
+    UPSTREAM_UNAVAILABLE; 5 s timeout →
     504 UPSTREAM_TIMEOUT. Request/response shapes are the downstream schemas,
     referenced, not copied. Served under /api by the ingress.
 servers:
-  - url: http://localhost:3000
+  - url: /
 
 # Shop routes are anonymous; backoffice routes override with BearerAuth.
 security: []
@@ -40,7 +42,11 @@ paths:
               additionalProperties: false
               properties:
                 email: { type: string, format: email }
-                password: { type: string, minLength: 8, maxLength: 128 }
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+                  description: At most 72 UTF-8 bytes (bcrypt limit).
       responses:
         '200':
           description: JWT issued (HS256, 1 hour)
@@ -118,6 +124,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './ticket-service.yaml#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '404': { $ref: '#/components/responses/Downstream' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }
@@ -169,6 +176,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './payment-service.yaml#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '404': { $ref: '#/components/responses/Downstream' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }
@@ -188,6 +196,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './payment-service.yaml#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '404': { $ref: '#/components/responses/Downstream' }
         '409': { $ref: '#/components/responses/Downstream' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -211,6 +220,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './payment-service.yaml#/components/schemas/TransactionPage' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }
@@ -233,6 +243,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './ledger-service.yaml#/components/schemas/JournalEntryPage' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }
@@ -314,7 +325,7 @@ components:
         application/json:
           schema: { $ref: './common.yaml#/components/schemas/Error' }
     UpstreamUnavailable:
-      description: Downstream service unreachable (code UPSTREAM_UNAVAILABLE)
+      description: Downstream service unreachable, or it rejected the gateway's key with 401/403 (code UPSTREAM_UNAVAILABLE)
       content:
         application/json:
           schema: { $ref: './common.yaml#/components/schemas/Error' }

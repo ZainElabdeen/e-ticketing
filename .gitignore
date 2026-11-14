@@ -19,3 +19,6 @@ apps/*/src/generated/
 bin/
 obj/
 TestResults/
+
+# Playwright MCP scratch output
+.playwright-mcp/

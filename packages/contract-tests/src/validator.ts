@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 
-export type ServiceName = 'ticket-service' | 'payment-service' | 'ledger-service';
+export type ServiceName = 'ticket-service' | 'payment-service' | 'ledger-service' | 'gateway';
 
 interface OpenApiDocument {
   paths: Record<string, Record<string, unknown>>;

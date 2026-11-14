@@ -14,7 +14,15 @@ export interface StubCall {
  * `chunkDelayMs`: a reply that is never idle but takes a long time overall.
  */
 export type StubReply =
-  { status: number; body?: unknown; delayMs?: number; chunkDelayMs?: number } | 'drop';
+  | {
+      status: number;
+      body?: unknown;
+      /** Extra response headers; a `content-type` here replaces the JSON default and sends a string body as is. */
+      headers?: Record<string, string>;
+      delayMs?: number;
+      chunkDelayMs?: number;
+    }
+  | 'drop';
 
 export interface HttpStub {
   url: string;
@@ -48,9 +56,16 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   }
 }
 
-function send(res: ServerResponse, status: number, body?: unknown): void {
-  const payload = body === undefined ? '' : JSON.stringify(body);
-  res.writeHead(status, { 'content-type': 'application/json' });
+function send(
+  res: ServerResponse,
+  status: number,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): void {
+  const custom = Object.keys(headers).some((k) => k.toLowerCase() === 'content-type');
+  const payload =
+    body === undefined ? '' : custom && typeof body === 'string' ? body : JSON.stringify(body);
+  res.writeHead(status, { 'content-type': 'application/json', ...headers });
   res.end(payload);
 }
 
@@ -121,7 +136,7 @@ export async function startHttpStub(): Promise<HttpStub> {
       await trickle(res, reply.status, JSON.stringify(reply.body), reply.chunkDelayMs);
       return;
     }
-    send(res, reply.status, reply.body);
+    send(res, reply.status, reply.body, reply.headers);
   }
 
   async function trickle(

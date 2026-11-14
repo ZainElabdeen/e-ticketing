@@ -532,7 +532,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Downstream service unreachable (code UPSTREAM_UNAVAILABLE) */
+        /** @description Downstream service unreachable, or it rejected the gateway's key with 401/403 (code UPSTREAM_UNAVAILABLE) */
         UpstreamUnavailable: {
             headers: {
                 [name: string]: unknown;
@@ -608,6 +608,7 @@ export interface operations {
                 "application/json": {
                     /** Format: email */
                     email: string;
+                    /** @description At most 72 UTF-8 bytes (bcrypt limit). */
                     password: string;
                 };
             };
@@ -720,6 +721,7 @@ export interface operations {
                     "application/json": components["schemas"]["Order"];
                 };
             };
+            400: components["responses"]["Downstream"];
             404: components["responses"]["Downstream"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamUnavailable"];
@@ -787,6 +789,7 @@ export interface operations {
                     "application/json": components["schemas"]["Payment"];
                 };
             };
+            400: components["responses"]["Downstream"];
             404: components["responses"]["Downstream"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamUnavailable"];
@@ -816,6 +819,7 @@ export interface operations {
                     "application/json": components["schemas"]["Payment"];
                 };
             };
+            400: components["responses"]["Downstream"];
             404: components["responses"]["Downstream"];
             409: components["responses"]["Downstream"];
             429: components["responses"]["RateLimited"];
@@ -847,6 +851,7 @@ export interface operations {
                     "application/json": components["schemas"]["TransactionPage"];
                 };
             };
+            400: components["responses"]["Downstream"];
             401: components["responses"]["Unauthorized"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamUnavailable"];
@@ -877,6 +882,7 @@ export interface operations {
                     "application/json": components["schemas"]["JournalEntryPage"];
                 };
             };
+            400: components["responses"]["Downstream"];
             401: components["responses"]["Unauthorized"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamUnavailable"];

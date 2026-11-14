@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# End-to-end smoke test: boots the three services on a fresh volume, buys a
-# ticket by card and by QR, and checks the ledger is balanced.
+# End-to-end smoke test: boots the three services and the gateway on a fresh volume, buys a
+# ticket by card and by QR through the gateway, and checks the ledger is balanced.
 # WARNING: this DESTROYS the local compose volume (`docker compose down -v`),
 # so all local database data is lost, before the run and again on teardown.
 # Usage: infra/scripts/smoke.sh [--keep]   (--keep leaves the stack running)
@@ -34,7 +34,7 @@ cleanup() {
 trap cleanup EXIT
 
 "${compose[@]}" down -v
-"${compose[@]}" up -d --build --wait ticket-service payment-service ledger-service
+"${compose[@]}" up -d --build --wait ticket-service payment-service ledger-service gateway
 
 # Node's own parser reads the file: no shell sourcing, so no `$` expansion or
 # command substitution from a password value. docker compose reads infra/.env itself.

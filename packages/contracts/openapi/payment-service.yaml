@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Payment Service API
-  version: 2.1.0
+  version: 2.1.1
   license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
   description: >
     Simulated payments with pluggable method handlers (card, QR). The amount is
@@ -108,6 +108,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Payment' }
+        '400':
+          description: paymentId is not a UUID (code VALIDATION_ERROR)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '404': { $ref: './common.yaml#/components/responses/NotFound' }
 
@@ -128,6 +133,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Payment' }
+        '400':
+          description: paymentId is not a UUID (code VALIDATION_ERROR)
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '404': { $ref: './common.yaml#/components/responses/NotFound' }
         '409':

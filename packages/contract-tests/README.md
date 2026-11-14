@@ -1,6 +1,6 @@
 # contract-tests
 
-Black-box contract suites for the Ticket, Payment and Ledger Services. It checks the public and
+Black-box contract suites for the Ticket, Payment and Ledger Services and the Gateway. It checks the public and
 internal HTTP API against the bundled OpenAPI contract
 (`@eticket/contracts`, validated with Ajv): health, API-key scopes, ticket
 types, order creation and quota, order lookup, confirmation, and the error
@@ -85,7 +85,37 @@ pnpm --filter @eticket/contract-tests test:contract:ledger
 | `CONTRACT_LEDGER_API_KEY`          | yes      | The Ledger Service public API key   |
 | `CONTRACT_LEDGER_INTERNAL_API_KEY` | yes      | The Ledger Service internal API key |
 
-`test:contract` runs all three suites, so it needs the ticket variables (`CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY`), the payment variables and the ledger variables above. Run the suites in order ticket, payment, ledger on a fresh volume.
+## Gateway area
+
+`test:contract:gateway` checks the public edge: health, the shop routes
+(ticket types, order, card payment with an idempotent replay, payment lookup),
+backoffice login and the four JWT-protected routes, and the allow-list (internal
+and unscoped paths answer 404). It needs the whole stack behind the Gateway.
+It talks only to the Gateway and holds no service key.
+
+The suite fits inside the production rate limits in one run (2 order
+creations of the 5/min limit, 3 logins of 10/min, about 23 requests of 100/min),
+so it runs against compose with default limits. Keep it that way: it shares one
+JWT across the backoffice tests. Run it after the ticket, payment and ledger
+suites, or before the ticket suite drains VIP: its orders use GOLD.
+
+```bash
+CONTRACT_GATEWAY_BASE_URL=http://127.0.0.1:3000 \
+CONTRACT_ADMIN_EMAIL=<admin email> \
+CONTRACT_ADMIN_PASSWORD=<admin password> \
+pnpm --filter @eticket/contract-tests test:contract:gateway
+```
+
+| Variable                    | Required | Meaning                                             |
+| --------------------------- | -------- | --------------------------------------------------- |
+| `CONTRACT_GATEWAY_BASE_URL` | yes      | Gateway base URL                                    |
+| `CONTRACT_ADMIN_EMAIL`      | yes      | The configured `ADMIN_EMAIL`                        |
+| `CONTRACT_ADMIN_PASSWORD`   | yes      | The plaintext password whose hash the Gateway holds |
+
+`infra/scripts/contract.sh gateway` maps these from `infra/.env`
+(`ADMIN_EMAIL` and `ADMIN_PASSWORD_DEV`).
+
+`test:contract` runs all four suites, so it needs the ticket, payment, ledger and gateway variables. Run the suites in order ticket → payment → ledger → gateway on a fresh volume.
 
 ## Warning: the suite mutates the target
 
