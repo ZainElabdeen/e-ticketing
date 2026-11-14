@@ -16,11 +16,14 @@ export class PostingConflictError extends DomainError {
   }
 }
 
-/** An invariant breach inside the ledger, never a client error. */
-export class UnbalancedEntryError extends DomainError {
-  readonly code = 'INTERNAL_ERROR';
-  readonly httpStatus = 500;
+/**
+ * An invariant breach inside the ledger, never a client error. A plain Error on
+ * purpose: the exception filter answers any non-DomainError with a generic 500
+ * and logs it, so this message stays server-side.
+ */
+export class UnbalancedEntryError extends Error {
   constructor(reason: string) {
     super(`unbalanced journal entry: ${reason}`);
+    this.name = 'UnbalancedEntryError';
   }
 }

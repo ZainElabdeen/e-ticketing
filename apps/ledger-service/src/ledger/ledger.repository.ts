@@ -165,13 +165,13 @@ export class LedgerRepository {
         name: string;
         type: AccountType;
         currency: string;
-        debit: bigint | null;
-        credit: bigint | null;
+        debit: bigint;
+        credit: bigint;
       }>
     >`
       SELECT a.code, a.name, a.type, a.currency,
-             COALESCE(sum(l.amount_minor) FILTER (WHERE l.direction = 'DEBIT'), 0) AS debit,
-             COALESCE(sum(l.amount_minor) FILTER (WHERE l.direction = 'CREDIT'), 0) AS credit
+             COALESCE(sum(l.amount_minor) FILTER (WHERE l.direction = 'DEBIT'), 0)::bigint AS debit,
+             COALESCE(sum(l.amount_minor) FILTER (WHERE l.direction = 'CREDIT'), 0)::bigint AS credit
       FROM ledger.accounts a
       LEFT JOIN ledger.journal_lines l ON l.account_id = a.id
       GROUP BY a.id, a.code, a.name, a.type, a.currency
@@ -179,8 +179,8 @@ export class LedgerRepository {
     let debitTotal = 0;
     let creditTotal = 0;
     const data = rows.map((r) => {
-      const debitMinor = toMinor(r.debit ?? 0n);
-      const creditMinor = toMinor(r.credit ?? 0n);
+      const debitMinor = toMinor(r.debit);
+      const creditMinor = toMinor(r.credit);
       debitTotal += debitMinor;
       creditTotal += creditMinor;
       return {

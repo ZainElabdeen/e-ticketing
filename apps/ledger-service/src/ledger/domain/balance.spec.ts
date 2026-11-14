@@ -1,3 +1,4 @@
+import { DomainError } from '@eticket/nest-common';
 import { assertBalanced, balanceOf, isDebitNormal } from './balance';
 import { UnbalancedEntryError } from './errors';
 import type { PlannedLine } from './posting';
@@ -44,13 +45,15 @@ describe('assertBalanced', () => {
   it('accepts a balanced three-line entry', () => {
     expect(() => assertBalanced([d(60), d(40), c(100)])).not.toThrow();
   });
-  it('is a 500 INTERNAL_ERROR, never a client error', () => {
+  it('is a plain Error, not a DomainError, so the filter answers a generic 500', () => {
     try {
       assertBalanced([d(1)]);
     } catch (e) {
-      expect(e).toMatchObject({ code: 'INTERNAL_ERROR', httpStatus: 500 });
+      expect(e).toBeInstanceOf(UnbalancedEntryError);
+      expect(e).not.toBeInstanceOf(DomainError);
+      expect(e).not.toHaveProperty('httpStatus');
     }
-    expect.assertions(1);
+    expect.assertions(3);
   });
 });
 
