@@ -1,16 +1,62 @@
+/*
+ * The ticket is two stacked, identically notched layers: an outer --ink layer and an inner --card
+ * surface inset by the outline width. The outer notch has radius r, the inner r + 1.5px, so the
+ * 1.5px outline follows the cut and the page shows through (no painted circles).
+ * --stub-w / --stub-h are the fixed stub size; notch centres sit on the middle of the 2px
+ * dashed divider. Outer and surface coordinates differ by the 1.5px inset, hence the offsets.
+ */
 .ticket {
+  --r: 11px;
+  --stub-w: 176px;
+  --stub-h: 78px;
+  --notch-a: radial-gradient(
+    circle at var(--ax) var(--ay),
+    transparent var(--r),
+    #000 calc(var(--r) + 0.5px)
+  );
+  --notch-b: radial-gradient(
+    circle at var(--bx) var(--by),
+    transparent var(--r),
+    #000 calc(var(--r) + 0.5px)
+  );
+  --ax: calc(100% - var(--stub-w) - 0.5px);
+  --ay: 0px;
+  --bx: var(--ax);
+  --by: 100%;
+
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  overflow: hidden;
-  border: 1.5px solid var(--ink);
-  background: var(--card);
+  background: var(--ink);
+  -webkit-mask-image: var(--notch-a), var(--notch-b);
+  mask-image: var(--notch-a), var(--notch-b);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
 }
 
-.ticket::before {
+.surface {
+  --r: 12.5px;
+  --ax: calc(100% - var(--stub-w) + 1px);
+  --ay: -1.5px;
+  --bx: var(--ax);
+  --by: calc(100% + 1.5px);
+
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr var(--stub-w);
+  margin: 1.5px;
+  background: var(--card);
+  -webkit-mask-image: var(--notch-a), var(--notch-b);
+  mask-image: var(--notch-a), var(--notch-b);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+/* The tier band. */
+.surface::before {
   content: '';
-  grid-row: 1 / -1;
-  grid-column: 1;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 6px;
   background: var(--band);
 }
@@ -32,15 +78,10 @@
 }
 
 .body {
-  grid-row: 1;
-  grid-column: 1;
   padding: 16px 16px 16px 28px;
 }
 
 .stub {
-  position: relative;
-  grid-row: 1;
-  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -48,69 +89,29 @@
   border-left: 2px dashed var(--rule);
 }
 
-/* Half-circle notches at the perforation, drawn with radial-gradient (no images). */
-.stub::before,
-.stub::after {
-  content: '';
-  position: absolute;
-  left: -12px;
-  width: 22px;
-  height: 22px;
-  background: radial-gradient(
-    circle,
-    var(--paper) 0 9.5px,
-    var(--ink) 9.5px 11px,
-    transparent 11px
-  );
-}
-
-.stub::before {
-  top: -11px;
-}
-
-.stub::after {
-  bottom: -11px;
-}
-
 @media (max-width: 559px) {
   .ticket {
+    --ax: 0px;
+    --ay: calc(100% - var(--stub-h) - 0.5px);
+    --bx: 100%;
+    --by: var(--ay);
+  }
+
+  .surface {
+    --ax: -1.5px;
+    --ay: calc(100% - var(--stub-h) + 1px);
+    --bx: calc(100% + 1.5px);
+    --by: var(--ay);
+
     grid-template-columns: 1fr;
   }
 
-  .ticket::before {
-    grid-row: 1 / -1;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-  }
-
-  .body {
-    grid-row: 1;
-    grid-column: 1;
-  }
-
   .stub {
-    grid-row: 2;
-    grid-column: 1;
+    box-sizing: border-box;
+    height: var(--stub-h);
     justify-content: flex-start;
     padding: 16px 16px 16px 28px;
     border-left: 0;
     border-top: 2px dashed var(--rule);
-  }
-
-  .stub::before,
-  .stub::after {
-    top: -11px;
-    bottom: auto;
-  }
-
-  .stub::before {
-    left: -11px;
-  }
-
-  .stub::after {
-    left: auto;
-    right: -11px;
   }
 }

@@ -51,10 +51,17 @@ export function ShopPage(): ReactElement {
     onSuccess: (created) => {
       void navigate(`/checkout/${created.id}`);
     },
-    onError: (e) => {
+    onError: async (e) => {
       setError(messageFor(e));
       if (e instanceof ApiError && e.code === 'QUOTA_EXCEEDED') {
-        void queryClient.invalidateQueries({ queryKey: TICKET_TYPES_KEY });
+        await queryClient.refetchQueries({ queryKey: TICKET_TYPES_KEY });
+        const fresh = queryClient.getQueryData<TicketType[]>(TICKET_TYPES_KEY);
+        if (fresh) {
+          // Write the clamp back so a later availability increase does not restore the old quantity.
+          setSelected((s) =>
+            Object.fromEntries(fresh.map((t) => [t.code, Math.min(s[t.code] ?? 0, maxFor(t))])),
+          );
+        }
       }
     },
     onSettled: () => {

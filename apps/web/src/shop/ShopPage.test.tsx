@@ -185,4 +185,46 @@ describe('ShopPage', () => {
     );
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
+
+  it('clamps quantities to the refetched availability and keeps the clamp', async () => {
+    const goldWith = (available: number) => ({
+      data: types.data.map((t) => (t.code === 'GOLD' ? { ...t, available } : t)),
+    });
+    const quota = {
+      status: 409,
+      body: { status: 409, code: 'QUOTA_EXCEEDED', message: 'x', correlationId: 'c' },
+    };
+    const { user, fetch } = renderShop([
+      {
+        method: 'GET',
+        path: '/v1/ticket-types',
+        status: 200,
+        responses: [
+          { status: 200, body: types },
+          { status: 200, body: goldWith(1) },
+          { status: 200, body: goldWith(85) },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/v1/orders',
+        status: 409,
+        responses: [quota, quota, { status: 201, body: { id: 'ord-9' } }],
+      },
+    ]);
+    await screen.findByText('Sold out');
+    const gold = within(stubOf('Gold'));
+    await user.click(gold.getByRole('button', { name: /increase/iu }));
+    await user.click(gold.getByRole('button', { name: /increase/iu }));
+    await user.click(screen.getByRole('button', { name: 'Checkout' }));
+    await waitFor(() => expect(gold.getByRole('status')).toHaveTextContent('1'));
+    // Availability grows again: the clamped quantity stays 1.
+    await user.click(screen.getByRole('button', { name: 'Checkout' }));
+    await waitFor(() => expect(screen.getByText('85 left')).toBeInTheDocument());
+    expect(gold.getByRole('status')).toHaveTextContent('1');
+    await user.click(screen.getByRole('button', { name: 'Checkout' }));
+    await waitFor(() => expect(screen.getByTestId('where')).toBeInTheDocument());
+    const posts = postCalls(fetch);
+    expect(await posts[2]!.json()).toEqual({ items: [{ ticketTypeCode: 'GOLD', quantity: 1 }] });
+  });
 });

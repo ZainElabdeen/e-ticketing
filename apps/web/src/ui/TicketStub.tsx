@@ -18,8 +18,10 @@ export function TicketStub(props: {
 }): ReactElement {
   return (
     <article className={`${styles.ticket} ${TIER_CLASS[props.tier]}`}>
-      <div className={styles.body}>{props.children}</div>
-      <div className={styles.stub}>{props.stub}</div>
+      <div className={styles.surface}>
+        <div className={styles.body}>{props.children}</div>
+        <div className={styles.stub}>{props.stub}</div>
+      </div>
     </article>
   );
 }

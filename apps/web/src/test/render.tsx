@@ -11,6 +11,8 @@ export type StubRoute = {
   status: number;
   body?: unknown;
   headers?: Record<string, string>;
+  /** Optional response sequence: the nth match uses entry n (the last repeats). Overrides status/body. */
+  responses?: Array<{ status: number; body?: unknown }>;
 };
 
 /**
@@ -19,6 +21,7 @@ export type StubRoute = {
  */
 export function stubFetch(routes: StubRoute[]): typeof fetch & { calls: Request[] } {
   const calls: Request[] = [];
+  const hits = new Map<StubRoute, number>();
   const stub = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const request = input instanceof Request ? input : new Request(input, init);
     calls.push(request);
@@ -33,10 +36,13 @@ export function stubFetch(routes: StubRoute[]): typeof fetch & { calls: Request[
         new Response(`No stub for ${request.method} ${path}`, { status: 599 }),
       );
     }
-    const hasBody = route.body !== undefined && route.status !== 204;
+    const n = hits.get(route) ?? 0;
+    hits.set(route, n + 1);
+    const picked = route.responses?.[Math.min(n, route.responses.length - 1)] ?? route;
+    const hasBody = picked.body !== undefined && picked.status !== 204;
     return Promise.resolve(
-      new Response(hasBody ? JSON.stringify(route.body) : null, {
-        status: route.status,
+      new Response(hasBody ? JSON.stringify(picked.body) : null, {
+        status: picked.status,
         headers: { ...(hasBody ? { 'content-type': 'application/json' } : {}), ...route.headers },
       }),
     );
