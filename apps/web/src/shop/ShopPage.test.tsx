@@ -225,6 +225,8 @@ describe('ShopPage', () => {
     await user.click(screen.getByRole('button', { name: 'Checkout' }));
     await waitFor(() => expect(screen.getByTestId('where')).toBeInTheDocument());
     const posts = postCalls(fetch);
+    expect(await posts[0]!.json()).toEqual({ items: [{ ticketTypeCode: 'GOLD', quantity: 2 }] });
+    expect(await posts[1]!.json()).toEqual({ items: [{ ticketTypeCode: 'GOLD', quantity: 1 }] });
     expect(await posts[2]!.json()).toEqual({ items: [{ ticketTypeCode: 'GOLD', quantity: 1 }] });
   });
 });

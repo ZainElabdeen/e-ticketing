@@ -5,10 +5,8 @@
  * --stub-w / --stub-h are the fixed stub size; notch centres sit on the middle of the 2px
  * dashed divider. Outer and surface coordinates differ by the 1.5px inset, hence the offsets.
  */
-.ticket {
-  --r: 11px;
-  --stub-w: 176px;
-  --stub-h: 78px;
+.ticket,
+.surface {
   --notch-a: radial-gradient(
     circle at var(--ax) var(--ay),
     transparent var(--r),
@@ -19,6 +17,12 @@
     transparent var(--r),
     #000 calc(var(--r) + 0.5px)
   );
+}
+
+.ticket {
+  --r: 11px;
+  --stub-w: 176px;
+  --stub-h: 78px;
   --ax: calc(100% - var(--stub-w) - 0.5px);
   --ay: 0px;
   --bx: var(--ax);
