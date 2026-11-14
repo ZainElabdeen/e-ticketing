@@ -3,13 +3,24 @@ import {
   type CanActivate,
   type ExecutionContext,
   ForbiddenException,
+  Inject,
   Injectable,
   SetMetadata,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import type { EnvironmentVariables } from '../../config/env';
+
+/** Injection token for the service's API keys. */
+export const API_KEYS = Symbol('API_KEYS');
+
+/**
+ * `internalKey` is optional: a service with no internal scope omits it, and
+ * every internal route is then 403 for any key.
+ */
+export interface ApiKeys {
+  publicKey: string;
+  internalKey?: string;
+}
 
 export const IS_PUBLIC = 'isPublic';
 /** Marks a route (or controller) as needing no API key: health and docs. */
@@ -35,14 +46,14 @@ interface KeyedRequest {
 }
 
 /**
- * Two key scopes. The public key is accepted on /v1/* except /v1/internal/*;
+ * Two key scopes (the second is optional). The public key is accepted on /v1/* except /v1/internal/*;
  * the internal key is accepted everywhere under /v1/*.
  */
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly config: ConfigService<EnvironmentVariables, true>,
+    @Inject(API_KEYS) private readonly keys: ApiKeys,
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -61,8 +72,9 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Missing or invalid API key');
     }
 
-    const internal = safeEqual(presented, this.config.get('INTERNAL_API_KEY_TICKET'));
-    const pub = safeEqual(presented, this.config.get('PUBLIC_API_KEY_TICKET'));
+    const internal =
+      this.keys.internalKey !== undefined && safeEqual(presented, this.keys.internalKey);
+    const pub = safeEqual(presented, this.keys.publicKey);
     if (!internal && !pub) {
       throw new UnauthorizedException('Missing or invalid API key');
     }

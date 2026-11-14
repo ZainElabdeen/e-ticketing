@@ -47,3 +47,12 @@ concurrent duplicate sees.
 Keys are kept forever in challenge scope; real systems expire them after
 about 24 h. A concurrent duplicate holds a DB connection while it waits for
 the winner (milliseconds for card; QR creation does no waiting).
+
+## Amended 2026-11-14
+
+The lock-free key pre-read runs before the order read and before the
+handler's card checks, so a stored response always wins. Reason: a legitimate
+retry of a successful payment must replay even after the order was confirmed
+(no `409`) or the card's expiry month has passed (no `422`); the request hash
+proves the body is identical. The insert inside the transaction is still the
+arbiter for concurrent duplicates.

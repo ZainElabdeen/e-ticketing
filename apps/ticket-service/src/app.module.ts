@@ -5,9 +5,13 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TerminusModule } from '@nestjs/terminus';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
-import { pinoHttpOptions } from './common/http/logging';
-import { ApiKeyGuard } from './common/http/api-key.guard';
-import { FallbackModule } from './common/http/fallback.controller';
+import {
+  API_KEYS,
+  ApiKeyGuard,
+  FallbackModule,
+  pinoHttpOptions,
+  type ApiKeys,
+} from '@eticket/nest-common';
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { HealthController } from './health/health.controller';
@@ -43,7 +47,11 @@ export function createAppModule(
       LoggerModule.forRootAsync({
         inject: [ConfigService],
         useFactory: (config: ConfigService<EnvironmentVariables, true>) => ({
-          pinoHttp: pinoHttpOptions(config.get('LOG_LEVEL'), options.logStream),
+          pinoHttp: pinoHttpOptions({
+            service: 'ticket-service',
+            level: config.get('LOG_LEVEL'),
+            stream: options.logStream,
+          }),
         }),
       }),
       TerminusModule,
@@ -63,6 +71,14 @@ export function createAppModule(
       OrdersRepository,
       OrdersService,
       OrderExpiryJob,
+      {
+        provide: API_KEYS,
+        inject: [ConfigService],
+        useFactory: (config: ConfigService<EnvironmentVariables, true>): ApiKeys => ({
+          publicKey: config.get('PUBLIC_API_KEY_TICKET'),
+          internalKey: config.get('INTERNAL_API_KEY_TICKET'),
+        }),
+      },
       { provide: APP_GUARD, useClass: ApiKeyGuard },
     ],
     exports: [PrismaService],

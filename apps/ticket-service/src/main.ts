@@ -2,13 +2,19 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { Logger } from 'nestjs-pino';
-import { setupDocs } from './common/docs';
-import { ErrorEnvelopeFilter } from './common/http/error-envelope.filter';
-import { correlationIdMiddleware } from './common/http/correlation-id';
-import { createValidationPipe } from './common/http/validation';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { configureApp } from '@eticket/nest-common';
 import { createAppModule, type AppOptions } from './app.module';
 import { validateEnv, type EnvironmentVariables } from './config/env';
+
+/** `dist/openapi.json` once built; the contracts package's copy in dev and tests. */
+function contractFile(): string {
+  const built = join(__dirname, '..', 'openapi.json');
+  return existsSync(built)
+    ? built
+    : require.resolve('@eticket/contracts/openapi/ticket-service.json');
+}
 
 /** Builds the fully configured app without listening. Used by `bootstrap` and tests. */
 export async function createApp(
@@ -17,19 +23,7 @@ export async function createApp(
 ): Promise<INestApplication> {
   const validated = validateEnv(env);
   const app = await NestFactory.create(createAppModule(validated, options), { bufferLogs: true });
-  // Exact-case routing, so /V1/Internal/... cannot reach an internal handler.
-  // Express built its router when the app was created, so set the router flag too.
-  const express = app.getHttpAdapter().getInstance() as {
-    set(key: string, value: boolean): void;
-    router: { caseSensitive: boolean };
-  };
-  express.set('case sensitive routing', true);
-  express.router.caseSensitive = true;
-  app.use(correlationIdMiddleware);
-  app.useLogger(app.get(Logger));
-  app.useGlobalFilters(new ErrorEnvelopeFilter());
-  app.useGlobalPipes(createValidationPipe());
-  setupDocs(app, validated.SWAGGER_ENABLED);
+  configureApp(app, { swaggerEnabled: validated.SWAGGER_ENABLED, contractFile: contractFile() });
   return app;
 }
 

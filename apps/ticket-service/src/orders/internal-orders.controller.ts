@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
-import { Internal } from '../common/http/api-key.guard';
+import { Internal } from '@eticket/nest-common';
 import { ConfirmOrderDto } from './dto/confirm-order.dto';
 import type { OrderView } from './order.view';
 import { OrdersService } from './orders.service';

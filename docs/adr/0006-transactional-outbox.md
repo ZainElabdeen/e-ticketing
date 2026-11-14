@@ -23,7 +23,7 @@ append-only, so nothing posted can be taken back.
   2. `POST /v1/internal/postings` with posting type `TICKET_SALE` (confirmed)
      or `UNFULFILLED_PAYMENT` (not confirmable). The ledger chooses accounts.
 - **Retries**: transient errors back off `min(2^attempts, 300)` s; after 10
-  attempts (~19 min) the event is `FAILED` and logged; a runbook SQL resets it.
+  attempts (the gaps sum to 810 s, about 13.5 min) the event is `FAILED` and logged; a runbook SQL resets it.
 - Both receivers are idempotent (order status + transaction ID; ledger
   `UNIQUE(transaction_id)`), so at-least-once delivery is safe.
 

@@ -10,9 +10,8 @@ import {
   type PricedLine,
   type TicketTypeCode,
 } from './domain/order';
-import { isUniqueViolation } from '../common/db-errors';
 import { OrderNotConfirmableError, OrderNotFoundError, QuotaExceededError } from './domain/errors';
-import { toMinor } from '../common/money';
+import { isUniqueViolation, toMinor } from '@eticket/nest-common';
 import { toOrderView, type OrderView } from './order.view';
 
 const WITH_ITEMS = { items: { include: { ticketType: { select: { code: true } } } } } as const;

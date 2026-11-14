@@ -1,4 +1,4 @@
-import { DomainError } from '../../common/domain-error';
+import { DomainError } from '@eticket/nest-common';
 
 export class OrderNotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';

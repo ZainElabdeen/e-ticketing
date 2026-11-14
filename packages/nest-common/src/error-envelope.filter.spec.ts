@@ -8,12 +8,24 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import {
-  OrderNotConfirmableError,
-  OrderNotFoundError,
-  QuotaExceededError,
-} from '../../orders/domain/errors';
+import { DomainError } from './domain-error';
 import { ErrorEnvelopeFilter } from './error-envelope.filter';
+
+class ThingMissingError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  readonly httpStatus = 404;
+}
+class QuotaError extends DomainError {
+  readonly code = 'QUOTA_EXCEEDED';
+  readonly httpStatus = 409;
+  constructor(kind: string) {
+    super(`No ${kind} left`);
+  }
+}
+class NotConfirmableError extends DomainError {
+  readonly code = 'ORDER_NOT_CONFIRMABLE';
+  readonly httpStatus = 409;
+}
 
 const ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
@@ -40,14 +52,9 @@ describe('ErrorEnvelopeFilter', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it.each([
-    ['OrderNotFoundError', new OrderNotFoundError('o1'), 404, 'NOT_FOUND'],
-    ['QuotaExceededError', new QuotaExceededError('GOLD'), 409, 'QUOTA_EXCEEDED'],
-    [
-      'OrderNotConfirmableError',
-      new OrderNotConfirmableError('nope'),
-      409,
-      'ORDER_NOT_CONFIRMABLE',
-    ],
+    ['a 404 DomainError', new ThingMissingError('o1'), 404, 'NOT_FOUND'],
+    ['a 409 DomainError', new QuotaError('GOLD'), 409, 'QUOTA_EXCEEDED'],
+    ['another 409 DomainError', new NotConfirmableError('nope'), 409, 'ORDER_NOT_CONFIRMABLE'],
     ['BadRequestException', new BadRequestException(['a bad', 'b bad']), 400, 'VALIDATION_ERROR'],
     ['UnauthorizedException', new UnauthorizedException(), 401, 'UNAUTHORIZED'],
     ['ForbiddenException', new ForbiddenException(), 403, 'FORBIDDEN'],
@@ -64,8 +71,8 @@ describe('ErrorEnvelopeFilter', () => {
     expect(json.mock.calls[0]?.[0]).toMatchObject({ statusCode, code, correlationId: ID });
   });
 
-  it('names the ticket type in a quota message', () => {
-    const { json } = run(new QuotaExceededError('GOLD'));
+  it('uses the DomainError message', () => {
+    const { json } = run(new QuotaError('GOLD'));
     expect(json.mock.calls[0]?.[0].message).toContain('GOLD');
   });
 

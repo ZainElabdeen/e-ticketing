@@ -1,4 +1,4 @@
-import { toMinor } from '../common/money';
+import { toMinor } from '@eticket/nest-common';
 import type { OrderStatus, TicketTypeCode } from './domain/order';
 
 export interface OrderView {

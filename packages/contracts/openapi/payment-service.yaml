@@ -79,6 +79,20 @@ paths:
             application/json:
               schema: { $ref: './common.yaml#/components/schemas/Error' }
         '500': { $ref: './common.yaml#/components/responses/InternalError' }
+        '502':
+          description: >
+            UPSTREAM_UNAVAILABLE (the Ticket Service could not be reached). The
+            idempotency key is not bound.
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
+        '504':
+          description: >
+            UPSTREAM_TIMEOUT (the Ticket Service did not answer in time). The
+            idempotency key is not bound.
+          content:
+            application/json:
+              schema: { $ref: './common.yaml#/components/schemas/Error' }
 
   /v1/payments/{paymentId}:
     get:

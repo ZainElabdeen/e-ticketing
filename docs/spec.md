@@ -303,13 +303,23 @@ The full PAN never enters the hash input.
 
 **Steps:**
 
-1. Validate the body (400 on failure). Luhn-check the PAN and check the expiry
-   is not before the current month; failure → `422 INVALID_CARD`.
-2. Read the order from the Ticket Service: `GET /v1/orders/{orderId}`. Not
+1. Validate the body (400 on failure; a malformed JSON body is a 400 with the
+   fixed message `Malformed JSON body`, never the parser's text).
+2. Pre-read the key (no lock). A completed key row with the same hash →
+   **replay**. With a different hash → `422 IDEMPOTENCY_KEY_REUSE`.
+3. Run the handler's `validate`: Luhn-check the PAN and check the expiry is
+   not before the current month; failure → `422 INVALID_CARD`. It runs after
+   the pre-read so a retry of a successful payment still replays when the
+   card's expiry month has passed in between; the hash proves the body is
+   identical.
+4. Read the order from the Ticket Service: `GET /v1/orders/{orderId}`. Not
    found → `404 ORDER_NOT_FOUND`. Not `PENDING` or `expiresAt <= now()` →
-   `409 ORDER_NOT_PAYABLE`. The amount is the order's `totalMinor` — **never
-   client-supplied**.
-3. Open a DB transaction and `INSERT INTO idempotency_keys (key, request_hash)
+   `409 ORDER_NOT_PAYABLE`. Unreachable → `502`, timeout → `504`. A 200 body
+   that fails validation (non-UUID `id`, unknown `status`, `totalMinor` not a
+   positive safe integer, `currency` not three capitals, unparseable
+   `expiresAt`) is also `502`. The amount is the order's `totalMinor` —
+   **never client-supplied**.
+5. Open a DB transaction and `INSERT INTO idempotency_keys (key, request_hash)
    … ON CONFLICT (key) DO NOTHING`. If another transaction holds the same key
    uncommitted, Postgres blocks this insert until that transaction ends; no
    polling needed.
@@ -317,20 +327,31 @@ The full PAN never enters the hash input.
    - Conflict → read the stored row. Same hash → **replay**: return the stored
      `response_status` (201) and body with header `Idempotent-Replayed: true`.
      Different hash → `422 IDEMPOTENCY_KEY_REUSE`.
-4. Insert the payment. The partial unique index enforces one live payment per
+
+   Why the pre-read comes before the order read and the card checks: once the
+   outbox has confirmed the order, reading it first would turn a legitimate
+   replay into a `409`, and a card that has since expired would turn it into a
+   `422`, so the stored response must win. The pre-read is lock-free; the insert inside
+   the transaction stays the arbiter for concurrent duplicates. Upstream
+   failures while reading the order return `502 UPSTREAM_UNAVAILABLE` /
+   `504 UPSTREAM_TIMEOUT` and do not bind the key.
+6. Insert the payment. The partial unique index enforces one live payment per
    order: a violation rolls back → `409 PAYMENT_IN_PROGRESS` (a `PENDING`
-   payment exists) or `409 ORDER_ALREADY_PAID` (a `SUCCEEDED` one exists).
-5. Run the method handler (Strategy):
+   payment exists) or `409 ORDER_ALREADY_PAID` (a `SUCCEEDED` one exists). If
+   the live payment was cancelled between the violation and the lookup, the
+   whole attempt from step 4 runs once more; a second conflict with no live
+   payment answers `PAYMENT_IN_PROGRESS`.
+7. Run the method handler (Strategy):
    - **CARD**: immediate success → run §4.3 in this same DB transaction.
      Persist only `card_last4`.
    - **QR**: `status = PENDING`, `succeed_after = now() + 8 s`,
      `qr_payload = 'eticket:pay:{paymentId}'` (a simulation format, not UPI or
      QRIS).
-6. Store `payment_id`, `response_status = 201` and the response body on the key
+8. Store `payment_id`, `response_status = 201` and the response body on the key
    row; commit; respond `201`.
 
 **Key binding rule.** A key is bound only when a payment row is created (step
-6). Any failure before that (400, 404, 409, 422 `INVALID_CARD`) rolls back, so
+8). Any failure before that (400, 404, 409, 422 `INVALID_CARD`) rolls back, so
 the client may retry the same key with a corrected body. Replays of a QR
 payment return the original `PENDING` body even after it succeeded; clients
 read live status from `GET /v1/payments/{paymentId}`.
@@ -359,9 +380,10 @@ job), one DB transaction writes:
    (`correlationId` optional).
 
 **Payment reference** format: `PAY-<UTC yyyymmdd>-<6 chars Crockford base32
-from a CSPRNG>` (e.g. `PAY-20261113-7F3K9Q`), ~1 billion values per day. On a
-unique violation, regenerate and retry the insert up to 3 times inside a
-savepoint; after that, roll back and return `500 INTERNAL_ERROR`.
+from a CSPRNG>` (e.g. `PAY-20261113-7F3K9Q`), ~1 billion values per day. The insert uses
+`ON CONFLICT (payment_reference) DO NOTHING`; on zero rows, regenerate and retry
+up to 3 times (no savepoint needed, since no statement aborts); after that,
+roll back and return `500 INTERNAL_ERROR`.
 
 Guarantee: after any crash, every succeeded payment has a pending outbox event;
 delivery happens whenever the worker next runs.
@@ -372,7 +394,9 @@ Polls every 2 s, up to 10 events per tick, **one DB transaction per event**:
 `SELECT … FROM outbox_events WHERE status = 'PENDING' AND next_attempt_at <=
 now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1`. The row lock is the
 claim; if the worker crashes, the transaction aborts and the event is eligible
-again. HTTP timeout per call: 5 s.
+again. HTTP timeout per call: 5 s. The outbound `X-Correlation-Id` is the
+stored `correlationId`; without one, the worker forwards the outbox event id
+(a UUID) as the correlation ID.
 
 Per event, **confirm first, then post**:
 
@@ -387,7 +411,7 @@ Per event, **confirm first, then post**:
    `TICKET_SALE` if confirmed, else `UNFULFILLED_PAYMENT`. The ledger picks
    the accounts. `200`/`201` → event `DONE`, `processed_at = now()`.
 3. **Transient failure** → `attempts += 1`, `last_error`, `next_attempt_at =
-   now() + min(2^attempts, 300) s`. After 10 attempts (~19 min) → `FAILED`,
+   now() + min(2^attempts, 300) s`. After 10 attempts (the gaps sum to 810 s, about 13.5 min) → `FAILED`,
    error log. `confirm_outcome` is committed with the failure, so a retry never
    re-asks the Ticket Service for a different answer.
 
@@ -544,9 +568,13 @@ The total on `/` is a preview from listed prices; the server total from
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
 | `ORDER_TTL_MINUTES` (15), `QR_SUCCESS_DELAY_SECONDS` (8) | ticket, payment | Business timings |
+| `DOWNSTREAM_TIMEOUT_MS` (5000) | payment | Timeout per call to the Ticket and Ledger Services (100–30000) |
+| `QR_JOB_INTERVAL_SECONDS` (1), `QR_JOB_BATCH_SIZE` (50), `QR_JOB_ENABLED` (true) | payment | QR success job cadence (§4.2); `false` only in tests that drive the job by hand |
+| `OUTBOX_INTERVAL_SECONDS` (2), `OUTBOX_BATCH_SIZE` (10), `OUTBOX_MAX_ATTEMPTS` (10), `OUTBOX_ENABLED` (true) | payment | Outbox worker cadence and retry cap (§4.2); `false` only in tests that drive the worker by hand |
 | `ORDER_EXPIRY_INTERVAL_SECONDS` (60), `ORDER_EXPIRY_BATCH_SIZE` (100), `ORDER_EXPIRY_ENABLED` (true) | ticket | Expiry job cadence (§4.1); `false` only in tests that drive the job by hand |
 | `VITE_API_BASE_URL` | web (build time) | Gateway URL, default `/api` |
-| `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests | Target under test (public and internal-scope keys) |
+| `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests (ticket) | Target under test (public and internal-scope keys) |
+| `CONTRACT_PAYMENT_BASE_URL`, `CONTRACT_PAYMENT_API_KEY`, `CONTRACT_TICKET_BASE_URL`, `CONTRACT_TICKET_API_KEY`, `CONTRACT_QR_DELAY_SECONDS` (8) | contract tests (payment) | Payment target, plus the Ticket Service it creates orders on; the delay must equal the target's `QR_SUCCESS_DELAY_SECONDS` |
 | `CONTRACT_ORDER_TTL_MINUTES` (15) | contract tests | Must equal the target's `ORDER_TTL_MINUTES` |
 
 ## 8. Testing strategy
@@ -650,3 +678,5 @@ QR → result → backoffice → balances) ships with it.
 | [0016](./adr/0016-contract-validation-with-ajv.md) | Contract tests validate responses with Ajv against the bundled contract | Hand-written assertions |
 | [0017](./adr/0017-nestjs-11-commonjs.md) | NestJS 11 (CommonJS line) pinned at 11.2.10 | NestJS 12 with an ESM migration of every app |
 | [0018](./adr/0018-api-key-scope-enforcement.md) | `@Internal()` metadata read by the guard, path check as defense in depth, last-registered fallback route | Path-only check; guard-free middleware |
+| [0019](./adr/0019-nestjs-axios-outbound-http.md) | `@nestjs/axios` + axios for service-to-service HTTP, Promise-only client API | Built-in `fetch`; `openapi-fetch` |
+| [0020](./adr/0020-shared-nest-common-package.md) | Shared NestJS plumbing in @eticket/nest-common | Copy per service |

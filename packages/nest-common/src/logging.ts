@@ -21,7 +21,13 @@ function routeOf(req: RoutedRequest): string {
  * pino-http options producing the spec §7 line: `timestamp`, `level` (label),
  * `service`, `correlationId`, `method`, `route`, `statusCode`, `durationMs`.
  */
-export function pinoHttpOptions(level: string, stream?: DestinationStream): Options {
+export function pinoHttpOptions(opts: {
+  service: string;
+  level: string;
+  stream?: DestinationStream;
+  extraRedact?: string[];
+}): Options {
+  const { service, level, stream, extraRedact = [] } = opts;
   const summary = (req: IncomingMessage, res: ServerResponse) => ({
     method: req.method,
     route: routeOf(req),
@@ -29,6 +35,8 @@ export function pinoHttpOptions(level: string, stream?: DestinationStream): Opti
   });
   return {
     level,
+    // Without a base, lines logged outside the request summary lose `service`.
+    base: { service },
     ...(stream ? { stream } : {}),
     timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
     formatters: { level: (label: string) => ({ level: label }) },
@@ -40,8 +48,8 @@ export function pinoHttpOptions(level: string, stream?: DestinationStream): Opti
     // correlationIdOf caches per request, so the middleware, the logs and
     // the error body all carry one id whatever the middleware order.
     genReqId: (req) => correlationIdOf(req),
+    // `service` comes from `base`; repeating it here would emit a duplicate key.
     customProps: (req) => ({
-      service: 'ticket-service',
       correlationId: correlationIdOf(req),
     }),
     customSuccessObject: (req, res, val) => ({
@@ -53,6 +61,12 @@ export function pinoHttpOptions(level: string, stream?: DestinationStream): Opti
       durationMs: (val as { durationMs: number }).durationMs,
       err,
     }),
-    redact: ['req.headers["x-api-key"]', 'req.headers.authorization'],
+    redact: [
+      'req.headers["x-api-key"]',
+      'req.headers.authorization',
+      'req.body.card.number',
+      'req.body.card.cvc',
+      ...extraRedact,
+    ],
   };
 }

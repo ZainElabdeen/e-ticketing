@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "build": "tsc -p tsconfig.json --noEmit",
     "test": "jest -c jest.config.cjs",
-    "test:contract": "jest -c jest.contract.cjs"
+    "test:contract": "jest -c jest.contract.cjs",
+    "test:contract:ticket": "jest -c jest.contract.cjs test/ticket-service.contract-spec.ts",
+    "test:contract:payment": "jest -c jest.contract.cjs test/payment-service.contract-spec.ts"
   },
   "dependencies": {
     "@eticket/contracts": "workspace:*",

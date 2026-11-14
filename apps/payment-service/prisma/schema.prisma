@@ -1,6 +1,79 @@
 // The `payments` schema is created by hand-written SQL migrations (ADR-0015).
-// This file carries no models: Phase 2 adds them with `prisma db pull` for the
-// client only. Never run `prisma migrate dev` — it would rewrite the SQL.
+// These models mirror that SQL for the client only. Never run
+// `prisma migrate dev` — it would rewrite the SQL. CHECK constraints and the
+// partial unique index `payments_one_live_per_order` are not modelled by
+// Prisma; test/schema.int-spec.ts covers them.
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
 datasource db {
   provider = "postgresql"
+}
+
+model Payment {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId       String    @map("order_id") @db.Uuid
+  method        String
+  status        String
+  amountMinor   BigInt    @map("amount_minor")
+  currency      String    @default("AED") @db.Char(3)
+  cardLast4     String?   @map("card_last4") @db.Char(4)
+  qrPayload     String?   @map("qr_payload")
+  succeedAfter  DateTime? @map("succeed_after") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  succeededAt   DateTime? @map("succeeded_at") @db.Timestamptz(6)
+  cancelledAt   DateTime? @map("cancelled_at") @db.Timestamptz(6)
+
+  transaction     Transaction?
+  idempotencyKeys IdempotencyKey[]
+
+  @@index([status, succeedAfter], map: "payments_status_succeed_after_idx")
+  @@index([orderId], map: "payments_order_id_idx")
+  @@index([createdAt], map: "payments_created_at_idx")
+  @@map("payments")
+}
+
+model Transaction {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId        String   @unique(map: "transactions_payment_id_key") @map("payment_id") @db.Uuid
+  paymentReference String   @unique(map: "transactions_payment_reference_key") @map("payment_reference")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([createdAt], map: "transactions_created_at_idx")
+  @@map("transactions")
+}
+
+model IdempotencyKey {
+  key            String    @id
+  requestHash    String    @map("request_hash") @db.Char(64)
+  paymentId      String?   @map("payment_id") @db.Uuid
+  responseStatus Int?      @map("response_status")
+  responseBody   Json?     @map("response_body")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("idempotency_keys")
+}
+
+model OutboxEvent {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type           String
+  payload        Json
+  status         String    @default("PENDING")
+  confirmOutcome String?   @map("confirm_outcome")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  @@index([status, nextAttemptAt], map: "outbox_events_status_next_attempt_at_idx")
+  @@map("outbox_events")
 }
