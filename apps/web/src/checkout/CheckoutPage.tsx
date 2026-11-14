@@ -40,12 +40,14 @@ export function CheckoutPage(): ReactElement {
   const order = useQuery({
     queryKey: orderKey(orderId),
     queryFn: () => call(api.GET('/v1/orders/{orderId}', { params: { path: { orderId } } })),
+    refetchOnWindowFocus: false,
     retry: (count, e) => !(e instanceof ApiError && e.status < 500) && count < 2,
     refetchInterval: (q) => (otherWindow && q.state.data?.status === 'PENDING' ? 2000 : false),
   });
 
   if (order.isPending) return <p className={styles.quiet}>Loading your order…</p>;
-  if (order.isError) {
+  // A failed background refetch keeps the data: only a first-load failure replaces the page.
+  if (order.isError && order.data === undefined) {
     const notFound = order.error instanceof ApiError && order.error.status === 404;
     return (
       <section>
@@ -68,6 +70,8 @@ export function CheckoutPage(): ReactElement {
       order={order.data}
       otherWindow={otherWindow}
       setOtherWindow={setOtherWindow}
+      reconnecting={order.isRefetchError}
+      refetch={() => void order.refetch()}
     />
   );
 }
@@ -77,8 +81,10 @@ function CheckoutBody(props: {
   order: Order;
   otherWindow: boolean;
   setOtherWindow: (v: boolean) => void;
+  reconnecting: boolean;
+  refetch: () => void;
 }): ReactElement {
-  const { api, order, otherWindow, setOtherWindow } = props;
+  const { api, order, otherWindow, setOtherWindow, reconnecting, refetch } = props;
   const orderId = order.id;
   const navigate = useNavigate();
   const [search] = useSearchParams();
@@ -88,18 +94,20 @@ function CheckoutBody(props: {
   const [paidElsewhere, setPaidElsewhere] = useState(false);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
-  const key = useRef(newIdempotencyKey());
+  // null = the next submit makes a fresh key (lazily, no randomUUID per render).
+  const key = useRef<string | null>(null);
   const { remainingMs, expired } = useCountdown(order.expiresAt);
 
   const newKey = useCallback(() => {
-    key.current = newIdempotencyKey();
+    key.current = null;
   }, []);
 
   const paid = order.status === 'CONFIRMED' || paidElsewhere;
   const recalled = paid ? recallPayment(orderId) : null;
+  const recalledId = recalled?.paymentId;
   useEffect(() => {
-    if (recalled) void navigate(`/result/${recalled.paymentId}`, { replace: true });
-  }, [recalled, navigate]);
+    if (recalledId) void navigate(`/result/${recalledId}`, { replace: true });
+  }, [recalledId, navigate]);
 
   const goToResultOrPaid = (): void => {
     const known = recallPayment(orderId);
@@ -157,7 +165,12 @@ function CheckoutBody(props: {
       const body = card
         ? ({ orderId, method: 'CARD', card } as const)
         : ({ orderId, method: 'QR' } as const);
-      const result = await submitPayment(api, body, key.current);
+      key.current ??= newIdempotencyKey();
+      const result = await submitPayment(api, body, key.current, {
+        onKey: (k) => {
+          key.current = k;
+        },
+      });
       key.current = result.key;
       rememberPayment(orderId, { paymentId: result.payment.id, method });
       void navigate(
@@ -182,7 +195,12 @@ function CheckoutBody(props: {
     return (
       <section>
         <h1 className={styles.head}>Your order</h1>
-        {recalled ? null : <p className={styles.notice}>This order is already paid</p>}
+        {recalled ? null : (
+          <>
+            <p className={styles.notice}>This order is already paid</p>
+            <StartOver />
+          </>
+        )}
       </section>
     );
   }
@@ -197,6 +215,7 @@ function CheckoutBody(props: {
           </p>
         )}
       </div>
+      {reconnecting ? <p className={styles.quiet}>Reconnecting…</p> : null}
 
       <TicketStub tier="NEUTRAL" stub={<p className={styles.amount}>{total}</p>}>
         <ul className={styles.lines}>
@@ -246,6 +265,21 @@ function CheckoutBody(props: {
 
           <div className={styles.pane}>
             {banner ? <Banner tone={banner.tone}>{banner.text}</Banner> : null}
+            {otherWindow ? (
+              <div className={styles.actions}>
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    setOtherWindow(false);
+                    setBanner(null);
+                    refetch();
+                  }}
+                >
+                  Check again
+                </Button>
+                <StartOver />
+              </div>
+            ) : null}
             {method === 'CARD' ? (
               <CardForm
                 payLabel={`Pay ${total}`}

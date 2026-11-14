@@ -8,7 +8,11 @@ export type CardFormValues = { holder: string; number: string; expiry: string; c
 export function makeCardSchema(now: () => Date): z.ZodType<CardDetails, CardFormValues> {
   return z
     .object({
-      holder: z.string().trim().min(1, 'Enter the name on the card').max(100),
+      holder: z
+        .string()
+        .trim()
+        .min(1, 'Enter the name on the card')
+        .max(100, 'Use 100 characters or fewer'),
       number: z
         .string()
         .transform((v) => v.replace(/[\s-]/gu, ''))

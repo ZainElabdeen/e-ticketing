@@ -17,7 +17,11 @@ export async function submitPayment(
   api: Api,
   body: CreatePaymentBody,
   key: string,
-  opts: { sleep?: (ms: number) => Promise<void> } = {},
+  opts: {
+    sleep?: (ms: number) => Promise<void>;
+    /** Called whenever the key in use changes, so the caller keeps the key actually sent. */
+    onKey?: (key: string) => void;
+  } = {},
 ): Promise<{ payment: Payment; key: string }> {
   const sleep = opts.sleep ?? realSleep;
   const send = (k: string): Promise<Payment> =>
@@ -34,6 +38,7 @@ export async function submitPayment(
       if (e.code === 'IDEMPOTENCY_KEY_REUSE' && !reused) {
         reused = true;
         currentKey = newIdempotencyKey();
+        opts.onKey?.(currentKey);
         continue;
       }
       const delay = RETRY_DELAYS_MS[retries];

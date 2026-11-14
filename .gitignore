@@ -25,3 +25,6 @@ TestResults/
 
 # TypeScript build info
 *.tsbuildinfo
+
+# rtk vitest JSON output
+apps/web/.vitest/
