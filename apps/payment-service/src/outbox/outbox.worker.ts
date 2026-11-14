@@ -10,15 +10,34 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import type { EnvironmentVariables } from '../config/env';
 import { LedgerClient } from '../downstream/ledger.client';
 import { TicketClient, type ConfirmOutcome } from '../downstream/ticket.client';
-import { OutboxRepository, type ClaimedEvent, type EventUpdate } from './outbox.repository';
+import { UpstreamTimeoutError, UpstreamUnavailableError } from '../downstream/upstream-errors';
+import {
+  OutboxRepository,
+  type ClaimedEvent,
+  type ConfirmHolder,
+  type EventUpdate,
+} from './outbox.repository';
 
 const INTERVAL_NAME = 'outbox';
 const CORRELATION_ID = 'job:outbox';
 const LEDGER_SKIPPED = 'ledger skipped: unavailable earlier in this batch';
 
-/** Per-run Ledger breaker: trips on the first failed post, so one batch makes at most one bad call. */
+/** Per-run Ledger breaker: trips on the first outage, so one batch makes at most one bad call. */
 interface Breaker {
   open: boolean;
+}
+
+/**
+ * An outage (timeout, unreachable, 5xx) says the Ledger is down for every event.
+ * A 4xx (409 POSTING_CONFLICT, 400) is a problem with one event, so it must not
+ * hold back the others.
+ */
+function isLedgerOutage(err: unknown): boolean {
+  if (err instanceof UpstreamTimeoutError) return true;
+  if (err instanceof UpstreamUnavailableError) {
+    return err.status === undefined || err.status >= 500;
+  }
+  return false;
 }
 
 /**
@@ -81,8 +100,12 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
     let claimed = 0;
     while (claimed < batch) {
       let found: boolean;
+      const holder: ConfirmHolder = { confirmOutcome: null };
       try {
-        found = await this.repository.processOne((event) => this.deliver(event, breaker));
+        found = await this.repository.processOne(
+          (event) => this.deliver(event, breaker, holder),
+          holder,
+        );
       } catch (err) {
         // The transaction rolled back, so the event is still due. Stop here instead of
         // re-claiming it in a tight loop; the next tick retries.
@@ -97,7 +120,11 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
     return claimed;
   }
 
-  private async deliver(event: ClaimedEvent, breaker: Breaker): Promise<EventUpdate> {
+  private async deliver(
+    event: ClaimedEvent,
+    breaker: Breaker,
+    holder: ConfirmHolder,
+  ): Promise<EventUpdate> {
     const { payload } = event;
     const correlationId = payload.correlationId ?? event.id;
     let outcome: ConfirmOutcome | null = event.confirmOutcome;
@@ -107,6 +134,8 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
         payload.transactionId,
         correlationId,
       );
+      // Visible to the repository even if the transaction rolls back after this point.
+      holder.confirmOutcome = outcome;
       if (breaker.open) {
         // The Ledger already failed in this batch: keep the confirm (stored with the
         // update) but do not wait on another dead call.
@@ -142,7 +171,9 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
         correlationId,
       );
     } catch (err) {
-      breaker.open = true;
+      if (isLedgerOutage(err)) {
+        breaker.open = true;
+      }
       throw err;
     }
   }

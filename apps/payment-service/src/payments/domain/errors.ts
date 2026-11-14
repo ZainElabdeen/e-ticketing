@@ -35,6 +35,17 @@ export class IdempotencyKeyReuseError extends DomainError {
 export class UpstreamUnavailableError extends DomainError {
   readonly code = 'UPSTREAM_UNAVAILABLE';
   readonly httpStatus = 502;
+
+  /**
+   * @param status the downstream's HTTP status when it answered with an unexpected one;
+   * undefined for a transport failure (no response). Kept off the message on purpose.
+   */
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+  }
 }
 export class UpstreamTimeoutError extends DomainError {
   readonly code = 'UPSTREAM_TIMEOUT';

@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { EnvironmentVariables } from '../config/env';
-import { callDownstream, unexpectedStatus } from './downstream-http';
+import { callDownstream, downstreamTimeoutMs, unexpectedStatus } from './downstream-http';
 
 export type PostingType = 'TICKET_SALE' | 'UNFULFILLED_PAYMENT';
 
@@ -19,6 +19,7 @@ export interface PostingRequest {
 export class LedgerClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
+  private readonly timeoutMs: number;
 
   constructor(
     private readonly http: HttpService,
@@ -26,6 +27,7 @@ export class LedgerClient {
   ) {
     this.baseUrl = config.get<string>('LEDGER_SERVICE_URL').replace(/\/+$/, '');
     this.apiKey = config.get<string>('INTERNAL_API_KEY_LEDGER');
+    this.timeoutMs = downstreamTimeoutMs(config);
   }
 
   /** Resolves on 201 (posted) or 200 (idempotent replay); anything else throws (spec §4.4). */
@@ -36,6 +38,7 @@ export class LedgerClient {
       apiKey: this.apiKey,
       correlationId,
       body: req,
+      timeoutMs: this.timeoutMs,
     });
     if (res.status !== 200 && res.status !== 201) {
       throw unexpectedStatus('ledger-service', res.status);
