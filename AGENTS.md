@@ -94,7 +94,7 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 - Ledger Service only: `pnpm --filter @eticket/ledger-service test` (unit) and `pnpm --filter @eticket/ledger-service test:int` (integration)
 - Gateway only: `pnpm --filter @eticket/gateway test` (unit) and `pnpm --filter @eticket/gateway test:int` (integration)
 - Admin password hash for the Gateway: `node infra/scripts/admin-hash.mjs` (prompts, prints `ADMIN_PASSWORD_HASH_B64`). After `cp infra/.env.example infra/.env`, generate `ADMIN_EMAIL` and the hash with `--append infra/.env --email <addr>` (prints only key names); `ADMIN_PASSWORD_DEV` must be the same password that was hashed
-- Gateway contract suite via compose (run last, after ticket, payment, ledger): `infra/scripts/contract.sh gateway`
+- Gateway contract suite via compose (suites run in order ticket → payment → ledger → gateway): `infra/scripts/contract.sh gateway`
 - .NET Ticket Service unit tests: `pnpm --filter @eticket/ticket-service-dotnet test`
 - .NET Ticket Service integration tests (Docker running): `pnpm --filter @eticket/ticket-service-dotnet test:int`
 - .NET SDK lives in `~/.dotnet`; `apps/ticket-service-dotnet/scripts/dotnet.sh` sets `DOTNET_ROOT` and `PATH`

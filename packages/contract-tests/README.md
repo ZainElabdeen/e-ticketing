@@ -115,7 +115,7 @@ pnpm --filter @eticket/contract-tests test:contract:gateway
 `infra/scripts/contract.sh gateway` maps these from `infra/.env`
 (`ADMIN_EMAIL` and `ADMIN_PASSWORD_DEV`).
 
-`test:contract` runs all four suites, so it needs the ticket, payment, ledger and gateway variables. Run the suites in order ticket, payment, ledger, gateway on a fresh volume.
+`test:contract` runs all four suites, so it needs the ticket, payment, ledger and gateway variables. Run the suites in order ticket → payment → ledger → gateway on a fresh volume.
 
 ## Warning: the suite mutates the target
 

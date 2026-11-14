@@ -578,8 +578,10 @@ The total on `/` is a preview from listed prices; the server total from
 | `INTERNAL_API_KEY_TICKET` / `_LEDGER` | payment (sends), ticket and ledger (accept) | Internal-scope keys |
 | `JWT_SECRET` | gateway | HS256 secret, ≥ 32 bytes |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH_B64` | gateway | Backoffice admin; the hash is base64 of a bcrypt cost-12 hash (`infra/scripts/admin-hash.mjs`, ADR-0022) |
+| `ADMIN_PASSWORD_DEV` | smoke test, contract runner | Plaintext admin password (the one that was hashed), local dev and smoke only; never in K3s or CI secrets other than for smoke |
 | `TRUST_PROXY` (0) | gateway | Proxy hops trusted for the client IP (0–5) |
 | `RATE_LIMIT_DEFAULT_PER_MIN` (100), `RATE_LIMIT_ORDERS_PER_MIN` (5), `RATE_LIMIT_LOGIN_PER_MIN` (10) | gateway | Per-IP rate limits (§7) |
+| `RATE_LIMIT_WINDOW_MS` (60000) | gateway | Test-only: shortens the rate-limit window; never set in compose or K3s |
 | `WEB_ORIGIN` | gateway | CORS allowed origin |
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
@@ -593,6 +595,8 @@ The total on `/` is a preview from listed prices; the server total from
 | `CONTRACT_PAYMENT_BASE_URL`, `CONTRACT_PAYMENT_API_KEY`, `CONTRACT_TICKET_BASE_URL`, `CONTRACT_TICKET_API_KEY`, `CONTRACT_QR_DELAY_SECONDS` (8) | contract tests (payment) | Payment target, plus the Ticket Service it creates orders on; the delay must equal the target's `QR_SUCCESS_DELAY_SECONDS` |
 | `CONTRACT_LEDGER_BASE_URL`, `CONTRACT_LEDGER_API_KEY`, `CONTRACT_LEDGER_INTERNAL_API_KEY` | contract tests (ledger) | Ledger target under test (public and internal-scope keys) |
 | `CONTRACT_GATEWAY_BASE_URL`, `CONTRACT_ADMIN_EMAIL`, `CONTRACT_ADMIN_PASSWORD` | contract tests (gateway) | Gateway target and the admin credentials it logs in with; the suite stays inside the production rate limits (at most 4 orders, 6 logins, 60 requests). `infra/scripts/contract.sh` maps them from `ADMIN_EMAIL` and `ADMIN_PASSWORD_DEV` |
+| `GATEWAY_HOST_PORT` (3000), `POSTGRES_HOST_PORT` (5432) | compose, smoke, contract runner | Host ports (bound to 127.0.0.1) when another project holds 3000 or 5432; smoke and `contract.sh gateway` derive the Gateway URL from `GATEWAY_HOST_PORT` |
+| `SMOKE_GATEWAY_URL` | smoke test | Overrides the Gateway URL the smoke test uses (default `http://127.0.0.1:${GATEWAY_HOST_PORT:-3000}`); `CONTRACT_GATEWAY_BASE_URL` does the same for `contract.sh gateway` |
 | `CONTRACT_ORDER_TTL_MINUTES` (15) | contract tests | Must equal the target's `ORDER_TTL_MINUTES` |
 
 ## 8. Testing strategy
