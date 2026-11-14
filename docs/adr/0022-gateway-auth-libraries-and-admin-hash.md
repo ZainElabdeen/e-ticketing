@@ -41,3 +41,11 @@ login rate limit. Base64 adds one decode step and an extra tool to run once.
 
 Passwords are capped at 72 UTF-8 bytes (login DTO and `admin-hash.mjs`), because
 bcrypt silently ignores bytes past 72. The login DTO also caps it at 128 characters per the contract.
+
+## Addendum: downstream 401 and 403
+
+The gateway passes downstream 4xx envelopes through unchanged, with one
+exception. A downstream 401 or 403 means the gateway's own API key is missing,
+wrong or out of scope. That is a gateway misconfiguration, not a caller error,
+so `DownstreamClient` returns 502 `UPSTREAM_UNAVAILABLE` and logs a warn with
+the service name and status (never the key).

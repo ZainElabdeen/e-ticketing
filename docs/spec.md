@@ -545,7 +545,9 @@ The total on `/` is a preview from listed prices; the server total from
   inside the cluster.
 - Gateway behavior on downstream failure: 5 s timeout per call. Connection
   failure → `502 UPSTREAM_UNAVAILABLE`; timeout → `504 UPSTREAM_TIMEOUT`.
-  Downstream 4xx/5xx bodies are passed through unchanged (status and envelope).
+  Downstream 4xx/5xx bodies are passed through unchanged (status and envelope),
+  except a downstream 401 or 403: that means the gateway's own key is wrong, so it
+  becomes `502 UPSTREAM_UNAVAILABLE` and a warn log names the service and status.
   The gateway never retries non-idempotent calls; `POST /v1/payments` is safe
   for the *client* to retry because of the idempotency key.
 

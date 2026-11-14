@@ -2,6 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { isAxiosError } from 'axios';
+import { PinoLogger } from 'nestjs-pino';
 import { firstValueFrom } from 'rxjs';
 import type { EnvironmentVariables } from '../config/env';
 import { UpstreamTimeoutError, UpstreamUnavailableError } from './errors';
@@ -54,10 +55,13 @@ export class DownstreamClient {
   constructor(
     private readonly http: HttpService,
     private readonly config: ConfigService<EnvironmentVariables, true>,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(DownstreamClient.name);
+  }
 
   /**
-   * One call to a downstream service. Resolves for any 2xx/4xx/5xx with a JSON body.
+   * One call to a downstream service. Resolves for any 2xx/4xx/5xx with a JSON body, except 401/403 (our own key was rejected: 502).
    * Throws UpstreamTimeoutError / UpstreamUnavailableError for transport failures,
    * 3xx and non-JSON bodies; messages name the service only. No retries.
    */
@@ -117,6 +121,15 @@ export class DownstreamClient {
     const redirect = res.status >= 300 && res.status < 400;
     if (redirect || !isJson) {
       throw new UpstreamUnavailableError(`${name} answered with an unexpected response`);
+    }
+    // A 401/403 means this gateway's own key is wrong or lacks scope: our misconfiguration,
+    // not the caller's. It is the one 4xx that does not pass through (spec section 6).
+    if (res.status === 401 || res.status === 403) {
+      this.logger.warn(
+        { downstreamService: name, downstreamStatus: res.status },
+        'downstream rejected the gateway API key',
+      );
+      throw new UpstreamUnavailableError(`${name} rejected the gateway credentials`);
     }
     const replayed: unknown = res.headers['idempotent-replayed'];
     return {
