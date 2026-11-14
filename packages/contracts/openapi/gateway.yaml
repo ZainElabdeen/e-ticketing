@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Gateway (BFF) API
-  version: 2.1.0
+  version: 2.1.1
   license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
   description: >
     The only public backend. Holds public-scope API keys, rate limits, applies
@@ -122,6 +122,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './ticket-service.yaml#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '404': { $ref: '#/components/responses/Downstream' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }
@@ -173,6 +174,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './payment-service.yaml#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '404': { $ref: '#/components/responses/Downstream' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }
@@ -192,6 +194,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './payment-service.yaml#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '404': { $ref: '#/components/responses/Downstream' }
         '409': { $ref: '#/components/responses/Downstream' }
         '429': { $ref: '#/components/responses/RateLimited' }

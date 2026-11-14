@@ -721,6 +721,7 @@ export interface operations {
                     "application/json": components["schemas"]["Order"];
                 };
             };
+            400: components["responses"]["Downstream"];
             404: components["responses"]["Downstream"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamUnavailable"];
@@ -788,6 +789,7 @@ export interface operations {
                     "application/json": components["schemas"]["Payment"];
                 };
             };
+            400: components["responses"]["Downstream"];
             404: components["responses"]["Downstream"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamUnavailable"];
@@ -817,6 +819,7 @@ export interface operations {
                     "application/json": components["schemas"]["Payment"];
                 };
             };
+            400: components["responses"]["Downstream"];
             404: components["responses"]["Downstream"];
             409: components["responses"]["Downstream"];
             429: components["responses"]["RateLimited"];
