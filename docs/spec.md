@@ -63,6 +63,8 @@ service. No cross-schema foreign keys; services integrate only over REST
 | **Ledger Service** (NestJS) | Chart of accounts, posting templates, double-entry journal, append-only audit trail, balances | Knowing about tickets or payment methods |
 | **Web** (React SPA) | Ticket selection, checkout, payment result, backoffice UI | Holding API keys, computing prices |
 
+Note (Phase 5): the deployed Ticket Service is now the ASP.NET Core one (`apps/ticket-service-dotnet`, [ADR-0021](./adr/0021-ticket-service-dotnet-port.md)); the NestJS version stays as the reference under the compose `reference` profile.
+
 Language note: the challenge mandates C#/.NET for at least one core service and
 names the Ticket Service as the .NET candidate. We build the Ticket Service in
 NestJS first, then port it to ASP.NET Core against the same contract, gated by
@@ -692,3 +694,4 @@ QR → result → backoffice → balances) ships with it.
 | [0018](./adr/0018-api-key-scope-enforcement.md) | `@Internal()` metadata read by the guard, path check as defense in depth, last-registered fallback route | Path-only check; guard-free middleware |
 | [0019](./adr/0019-nestjs-axios-outbound-http.md) | `@nestjs/axios` + axios for service-to-service HTTP, Promise-only client API | Built-in `fetch`; `openapi-fetch` |
 | [0020](./adr/0020-shared-nest-common-package.md) | Shared NestJS plumbing in @eticket/nest-common | Copy per service |
+| [0021](./adr/0021-ticket-service-dotnet-port.md) | .NET Ticket Service: one web project, EF Core on the Prisma-owned schema, raw SQL for locks, envelope middleware; contract suite is the parity gate | Minimal APIs, four assemblies, EF migrations, Dapper |

@@ -7,3 +7,5 @@ infra/.env
 **/dist
 **/.env.*
 !**/.env.example
+**/bin
+**/obj

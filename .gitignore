@@ -14,3 +14,8 @@ coverage/
 
 # Generated Prisma clients
 apps/*/src/generated/
+
+# .NET build output
+bin/
+obj/
+TestResults/

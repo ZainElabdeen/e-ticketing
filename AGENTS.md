@@ -85,12 +85,18 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 ## Commands
 
 - Node 26 (`nvm use`), then `corepack enable` and `pnpm install`
+- Prerequisite for the root gate (`pnpm lint|build|test|test:int`): .NET SDK 10.0.404 (see `global.json`), on `PATH` or in `~/.dotnet` (official `dotnet-install.sh`)
 - Lint: `pnpm lint` | Format: `pnpm format:check` | Build: `pnpm build`
 - Unit tests: `pnpm test` | DB integration tests (Docker running): `pnpm test:int`
 - Contracts: `pnpm --filter @eticket/contracts lint` | regenerate types: `pnpm --filter @eticket/contracts generate`
 - Ticket Service only: `pnpm --filter @eticket/ticket-service test` (unit) and `pnpm --filter @eticket/ticket-service test:int` (integration)
 - Payment Service only: `pnpm --filter @eticket/payment-service test` (unit) and `pnpm --filter @eticket/payment-service test:int` (integration)
 - Ledger Service only: `pnpm --filter @eticket/ledger-service test` (unit) and `pnpm --filter @eticket/ledger-service test:int` (integration)
+- .NET Ticket Service unit tests: `pnpm --filter @eticket/ticket-service-dotnet test`
+- .NET Ticket Service integration tests (Docker running): `pnpm --filter @eticket/ticket-service-dotnet test:int`
+- .NET SDK lives in `~/.dotnet`; `apps/ticket-service-dotnet/scripts/dotnet.sh` sets `DOTNET_ROOT` and `PATH`
+- Compose `ticket-service` is the .NET image. Reference NestJS Ticket Service on `127.0.0.1:3011`: `docker compose -f infra/docker-compose.yml --profile reference up -d --build --wait ticket-service-node`
+- Contract suite via compose keys (no key printed): `infra/scripts/contract.sh <ticket|payment|ledger> [ticketBaseUrl]`, e.g. `infra/scripts/contract.sh ticket http://127.0.0.1:3011` for the reference
 - Ticket contract suite against a running target: `CONTRACT_BASE_URL=… CONTRACT_API_KEY=… CONTRACT_INTERNAL_API_KEY=… pnpm --filter @eticket/contract-tests test:contract:ticket`
 - Payment contract suite against a running target: `CONTRACT_PAYMENT_BASE_URL=… CONTRACT_PAYMENT_API_KEY=… CONTRACT_TICKET_BASE_URL=… CONTRACT_TICKET_API_KEY=… CONTRACT_QR_DELAY_SECONDS=8 pnpm --filter @eticket/contract-tests test:contract:payment` (run the ticket suite first; it drains VIP)
 - Ledger contract suite against a running target: `CONTRACT_LEDGER_BASE_URL=… CONTRACT_LEDGER_API_KEY=… CONTRACT_LEDGER_INTERNAL_API_KEY=… pnpm --filter @eticket/contract-tests test:contract:ledger`
