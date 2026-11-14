@@ -91,3 +91,12 @@ describe('validateEnv', () => {
     );
   });
 });
+
+describe('validateEnv unrelated keys', () => {
+  it('drops variables that are not gateway settings', () => {
+    const env = validateEnv({ ...validEnv(), AWS_SECRET_ACCESS_KEY: 'leak-me', HOME: '/root' });
+    expect(Object.keys(env)).not.toContain('AWS_SECRET_ACCESS_KEY');
+    expect(Object.keys(env)).not.toContain('HOME');
+    expect(env.TICKET_SERVICE_URL).toBe('http://ticket:3001');
+  });
+});

@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { plainToInstance, Transform, Type } from 'class-transformer';
+import { Expose, plainToInstance, Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
@@ -53,75 +53,93 @@ function IsAdminHashB64() {
 }
 
 export class EnvironmentVariables {
+  @Expose()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(65535)
   PORT: number = 3000;
 
+  @Expose()
   @IsUrl(URL_OPTIONS)
   TICKET_SERVICE_URL!: string;
 
+  @Expose()
   @IsUrl(URL_OPTIONS)
   PAYMENT_SERVICE_URL!: string;
 
+  @Expose()
   @IsUrl(URL_OPTIONS)
   LEDGER_SERVICE_URL!: string;
 
+  @Expose()
   @IsString()
   @MinLength(32)
   PUBLIC_API_KEY_TICKET!: string;
 
+  @Expose()
   @IsString()
   @MinLength(32)
   PUBLIC_API_KEY_PAYMENT!: string;
 
+  @Expose()
   @IsString()
   @MinLength(32)
   PUBLIC_API_KEY_LEDGER!: string;
 
+  @Expose()
   @IsString()
   @MinLength(32)
   JWT_SECRET!: string;
 
+  @Expose()
   @IsEmail()
   ADMIN_EMAIL!: string;
 
+  @Expose()
   @IsAdminHashB64()
   ADMIN_PASSWORD_HASH_B64!: string;
 
+  @Expose()
   @IsUrl(URL_OPTIONS)
   WEB_ORIGIN!: string;
 
+  @Expose()
   @Transform(toBoolean)
   @IsBoolean()
   SWAGGER_ENABLED: boolean = false;
 
+  @Expose()
   @IsIn(LOG_LEVELS)
   LOG_LEVEL: string = 'info';
 
+  @Expose()
   @Type(() => Number)
   @IsInt()
   @Min(100)
   @Max(30000)
   DOWNSTREAM_TIMEOUT_MS: number = 5000;
 
+  @Expose()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @Max(5)
   TRUST_PROXY: number = 0;
 
+  @Expose()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   RATE_LIMIT_DEFAULT_PER_MIN: number = 100;
 
+  @Expose()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   RATE_LIMIT_ORDERS_PER_MIN: number = 5;
 
+  @Expose()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -130,7 +148,10 @@ export class EnvironmentVariables {
 
 /** Throws one Error that lists every invalid variable. */
 export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables {
-  const env = plainToInstance(EnvironmentVariables, raw, { exposeDefaultValues: true });
+  const env = plainToInstance(EnvironmentVariables, raw, {
+    exposeDefaultValues: true,
+    excludeExtraneousValues: true,
+  });
   const errors = validateSync(env, { skipMissingProperties: false });
   if (errors.length > 0) {
     const lines = errors.flatMap((e) =>

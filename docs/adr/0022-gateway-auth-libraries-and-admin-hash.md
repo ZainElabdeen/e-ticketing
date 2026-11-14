@@ -38,3 +38,6 @@ compose and shells treat as variable references.
 `bcryptjs` is several times slower than native bcrypt. One login at cost 12 is
 a few hundred milliseconds, acceptable for a single admin and capped by the
 login rate limit. Base64 adds one decode step and an extra tool to run once.
+
+Passwords are capped at 72 UTF-8 bytes (login DTO and `admin-hash.mjs`), because
+bcrypt silently ignores bytes past 72. The login DTO also caps it at 128 characters per the contract.

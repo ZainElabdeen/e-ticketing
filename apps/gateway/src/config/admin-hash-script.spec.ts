@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import bcrypt from 'bcryptjs';
@@ -46,5 +46,31 @@ describe('infra/scripts/admin-hash.mjs', () => {
     const again = run(['--append', file, '--email', 'new@example.com'], `${PASSWORD}\n`);
     expect(again.status).toBe(0);
     expect(readFileSync(file, 'utf8')).toBe(content);
+  });
+
+  it.each([
+    ['a newline', 'a@example.com\nINJECT=1'],
+    ['a carriage return', 'a@example.com\rINJECT=1'],
+    ['a non-email', 'not-an-email'],
+  ])('rejects an --email with %s with exit 2 and writes nothing', (_n, email) => {
+    const dir = mkdtempSync(join(tmpdir(), 'admin-hash-'));
+    const file = join(dir, '.env');
+    const r = run(['--append', file, '--email', email], `${PASSWORD}\n`);
+    expect(r.status).toBe(2);
+    expect(r.stdout).not.toContain('ADMIN_PASSWORD_HASH_B64=');
+    expect(existsSync(file)).toBe(false);
+  });
+
+  it('rejects a password longer than 72 bytes', () => {
+    const r = run([], `${'é'.repeat(37)}\n`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/72 bytes/);
+    expect(r.stdout).not.toContain('ADMIN_PASSWORD_HASH_B64=');
+  });
+
+  it('exits non-zero without a hash when stdin is empty', () => {
+    const r = run([], '');
+    expect(r.status).not.toBe(0);
+    expect(r.stdout).not.toContain('ADMIN_PASSWORD_HASH_B64=');
   });
 });

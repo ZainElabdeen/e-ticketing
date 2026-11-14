@@ -847,6 +847,7 @@ export interface operations {
                     "application/json": components["schemas"]["TransactionPage"];
                 };
             };
+            400: components["responses"]["Downstream"];
             401: components["responses"]["Unauthorized"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamUnavailable"];
@@ -877,6 +878,7 @@ export interface operations {
                     "application/json": components["schemas"]["JournalEntryPage"];
                 };
             };
+            400: components["responses"]["Downstream"];
             401: components["responses"]["Unauthorized"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamUnavailable"];

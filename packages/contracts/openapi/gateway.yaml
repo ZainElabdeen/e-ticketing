@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Gateway (BFF) API
-  version: 2.0.0
+  version: 2.1.0
   license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
   description: >
     The only public backend. Holds public-scope API keys, rate limits, applies
@@ -211,6 +211,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './payment-service.yaml#/components/schemas/TransactionPage' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }
@@ -233,6 +234,7 @@ paths:
           content:
             application/json:
               schema: { $ref: './ledger-service.yaml#/components/schemas/JournalEntryPage' }
+        '400': { $ref: '#/components/responses/Downstream' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }

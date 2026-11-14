@@ -22,10 +22,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 const requireFromGateway = createRequire(join(here, '..', '..', 'apps', 'gateway', 'package.json'));
 const bcrypt = requireFromGateway('bcryptjs');
 
-function fail(message) {
+function fail(message, code = 1) {
   console.error(message);
-  process.exit(1);
+  process.exit(code);
 }
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// bcrypt ignores everything past byte 72, so a longer password would be truncated silently.
+const MAX_BYTES = 72;
 
 function parseArgs(argv) {
   const args = { append: undefined, email: undefined };
@@ -40,6 +44,10 @@ function parseArgs(argv) {
     }
   }
   if (Boolean(args.append) !== Boolean(args.email)) fail('--append and --email go together');
+  // A newline in the email would let it inject extra lines into the env file.
+  if (args.email !== undefined && (/[\r\n]/.test(args.email) || !EMAIL.test(args.email))) {
+    fail('--email must be a plain email address', 2);
+  }
   return args;
 }
 
@@ -49,9 +57,18 @@ async function readPassword() {
     process.stderr.write('Admin password (min 12 chars): ');
     const muted = new Writable({ write: (_chunk, _enc, done) => done() });
     const rl = createInterface({ input: process.stdin, output: muted, terminal: true });
-    const line = await new Promise((resolve) => rl.question('', resolve));
+    // Ctrl-D closes the interface and Ctrl-C raises SIGINT; neither may print a hash.
+    const line = await new Promise((resolve) => {
+      rl.on('close', () => resolve(undefined));
+      rl.on('SIGINT', () => {
+        process.stderr.write('\n');
+        process.exit(130);
+      });
+      rl.question('', resolve);
+    });
     rl.close();
     process.stderr.write('\n');
+    if (line === undefined) fail('No password given');
     return line;
   }
   const chunks = [];
@@ -61,6 +78,9 @@ async function readPassword() {
 
 const args = parseArgs(process.argv.slice(2));
 const password = await readPassword();
+if (Buffer.byteLength(password) > MAX_BYTES) {
+  fail(`Password must be at most ${MAX_BYTES} bytes (bcrypt ignores anything longer)`);
+}
 if (password.length < MIN_LENGTH) fail(`Password must be at least ${MIN_LENGTH} characters`);
 
 const value = Buffer.from(bcrypt.hashSync(password, COST)).toString('base64');

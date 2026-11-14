@@ -6,6 +6,8 @@ import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 import { FallbackModule, pinoHttpOptions } from '@eticket/nest-common';
 import type { EnvironmentVariables } from './config/env';
+import { AuthModule } from './auth/auth.module';
+import { BackofficeController } from './backoffice/backoffice.controller';
 import { DownstreamClient } from './downstream/downstream.client';
 import { HealthController } from './health/health.controller';
 import { OrdersController } from './shop/orders.controller';
@@ -46,12 +48,19 @@ export function createAppModule(
         }),
       }),
       TerminusModule,
+      AuthModule,
       // Timeout, status and redirect handling are set per call (DownstreamClient, HealthController).
       HttpModule,
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController, TicketTypesController, OrdersController, PaymentsController],
+    controllers: [
+      HealthController,
+      TicketTypesController,
+      OrdersController,
+      PaymentsController,
+      BackofficeController,
+    ],
     providers: [DownstreamClient],
   })
   class AppModule {}

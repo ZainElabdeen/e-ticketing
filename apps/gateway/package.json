@@ -5,8 +5,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node -e \"require('fs').copyFileSync(require.resolve('@eticket/contracts/openapi/gateway.json'),'dist/openapi.json')\"",
     "lint": "eslint .",
-    "test": "jest -c jest.config.cjs",
-    "test:int": "jest -c jest.int.config.cjs",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest -c jest.config.cjs",
+    "test:int": "NODE_OPTIONS=--experimental-vm-modules jest -c jest.int.config.cjs",
     "start": "node dist/src/main.js"
   },
   "devDependencies": {
