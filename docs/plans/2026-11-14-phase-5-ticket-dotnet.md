@@ -507,7 +507,7 @@ Design notes (not up for change in this phase):
 
 **Files:**
 
-- Create: `infra/docker/dotnet-ticket.Dockerfile`, `docs/adr/0021-ticket-service-dotnet-port.md`.
+- Create: `infra/docker/dotnet-ticket.Dockerfile`, `infra/scripts/contract.sh`, `infra/scripts/contract.mjs`, `docs/adr/0021-ticket-service-dotnet-port.md`.
 - Modify: `infra/docker-compose.yml`, `AGENTS.md` (Commands), `packages/contract-tests/README.md`, `docs/spec.md` (§2.1 note and §13 row).
 
 - [ ] **Step 1: Dockerfile.**
@@ -523,24 +523,35 @@ Design notes (not up for change in this phase):
   - The `ticket-service` service now builds `infra/docker/dotnet-ticket.Dockerfile`. The env is the same as before: `PORT`, `DATABASE_URL` with `?schema=tickets`, both keys, `SWAGGER_ENABLED`, `LOG_LEVEL`. Same ports and healthcheck.
   - Add `ticket-service-node` under `profiles: ["reference"]`: the NestJS image on host port `127.0.0.1:3011:3001`, the same env and the same DB. It runs only on `--profile reference`, so the contract suite can be pointed at both.
 
-- [ ] **Step 3: The identical contract suite, smoke, and both implementations.** On a fresh volume:
+- [ ] **Step 3: A contract runner script, then the identical suite, smoke, and both implementations.**
+
+  First create `infra/scripts/contract.sh <ticket|payment|ledger> [ticketBaseUrl]` and `infra/scripts/contract.mjs`.
+  - `contract.sh` runs `node --env-file=infra/.env infra/scripts/contract.mjs "$@"`. There is no shell-sourcing, because a bcrypt `$` would break it in Phase 6.
+  - `contract.mjs` maps the loaded keys to the `CONTRACT_*` variables the suites expect, using the README table:
+    - ticket uses `PUBLIC_API_KEY_TICKET` and `INTERNAL_API_KEY_TICKET`, with base URL `ticketBaseUrl` or `http://127.0.0.1:3001`;
+    - payment uses `PUBLIC_API_KEY_PAYMENT` and the ticket public key;
+    - ledger uses `PUBLIC_API_KEY_LEDGER` and `INTERNAL_API_KEY_LEDGER`.
+
+    It then spawns `pnpm --filter @eticket/contract-tests test:contract:<suite>` with that env and exits with its code. It never prints a key.
+
+  On a fresh volume:
 
   ```bash
   docker compose -f infra/docker-compose.yml down -v
   docker compose -f infra/docker-compose.yml up -d --build --wait ticket-service payment-service ledger-service
-  node --env-file=infra/.env -e 0   # no-op; keys are read by the test runner via the same flag below
+  infra/scripts/contract.sh ticket                       # .NET on :3001 → expect 38/38 (same as the NestJS run)
+  infra/scripts/contract.sh payment                      # expect 16/16
+  infra/scripts/contract.sh ledger                       # expect 14/14; outbox events end DONE
+  docker compose -f infra/docker-compose.yml down -v && infra/scripts/smoke.sh   # expect SMOKE OK on .NET
+  docker compose -f infra/docker-compose.yml --profile reference up -d --build --wait ticket-service-node
+  infra/scripts/contract.sh ticket http://127.0.0.1:3011 # NestJS reference → expect 38/38
   ```
 
-  1. Run `test:contract:ticket` against `http://127.0.0.1:3001` (.NET) with the keys from `infra/.env`. Load them without shell-sourcing:
-
-     ```bash
-     node --env-file=infra/.env node_modules/.bin/...
-     ```
-
-     Or export them through a small wrapper that never echoes. Expected: **38/38**, the same count as the NestJS run.
-  2. Then run `test:contract:payment` and `test:contract:ledger`. Expected: 16 and 14 pass, with outbox events ending DONE.
-  3. `down -v`, then `infra/scripts/smoke.sh` → `SMOKE OK`, running on the .NET Ticket Service.
-  4. Bring up `--profile reference ticket-service-node` and run `test:contract:ticket` against `:3011` → 38/38. Both implementations pass the identical suite.
+  Results:
+  1. The .NET Ticket Service passes **38/38**, the same count as the NestJS run.
+  2. The payment suite passes 16/16 and the ledger suite 14/14, with outbox events ending DONE.
+  3. The smoke test prints `SMOKE OK`, running on the .NET Ticket Service.
+  4. The NestJS reference on `:3011` also passes 38/38, so both implementations pass the identical suite.
   5. Key-leak counts in the `ticket-service` logs → 0.
   6. Run `down -v` at the end.
 
