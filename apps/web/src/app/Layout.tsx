@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet } from 'react-router';
 import styles from './Layout.module.css';
 
 export function Layout(): ReactElement {

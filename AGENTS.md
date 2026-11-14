@@ -78,7 +78,7 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
   HTTP, ADR-0019), @nestjs/jwt + bcryptjs (gateway auth, ADR-0022), Jest, Supertest, Testcontainers.
 - .NET: ASP.NET Core Web API, EF Core + Npgsql, FluentValidation, Swagger UI,
   Serilog, xUnit, Testcontainers, dotnet format.
-- Web: React Router, TanStack Query, React Hook Form + Zod,
+- Web: React Router 8 (`react-router`), TanStack Query, React Hook Form + Zod,
   openapi-typescript + openapi-fetch, CSS Modules (no UI framework),
   qrcode.react, Vitest + Testing Library. No mock data. Companions (ADR-0023):
   @vitejs/plugin-react, @hookform/resolvers, jsdom, @testing-library/user-event,

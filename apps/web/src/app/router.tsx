@@ -1,4 +1,4 @@
-import { createBrowserRouter, type RouteObject } from 'react-router-dom';
+import { createBrowserRouter, type RouteObject } from 'react-router';
 import { BackofficePage } from '../backoffice/BackofficePage';
 import { LoginPage } from '../backoffice/LoginPage';
 import { CheckoutPage } from '../checkout/CheckoutPage';
