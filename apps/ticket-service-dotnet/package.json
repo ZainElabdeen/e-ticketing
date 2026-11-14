@@ -1,0 +1,10 @@
+{
+  "name": "@eticket/ticket-service-dotnet",
+  "private": true,
+  "scripts": {
+    "build": "sh scripts/dotnet.sh build TicketService.sln -c Release",
+    "lint": "sh scripts/dotnet.sh format TicketService.sln --verify-no-changes",
+    "test": "sh scripts/dotnet.sh test TicketService.sln --filter Category=Unit",
+    "test:int": "sh scripts/dotnet.sh test TicketService.sln --filter Category=Integration"
+  }
+}

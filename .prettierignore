@@ -8,3 +8,7 @@ CLAUDE.md
 .superpowers/
 packages/contracts/openapi/
 packages/contracts/events/
+
+# C# is formatted by `dotnet format`, not Prettier.
+apps/ticket-service-dotnet/**/bin/
+apps/ticket-service-dotnet/**/obj/
