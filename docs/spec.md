@@ -590,6 +590,7 @@ The total on `/` is a preview from listed prices; the server total from
 | `CONTRACT_BASE_URL`, `CONTRACT_API_KEY`, `CONTRACT_INTERNAL_API_KEY` | contract tests (ticket) | Target under test (public and internal-scope keys) |
 | `CONTRACT_PAYMENT_BASE_URL`, `CONTRACT_PAYMENT_API_KEY`, `CONTRACT_TICKET_BASE_URL`, `CONTRACT_TICKET_API_KEY`, `CONTRACT_QR_DELAY_SECONDS` (8) | contract tests (payment) | Payment target, plus the Ticket Service it creates orders on; the delay must equal the target's `QR_SUCCESS_DELAY_SECONDS` |
 | `CONTRACT_LEDGER_BASE_URL`, `CONTRACT_LEDGER_API_KEY`, `CONTRACT_LEDGER_INTERNAL_API_KEY` | contract tests (ledger) | Ledger target under test (public and internal-scope keys) |
+| `CONTRACT_GATEWAY_BASE_URL`, `CONTRACT_ADMIN_EMAIL`, `CONTRACT_ADMIN_PASSWORD` | contract tests (gateway) | Gateway target and the admin credentials it logs in with; the suite stays inside the production rate limits (at most 4 orders, 6 logins, 60 requests). `infra/scripts/contract.sh` maps them from `ADMIN_EMAIL` and `ADMIN_PASSWORD_DEV` |
 | `CONTRACT_ORDER_TTL_MINUTES` (15) | contract tests | Must equal the target's `ORDER_TTL_MINUTES` |
 
 ## 8. Testing strategy

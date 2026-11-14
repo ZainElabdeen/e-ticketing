@@ -13,6 +13,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/ticket-service/package.json apps/ticket-service/package.json
 COPY apps/payment-service/package.json apps/payment-service/package.json
 COPY apps/ledger-service/package.json apps/ledger-service/package.json
+COPY apps/gateway/package.json apps/gateway/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/contract-tests/package.json packages/contract-tests/package.json

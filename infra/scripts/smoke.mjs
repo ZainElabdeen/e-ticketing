@@ -1,4 +1,4 @@
-// End-to-end smoke test. Node 26 global fetch only. Never prints a key.
+// End-to-end smoke test through the Gateway. Node 26 global fetch only. Never prints a secret.
 const env = (name) => {
   const value = process.env[name];
   if (!value) fail(`missing env var ${name}`);
@@ -13,20 +13,19 @@ const expect = (condition, message) => {
 };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const TICKET = 'http://127.0.0.1:3001';
-const PAYMENT = 'http://127.0.0.1:3002';
-const LEDGER = 'http://127.0.0.1:3003';
-const ticketKey = env('PUBLIC_API_KEY_TICKET');
-const paymentKey = env('PUBLIC_API_KEY_PAYMENT');
-const ledgerKey = env('PUBLIC_API_KEY_LEDGER');
+// Everything goes through the Gateway, the only public edge: no service API keys here.
+// The backoffice calls carry the admin JWT. No password or token is ever printed.
+const GATEWAY = process.env.SMOKE_GATEWAY_URL ?? 'http://127.0.0.1:3000';
+const adminEmail = env('ADMIN_EMAIL');
+const adminPassword = env('ADMIN_PASSWORD_DEV');
 
-async function call(step, method, url, key, body, extraHeaders = {}) {
+async function call(step, method, url, auth, body, extraHeaders = {}) {
   let res;
   try {
     res = await fetch(url, {
       method,
       headers: {
-        'x-api-key': key,
+        ...(auth ? { authorization: `Bearer ${auth}` } : {}),
         'content-type': 'application/json',
         ...extraHeaders,
       },
@@ -47,7 +46,7 @@ async function call(step, method, url, key, body, extraHeaders = {}) {
 }
 
 async function createOrder(step, ticketType, quantity) {
-  const { status, json } = await call(step, 'POST', `${TICKET}/v1/orders`, ticketKey, {
+  const { status, json } = await call(step, 'POST', `${GATEWAY}/v1/orders`, undefined, {
     items: [{ ticketTypeCode: ticketType, quantity }],
   });
   expect(status === 201, `${step}: create order expected 201, got ${status}`);
@@ -57,12 +56,22 @@ async function createOrder(step, ticketType, quantity) {
 
 async function pay(step, orderId, method, card) {
   const body = { orderId, method, ...(card ? { card } : {}) };
-  const { status, json } = await call(step, 'POST', `${PAYMENT}/v1/payments`, paymentKey, body, {
+  const { status, json } = await call(step, 'POST', `${GATEWAY}/v1/payments`, undefined, body, {
     'idempotency-key': crypto.randomUUID(),
   });
   expect(status === 200 || status === 201, `${step}: create payment expected 2xx, got ${status}`);
   return json;
 }
+
+// Step 0: backoffice login
+const login = await call('login', 'POST', `${GATEWAY}/v1/auth/login`, undefined, {
+  email: adminEmail,
+  password: adminPassword,
+});
+expect(login.status === 200, `login: expected 200, got ${login.status}`);
+expect(typeof login.json.accessToken === 'string', 'login: no accessToken in the response');
+const jwt = login.json.accessToken;
+console.log('0. backoffice login OK');
 
 // Step 1: card order
 const orderA = await createOrder('card order', 'GOLD', 2);
@@ -85,12 +94,7 @@ let payB = await pay('QR order', orderB.id, 'QR');
 expect(payB.status === 'PENDING', `QR order: payment status expected PENDING, got ${payB.status}`);
 for (let i = 0; i < 20 && payB.status !== 'SUCCEEDED'; i += 1) {
   await sleep(1000);
-  const { status, json } = await call(
-    'QR order',
-    'GET',
-    `${PAYMENT}/v1/payments/${payB.id}`,
-    paymentKey,
-  );
+  const { status, json } = await call('QR order', 'GET', `${GATEWAY}/v1/payments/${payB.id}`);
   expect(status === 200, `QR order: poll expected 200, got ${status}`);
   payB = json;
 }
@@ -105,8 +109,8 @@ for (let i = 0; i < 30; i += 1) {
   const { status, json } = await call(
     'ledger',
     'GET',
-    `${LEDGER}/v1/journal-entries?pageSize=100`,
-    ledgerKey,
+    `${GATEWAY}/v1/backoffice/ledger-entries?pageSize=100`,
+    jwt,
   );
   expect(status === 200, `ledger: list expected 200, got ${status}`);
   const sales = new Set(
@@ -124,12 +128,7 @@ for (const [label, order, payment] of [
   ['A', orderA, payA],
   ['B', orderB, payB],
 ]) {
-  const { status, json } = await call(
-    'orders',
-    'GET',
-    `${TICKET}/v1/orders/${order.id}`,
-    ticketKey,
-  );
+  const { status, json } = await call('orders', 'GET', `${GATEWAY}/v1/orders/${order.id}`);
   expect(status === 200, `orders: get ${label} expected 200, got ${status}`);
   expect(
     json.status === 'CONFIRMED',
@@ -144,7 +143,7 @@ console.log('4. both orders CONFIRMED with matching paidTransactionId');
 
 // Step 5: accounts
 {
-  const { status, json } = await call('accounts', 'GET', `${LEDGER}/v1/accounts`, ledgerKey);
+  const { status, json } = await call('accounts', 'GET', `${GATEWAY}/v1/backoffice/accounts`, jwt);
   expect(status === 200, `accounts: expected 200, got ${status}`);
   expect(
     json.totals.debitMinor === 40000 && json.totals.creditMinor === 40000,

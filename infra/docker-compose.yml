@@ -201,5 +201,47 @@ services:
       retries: 20
       start_period: 5s
 
+  # Public edge (spec section 6): the only service the browser talks to. It holds the three
+  # public keys and the admin credentials, never an internal key.
+  # RATE_LIMIT_WINDOW_MS is test-only: never set it here.
+  gateway:
+    build:
+      context: ..
+      dockerfile: infra/docker/nest-service.Dockerfile
+      args:
+        SERVICE: gateway
+        PORT: 3000
+    depends_on:
+      ticket-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      ledger-service:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      TICKET_SERVICE_URL: http://ticket-service:3001
+      PAYMENT_SERVICE_URL: http://payment-service:3002
+      LEDGER_SERVICE_URL: http://ledger-service:3003
+      PUBLIC_API_KEY_TICKET: ${PUBLIC_API_KEY_TICKET:?set PUBLIC_API_KEY_TICKET in infra/.env}
+      PUBLIC_API_KEY_PAYMENT: ${PUBLIC_API_KEY_PAYMENT:?set PUBLIC_API_KEY_PAYMENT in infra/.env}
+      PUBLIC_API_KEY_LEDGER: ${PUBLIC_API_KEY_LEDGER:?set PUBLIC_API_KEY_LEDGER in infra/.env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in infra/.env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL in infra/.env}
+      ADMIN_PASSWORD_HASH_B64: ${ADMIN_PASSWORD_HASH_B64:?set ADMIN_PASSWORD_HASH_B64 in infra/.env}
+      WEB_ORIGIN: http://localhost:5173
+      SWAGGER_ENABLED: 'true'
+      LOG_LEVEL: info
+      # Direct connections in compose, so the socket address is the client IP.
+      TRUST_PROXY: '0'
+    ports:
+      - '127.0.0.1:3000:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health/ready || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
 volumes:
   pgdata: {}

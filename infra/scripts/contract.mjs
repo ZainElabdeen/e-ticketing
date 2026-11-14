@@ -3,8 +3,8 @@
 import { spawnSync } from 'node:child_process';
 
 const [suite, ticketUrlArg] = process.argv.slice(2);
-if (process.argv.length > 4 || !['ticket', 'payment', 'ledger'].includes(suite ?? '')) {
-  console.error('usage: infra/scripts/contract.sh <ticket|payment|ledger> [ticketBaseUrl]');
+if (process.argv.length > 4 || !['ticket', 'payment', 'ledger', 'gateway'].includes(suite ?? '')) {
+  console.error('usage: infra/scripts/contract.sh <ticket|payment|ledger|gateway> [ticketBaseUrl]');
   process.exit(2);
 }
 
@@ -34,6 +34,11 @@ const mapped = {
     CONTRACT_LEDGER_BASE_URL: 'http://127.0.0.1:3003',
     CONTRACT_LEDGER_API_KEY: need('PUBLIC_API_KEY_LEDGER'),
     CONTRACT_LEDGER_INTERNAL_API_KEY: need('INTERNAL_API_KEY_LEDGER'),
+  }),
+  gateway: () => ({
+    CONTRACT_GATEWAY_BASE_URL: process.env.CONTRACT_GATEWAY_BASE_URL ?? 'http://127.0.0.1:3000',
+    CONTRACT_ADMIN_EMAIL: need('ADMIN_EMAIL'),
+    CONTRACT_ADMIN_PASSWORD: need('ADMIN_PASSWORD_DEV'),
   }),
 }[suite]();
 
