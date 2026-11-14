@@ -80,7 +80,10 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
   Serilog, xUnit, Testcontainers, dotnet format.
 - Web: React Router, TanStack Query, React Hook Form + Zod,
   openapi-typescript + openapi-fetch, CSS Modules (no UI framework),
-  qrcode.react, Vitest + Testing Library. No mock data.
+  qrcode.react, Vitest + Testing Library. No mock data. Companions (ADR-0023):
+  @vitejs/plugin-react, @hookform/resolvers, jsdom, @testing-library/user-event,
+  @testing-library/jest-dom, eslint-plugin-react-hooks, globals,
+  @fontsource-variable/archivo (self-hosted font).
 
 ## Commands
 
@@ -108,5 +111,6 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 - Stack: `docker compose -f infra/docker-compose.yml up -d --build`
 - Verify DB + migrations: `infra/scripts/verify-db.sh` | Reset DB: `docker compose -f infra/docker-compose.yml down -v`
 - Migrations are hand-written SQL (ADR-0015). Never run `prisma migrate dev`.
+- Web: `pnpm --filter @eticket/web dev` (Vite, proxies `/api` to the gateway; `cp apps/web/.env.example apps/web/.env` to change the target) | `pnpm --filter @eticket/web test` | `pnpm --filter @eticket/web build`
 - .NET: `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`
 - Before saying a phase is done: lint, build, test and test:int must pass.
