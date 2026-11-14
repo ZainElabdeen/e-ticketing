@@ -5,6 +5,8 @@ import { UpstreamTimeoutError, UpstreamUnavailableError } from '../payments/doma
 
 export type DownstreamName = 'ticket-service' | 'ledger-service';
 
+// ERR_CANCELED is what axios reports when the AbortSignal.timeout() below fires,
+// so it means "hard timeout" here and must map to UpstreamTimeoutError.
 const TIMEOUT_CODES = new Set(['ECONNABORTED', 'ETIMEDOUT', 'ERR_CANCELED']);
 
 export interface DownstreamRequest {
@@ -27,9 +29,14 @@ export async function callDownstream(
   downstream: DownstreamName,
   req: DownstreamRequest,
 ): Promise<AxiosResponse<unknown>> {
+  // axios `timeout` only fires on an idle socket, so a reply that trickles a byte at a
+  // time would never trip it. The signal bounds the whole call (the claiming
+  // transaction's timeout budget in OutboxRepository relies on that).
+  const timeoutMs = http.axiosRef.defaults.timeout;
   try {
     return await firstValueFrom(
       http.request<unknown>({
+        ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
         method: req.method,
         url: req.url,
         data: req.body,

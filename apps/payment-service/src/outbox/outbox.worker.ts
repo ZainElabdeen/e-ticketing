@@ -14,6 +14,12 @@ import { OutboxRepository, type ClaimedEvent, type EventUpdate } from './outbox.
 
 const INTERVAL_NAME = 'outbox';
 const CORRELATION_ID = 'job:outbox';
+const LEDGER_SKIPPED = 'ledger skipped: unavailable earlier in this batch';
+
+/** Per-run Ledger breaker: trips on the first failed post, so one batch makes at most one bad call. */
+interface Breaker {
+  open: boolean;
+}
 
 /**
  * Delivers payment.succeeded events (spec §4.4): confirm the order first, then
@@ -71,11 +77,12 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
 
   private async processBatch(): Promise<number> {
     const batch = this.config.get('OUTBOX_BATCH_SIZE', { infer: true });
+    const breaker: Breaker = { open: false };
     let claimed = 0;
     while (claimed < batch) {
       let found: boolean;
       try {
-        found = await this.repository.processOne((event) => this.deliver(event));
+        found = await this.repository.processOne((event) => this.deliver(event, breaker));
       } catch (err) {
         // The transaction rolled back, so the event is still due. Stop here instead of
         // re-claiming it in a tight loop; the next tick retries.
@@ -90,7 +97,7 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
     return claimed;
   }
 
-  private async deliver(event: ClaimedEvent): Promise<EventUpdate> {
+  private async deliver(event: ClaimedEvent, breaker: Breaker): Promise<EventUpdate> {
     const { payload } = event;
     const correlationId = payload.correlationId ?? event.id;
     let outcome: ConfirmOutcome | null = event.confirmOutcome;
@@ -100,6 +107,29 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
         payload.transactionId,
         correlationId,
       );
+      if (breaker.open) {
+        // The Ledger already failed in this batch: keep the confirm (stored with the
+        // update) but do not wait on another dead call.
+        return { kind: 'RETRY', confirmOutcome: outcome, error: LEDGER_SKIPPED };
+      }
+      await this.postToLedger(payload, outcome, correlationId, breaker);
+      return { kind: 'DONE', confirmOutcome: outcome };
+    } catch (err) {
+      return {
+        kind: 'RETRY',
+        confirmOutcome: outcome,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  private async postToLedger(
+    payload: ClaimedEvent['payload'],
+    outcome: ConfirmOutcome,
+    correlationId: string,
+    breaker: Breaker,
+  ): Promise<void> {
+    try {
       await this.ledger.post(
         {
           transactionId: payload.transactionId,
@@ -111,13 +141,9 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy, BeforeApplic
         },
         correlationId,
       );
-      return { kind: 'DONE', confirmOutcome: outcome };
     } catch (err) {
-      return {
-        kind: 'RETRY',
-        confirmOutcome: outcome,
-        error: err instanceof Error ? err.message : String(err),
-      };
+      breaker.open = true;
+      throw err;
     }
   }
 

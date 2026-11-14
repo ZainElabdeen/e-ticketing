@@ -415,6 +415,14 @@ Per event, **confirm first, then post**:
    error log. `confirm_outcome` is committed with the failure, so a retry never
    re-asks the Ticket Service for a different answer.
 
+Ledger breaker: within one tick, after the first failed Ledger call every later
+event still runs its confirm step but is retried with `last_error = 'ledger
+skipped: unavailable earlier in this batch'` without calling the Ledger (it
+counts as an attempt), so an outage costs one timed-out call per tick and
+orders keep being confirmed inside their 15-minute TTL. If processing an event
+throws after the claim (a DB error or the transaction timeout), the attempt is
+still counted in a separate statement, so such an event also reaches `FAILED`.
+
 Why confirm first: the confirmation is the only step that can be legitimately
 refused. Deciding it before touching the append-only ledger means revenue is
 never recognized for an order that was not fulfilled; a paid but unfulfilled

@@ -1,4 +1,4 @@
-import { Controller, Module, type INestApplication, Post } from '@nestjs/common';
+import { Controller, Logger, Module, type INestApplication, Post } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { configureApp } from './configure-app';
@@ -57,5 +57,32 @@ describe('malformed JSON bodies', () => {
     const body = (await res.json()) as { code: string; message: string };
     expect(res.status).toBe(400);
     expect(body.message).toBe('Malformed JSON body');
+  });
+
+  describe('log line', () => {
+    const CID = '7d1c5e4a-2b3f-4c6d-8e9a-0b1c2d3e4f5a';
+    let warn: jest.SpyInstance;
+    beforeEach(() => {
+      warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    });
+    afterEach(() => warn.mockRestore());
+
+    it('logs one fixed-text warning with the correlation id and status, never the body', async () => {
+      const res = await fetch(`${baseUrl}/echo`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-correlation-id': CID },
+        body: '{"card":{"number":"4242424242424242","cvc":"987","e":x}}',
+      });
+      expect(res.status).toBe(400);
+      const lines = warn.mock.calls.filter((c) =>
+        JSON.stringify(c).includes('malformed request body'),
+      );
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toEqual([{ correlationId: CID, statusCode: 400 }, 'malformed request body']);
+      const all = JSON.stringify(warn.mock.calls);
+      expect(all).not.toContain('987');
+      expect(all).not.toContain('4242');
+      expect(all).not.toContain('Unexpected');
+    });
   });
 });

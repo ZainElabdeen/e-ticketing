@@ -44,3 +44,16 @@ Up to ~2 s between payment success and confirmation/ledger visibility, and a
 worker DB transaction stays open across two HTTP calls (5 s timeout each).
 Accepted at this volume. The SPA shows success from the payment itself, not
 from the outbox.
+
+## Amended 2026-11-14
+
+Ledger outages must not stall confirmations, because an unconfirmed order
+expires after 15 minutes. Within one worker run, the first failed Ledger call
+trips a breaker: later events in that batch still confirm the order, but are
+retried with `last_error = 'ledger skipped: unavailable earlier in this batch'`
+without calling the Ledger. A skipped event counts as an attempt. The breaker
+is a local variable of the run, so it resets on the next tick. Every downstream
+call also has a hard total timeout (`AbortSignal.timeout`), since axios
+`timeout` is only an idle timeout. If processing throws after the claim, the
+repository records the attempt in a separate statement so the event cannot
+loop forever below `FAILED`.
