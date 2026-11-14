@@ -6,7 +6,11 @@ import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 import { FallbackModule, pinoHttpOptions } from '@eticket/nest-common';
 import type { EnvironmentVariables } from './config/env';
+import { DownstreamClient } from './downstream/downstream.client';
 import { HealthController } from './health/health.controller';
+import { OrdersController } from './shop/orders.controller';
+import { PaymentsController } from './shop/payments.controller';
+import { TicketTypesController } from './shop/ticket-types.controller';
 
 /** Test seam: where request logs are written (default: stdout). */
 export interface AppOptions {
@@ -53,7 +57,8 @@ export function createAppModule(
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController],
+    controllers: [HealthController, TicketTypesController, OrdersController, PaymentsController],
+    providers: [DownstreamClient],
   })
   class AppModule {}
 

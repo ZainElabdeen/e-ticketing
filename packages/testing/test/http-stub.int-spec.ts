@@ -18,6 +18,25 @@ describe('startHttpStub', () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
+  it('sends custom headers and a raw body when content-type is overridden', async () => {
+    stub.on('GET', /^\/h$/, {
+      status: 200,
+      body: { ok: true },
+      headers: { 'x-extra': 'yes', 'set-cookie': 'a=b' },
+    });
+    stub.on('GET', /^\/html$/, {
+      status: 200,
+      body: '<p>hi</p>',
+      headers: { 'content-type': 'text/html' },
+    });
+    const h = await fetch(`${stub.url}/h`);
+    expect(h.headers.get('x-extra')).toBe('yes');
+    expect(h.headers.get('content-type')).toBe('application/json');
+    const html = await fetch(`${stub.url}/html`);
+    expect(html.headers.get('content-type')).toBe('text/html');
+    expect(await html.text()).toBe('<p>hi</p>');
+  });
+
   it('records method, path, headers and the parsed body', async () => {
     stub.on('POST', /^\/b/, { status: 200 });
     await fetch(`${stub.url}/b?x=1`, {
