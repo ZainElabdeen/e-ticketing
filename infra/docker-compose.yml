@@ -20,7 +20,8 @@ services:
       - pgdata:/var/lib/postgresql
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     ports:
-      - '5432:5432'
+      # Loopback only; override the host port when 5432 is taken by another project.
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432'
     healthcheck:
       # TCP, so the probe stays unhealthy while the init scripts run on the
       # socket-only temporary server.
@@ -235,7 +236,7 @@ services:
       # Direct connections in compose, so the socket address is the client IP.
       TRUST_PROXY: '0'
     ports:
-      - '127.0.0.1:3000:3000'
+      - '127.0.0.1:${GATEWAY_HOST_PORT:-3000}:3000'
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health/ready || exit 1']
       interval: 5s

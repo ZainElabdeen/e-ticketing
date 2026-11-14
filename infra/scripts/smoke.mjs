@@ -1,3 +1,5 @@
+import { assertGateway } from './gateway-target.mjs';
+
 // End-to-end smoke test through the Gateway. Node 26 global fetch only. Never prints a secret.
 const env = (name) => {
   const value = process.env[name];
@@ -15,7 +17,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Everything goes through the Gateway, the only public edge: no service API keys here.
 // The backoffice calls carry the admin JWT. No password or token is ever printed.
-const GATEWAY = process.env.SMOKE_GATEWAY_URL ?? 'http://127.0.0.1:3000';
+const GATEWAY =
+  process.env.SMOKE_GATEWAY_URL ?? `http://127.0.0.1:${process.env.GATEWAY_HOST_PORT ?? 3000}`;
+await assertGateway(GATEWAY);
 const adminEmail = env('ADMIN_EMAIL');
 const adminPassword = env('ADMIN_PASSWORD_DEV');
 

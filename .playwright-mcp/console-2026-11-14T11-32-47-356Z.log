@@ -1,2 +1,0 @@
-[  281540ms] [ERROR] Connecting to 'http://localhost:3000/v1/auth/login' violates the following Content Security Policy directive: "default-src 'self'". Note that 'connect-src' was not explicitly set, so 'default-src' is used as a fallback. The action has been blocked. @ http://127.0.0.1:3999/docs/swagger-ui-bundle.js:2
-[  281541ms] [ERROR] Fetch API cannot load http://localhost:3000/v1/auth/login. Refused to connect because it violates the document's Content Security Policy. @ http://127.0.0.1:3999/docs/swagger-ui-bundle.js:2

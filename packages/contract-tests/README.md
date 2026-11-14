@@ -94,7 +94,7 @@ and unscoped paths answer 404). It needs the whole stack behind the Gateway.
 It talks only to the Gateway and holds no service key.
 
 The suite fits inside the production rate limits in one run (2 order
-creations of the 5/min limit, 4 logins of 10/min, about 25 requests of 100/min),
+creations of the 5/min limit, 3 logins of 10/min, about 23 requests of 100/min),
 so it runs against compose with default limits. Keep it that way: it shares one
 JWT across the backoffice tests. Run it after the ticket, payment and ledger
 suites, or before the ticket suite drains VIP: its orders use GOLD.

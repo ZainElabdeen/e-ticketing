@@ -1,6 +1,7 @@
 // Maps the compose keys (loaded into process.env by `node --env-file`) to the
 // CONTRACT_* variables the suites expect, then runs the suite. Never prints a key.
 import { spawnSync } from 'node:child_process';
+import { assertGateway } from './gateway-target.mjs';
 
 const [suite, ticketUrlArg] = process.argv.slice(2);
 if (process.argv.length > 4 || !['ticket', 'payment', 'ledger', 'gateway'].includes(suite ?? '')) {
@@ -17,6 +18,15 @@ const need = (name) => {
   }
   return value;
 };
+
+const gatewayUrl =
+  process.env.CONTRACT_GATEWAY_BASE_URL ??
+  `http://127.0.0.1:${process.env.GATEWAY_HOST_PORT ?? 3000}`;
+
+// Fail fast on a wrong target (another project on the same port) before any credential is sent.
+if (suite === 'gateway') {
+  await assertGateway(gatewayUrl);
+}
 
 const mapped = {
   ticket: () => ({
@@ -36,7 +46,7 @@ const mapped = {
     CONTRACT_LEDGER_INTERNAL_API_KEY: need('INTERNAL_API_KEY_LEDGER'),
   }),
   gateway: () => ({
-    CONTRACT_GATEWAY_BASE_URL: process.env.CONTRACT_GATEWAY_BASE_URL ?? 'http://127.0.0.1:3000',
+    CONTRACT_GATEWAY_BASE_URL: gatewayUrl,
     CONTRACT_ADMIN_EMAIL: need('ADMIN_EMAIL'),
     CONTRACT_ADMIN_PASSWORD: need('ADMIN_PASSWORD_DEV'),
   }),
