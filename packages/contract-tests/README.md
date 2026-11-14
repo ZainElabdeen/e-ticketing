@@ -20,6 +20,18 @@ envelope. The ASP.NET Core port must pass the identical suite.
    pnpm --filter @eticket/contract-tests test:contract:ticket
    ```
 
+Both Ticket Service implementations (the ASP.NET Core one on `:3001` and the
+NestJS reference under the compose `reference` profile on `:3011`) must pass
+the identical suite. With the compose stack up, `infra/scripts/contract.sh`
+reads the keys from `infra/.env` and runs a suite:
+
+```bash
+infra/scripts/contract.sh ticket                        # .NET, http://127.0.0.1:3001
+infra/scripts/contract.sh ticket http://127.0.0.1:3011  # NestJS reference
+infra/scripts/contract.sh payment
+infra/scripts/contract.sh ledger
+```
+
 ## Environment variables
 
 | Variable                     | Required | Meaning                                                  |
