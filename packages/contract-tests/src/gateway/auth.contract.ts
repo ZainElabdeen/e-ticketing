@@ -30,7 +30,7 @@ export function register(
       const target = getTarget();
       const res = await request(target.baseUrl)
         .post('/v1/auth/login')
-        .send({ email: target.adminEmail, password: `${target.adminPassword}-wrong` });
+        .send({ email: target.adminEmail, password: 'wrong-password-123' });
       expect(res.status).toBe(401);
       validator.assertResponse('login', res.status, res.body);
       expect((res.body as Envelope).code).toBe('INVALID_CREDENTIALS');
