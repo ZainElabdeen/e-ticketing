@@ -99,4 +99,31 @@ describe('validateEnv unrelated keys', () => {
     expect(Object.keys(env)).not.toContain('HOME');
     expect(env.TICKET_SERVICE_URL).toBe('http://ticket:3001');
   });
+
+  describe('placeholder secrets', () => {
+    it.each([
+      'JWT_SECRET',
+      'PUBLIC_API_KEY_TICKET',
+      'PUBLIC_API_KEY_PAYMENT',
+      'PUBLIC_API_KEY_LEDGER',
+    ])('rejects a placeholder %s (case-insensitive) without echoing it', (name) => {
+      for (const value of [
+        'replace-with-openssl-rand-hex-32-xxxxxxxx',
+        'CHANGE-ME-ticket-public-key-at-least-32',
+      ]) {
+        let message = '';
+        try {
+          validateEnv({ ...validEnv(), [name]: value });
+        } catch (error) {
+          message = (error as Error).message;
+        }
+        expect(message).toContain(`${name} is still a placeholder`);
+        expect(message).not.toContain(value);
+      }
+    });
+
+    it('accepts a real-looking secret', () => {
+      expect(() => validateEnv({ ...validEnv(), JWT_SECRET: 'a1'.repeat(32) })).not.toThrow();
+    });
+  });
 });

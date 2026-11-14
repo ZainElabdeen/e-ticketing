@@ -52,6 +52,24 @@ function IsAdminHashB64() {
   };
 }
 
+const PLACEHOLDER = /^(replace-with|change-me)/i;
+
+/** Rejects the `.env.example` placeholders; the message never echoes the value. */
+function IsNotPlaceholder() {
+  return (target: object, propertyKey: string): void => {
+    registerDecorator({
+      name: 'isNotPlaceholder',
+      target: target.constructor,
+      propertyName: propertyKey,
+      validator: {
+        validate: (value: unknown) => typeof value !== 'string' || !PLACEHOLDER.test(value),
+        defaultMessage: (args) =>
+          `${args?.property ?? 'value'} is still a placeholder from .env.example; generate a real secret (openssl rand -hex 32)`,
+      },
+    });
+  };
+}
+
 export class EnvironmentVariables {
   @Expose()
   @Type(() => Number)
@@ -75,21 +93,25 @@ export class EnvironmentVariables {
   @Expose()
   @IsString()
   @MinLength(32)
+  @IsNotPlaceholder()
   PUBLIC_API_KEY_TICKET!: string;
 
   @Expose()
   @IsString()
   @MinLength(32)
+  @IsNotPlaceholder()
   PUBLIC_API_KEY_PAYMENT!: string;
 
   @Expose()
   @IsString()
   @MinLength(32)
+  @IsNotPlaceholder()
   PUBLIC_API_KEY_LEDGER!: string;
 
   @Expose()
   @IsString()
   @MinLength(32)
+  @IsNotPlaceholder()
   JWT_SECRET!: string;
 
   @Expose()
