@@ -415,7 +415,9 @@ Per event, **confirm first, then post**:
    error log. `confirm_outcome` is committed with the failure, so a retry never
    re-asks the Ticket Service for a different answer.
 
-Ledger breaker: within one tick, after the first failed Ledger call every later
+Ledger breaker: within one tick, after the first Ledger outage (timeout,
+unreachable or 5xx; a 4xx such as 409 `POSTING_CONFLICT` is a per-event problem
+and does not trip it) every later
 event still runs its confirm step but is retried with `last_error = 'ledger
 skipped: unavailable earlier in this batch'` without calling the Ledger (it
 counts as an attempt), so an outage costs one timed-out call per tick and
@@ -631,6 +633,7 @@ payload.
 | Lost or duplicate ledger posting | Outbox in the success DB transaction; ledger idempotent on `transaction_id`; conflict on mismatch (§4.3, §4.4) |
 | Paid order cannot be confirmed (expired, quota gone) | Posted as `UNFULFILLED_PAYMENT` to Refunds Payable; refund itself is manual and out of scope |
 | Outbox event exhausts retries | `FAILED` + error log + runbook SQL (§4.4) |
+| Crash between the Ledger 2xx and the outbox COMMIT loses the confirm outcome | A re-confirm may differ, ending in `POSTING_CONFLICT` and `FAILED`, then manual accounting. Rollbacks keep the outcome; committing it in its own transaction before posting is deferred (ADR-0006) |
 | Reservation hoarding by anonymous clients | 5 orders/min/IP, max 10 per item, 15-min expiry. Guest checkout makes full prevention impossible; accepted |
 | Scheduled jobs assume one replica | `SKIP LOCKED` and conditional updates make a second replica safe but wasteful; leader election is out of scope |
 | Shared Postgres instance | Separate schemas and roles; noisy-neighbor risk accepted (ADR-0003) |

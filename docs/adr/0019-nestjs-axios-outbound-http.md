@@ -21,6 +21,9 @@ outbox worker retries on those errors, so the mapping must be exact.
   `UpstreamTimeoutError`. Every other transport error and every unexpected
   status maps to `UpstreamUnavailableError`. Messages carry the downstream name
   and the status or error code only: never a key, URL or body.
+- Axios `timeout` is only an idle timeout, so every call also carries an
+  `AbortSignal.timeout(DOWNSTREAM_TIMEOUT_MS)` hard total timeout (see the
+  ADR-0006 amendment).
 
 ## Alternatives
 
