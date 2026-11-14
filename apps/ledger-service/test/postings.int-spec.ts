@@ -119,6 +119,22 @@ describe('POST /v1/internal/postings', () => {
     expect(await counts(p.transactionId)).toEqual({ entries: 1, lines: 2 });
   });
 
+  it('uppercase UUIDs are stored lowercase and replay with 200', async () => {
+    const p = posting();
+    const upper = {
+      ...p,
+      transactionId: p.transactionId.toUpperCase(),
+      orderId: p.orderId.toUpperCase(),
+    };
+    const first = await send(upper);
+    const second = await send(upper);
+    expect(first.status).toBe(201);
+    expect(first.body.transactionId).toBe(p.transactionId);
+    expect(second.status).toBe(200);
+    expect(second.body).toEqual(first.body);
+    expect(await counts(p.transactionId)).toEqual({ entries: 1, lines: 2 });
+  });
+
   it.each([
     ['amountMinor', { amountMinor: 70001 }],
     ['postingType', { postingType: 'UNFULFILLED_PAYMENT' }],

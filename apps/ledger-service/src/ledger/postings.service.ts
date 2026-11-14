@@ -23,7 +23,7 @@ export class PostingsService {
     for (const code of codes) {
       const account = accounts.get(code);
       if (!account) throw new Error(`account ${code} is not in the chart`);
-      if (account.currency !== p.currency) throw new UnsupportedCurrencyError(p.currency);
+      if (account.currency !== p.currency) throw new UnsupportedCurrencyError();
       accountIds.set(code, account.id);
     }
 

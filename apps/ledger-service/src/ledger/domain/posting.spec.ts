@@ -27,9 +27,9 @@ describe('samePosting', () => {
 
 describe('errors', () => {
   it('maps unsupported currency to 400 VALIDATION_ERROR', () => {
-    const e = new UnsupportedCurrencyError('USD');
+    const e = new UnsupportedCurrencyError();
     expect(e).toMatchObject({ code: 'VALIDATION_ERROR', httpStatus: 400 });
-    expect(e.message).toBe('currency USD is not supported by the ledger accounts');
+    expect(e.message).toBe('currency is not supported by the ledger accounts');
   });
   it('maps conflict to 409 and names only the transaction id', () => {
     const e = new PostingConflictError('t1');

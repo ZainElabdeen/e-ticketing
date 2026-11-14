@@ -3,8 +3,8 @@ import { DomainError } from '@eticket/nest-common';
 export class UnsupportedCurrencyError extends DomainError {
   readonly code = 'VALIDATION_ERROR';
   readonly httpStatus = 400;
-  constructor(currency: string) {
-    super(`currency ${currency} is not supported by the ledger accounts`);
+  constructor() {
+    super('currency is not supported by the ledger accounts');
   }
 }
 

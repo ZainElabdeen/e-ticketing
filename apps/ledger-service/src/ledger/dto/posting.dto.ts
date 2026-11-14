@@ -1,7 +1,12 @@
+import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
 import type { PostingType } from '../domain/posting';
 
+const lower = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.toLowerCase() : value;
+
 export class PostingDto {
+  @Transform(lower)
   @IsUUID(undefined, { message: 'transactionId must be a UUID' })
   transactionId!: string;
 
@@ -10,6 +15,7 @@ export class PostingDto {
   })
   postingType!: PostingType;
 
+  @Transform(lower)
   @IsUUID(undefined, { message: 'orderId must be a UUID' })
   orderId!: string;
 
