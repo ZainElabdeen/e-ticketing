@@ -1,5 +1,6 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { BackofficePage } from '../backoffice/BackofficePage';
+import { RequireAuth } from '../backoffice/RequireAuth';
 import { LoginPage } from '../backoffice/LoginPage';
 import { CheckoutPage } from '../checkout/CheckoutPage';
 import { QrPage } from '../qr/QrPage';
@@ -16,7 +17,14 @@ export const routes: RouteObject[] = [
       { path: '/checkout/:orderId/qr/:paymentId', element: <QrPage /> },
       { path: '/result/:paymentId', element: <ResultPage /> },
       { path: '/backoffice/login', element: <LoginPage /> },
-      { path: '/backoffice', element: <BackofficePage /> },
+      {
+        path: '/backoffice',
+        element: (
+          <RequireAuth>
+            <BackofficePage />
+          </RequireAuth>
+        ),
+      },
     ],
   },
 ];

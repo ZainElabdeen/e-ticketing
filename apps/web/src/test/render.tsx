@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderResult } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { ApiProvider, createApi } from '../api/client';
+import { AuthProvider } from '../backoffice/AuthProvider';
+import { getSessionToken } from '../backoffice/session';
 
 export type StubRoute = {
   method: string;
@@ -50,19 +52,11 @@ export function stubFetch(routes: StubRoute[]): typeof fetch & { calls: Request[
   return Object.assign(stub, { calls });
 }
 
-/**
- * Task 6 replaces this no-op with the real `AuthProvider` from `src/backoffice/AuthProvider`.
- * Keep it as the single seam: nothing else in `renderWithApp` changes.
- */
-function AuthProviderPlaceholder({ children }: { children: ReactNode }): ReactElement {
-  return <>{children}</>;
-}
-
 export function renderWithApp(
   ui: ReactElement,
   opts: { route?: string; fetch?: typeof fetch; path?: string } = {},
 ): RenderResult & { user: UserEvent } {
-  const api = createApi({ fetch: opts.fetch ?? stubFetch([]) });
+  const api = createApi({ fetch: opts.fetch ?? stubFetch([]), getToken: getSessionToken });
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -70,7 +64,7 @@ export function renderWithApp(
   const result = render(
     <ApiProvider api={api}>
       <QueryClientProvider client={queryClient}>
-        <AuthProviderPlaceholder>
+        <AuthProvider>
           <MemoryRouter initialEntries={[opts.route ?? '/']}>
             {opts.path ? (
               <Routes>
@@ -80,7 +74,7 @@ export function renderWithApp(
               ui
             )}
           </MemoryRouter>
-        </AuthProviderPlaceholder>
+        </AuthProvider>
       </QueryClientProvider>
     </ApiProvider>,
   );

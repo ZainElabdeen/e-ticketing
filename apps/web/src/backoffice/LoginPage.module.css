@@ -1,0 +1,46 @@
+.page {
+  max-width: 420px;
+}
+
+.page h1 {
+  margin-bottom: 24px;
+}
+
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+}
+
+.field label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.field input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--stamp);
+}
+
+.error {
+  margin: 0;
+  color: var(--stamp);
+  font-size: var(--text-sm);
+}
+
+.submit {
+  justify-self: start;
+}
