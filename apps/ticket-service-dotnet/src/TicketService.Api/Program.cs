@@ -1,6 +1,11 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using TicketService.Api.Config;
+using TicketService.Api.Http;
 using TicketService.Api.Infrastructure;
 
 namespace TicketService.Api;
@@ -38,14 +43,45 @@ public partial class Program
             new NpgsqlDataSourceBuilder(sp.GetRequiredService<TicketServiceOptions>().ConnectionString).Build());
         builder.Services.AddDbContext<TicketsDbContext>((sp, options) =>
             options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()));
-        builder.Services.AddControllers();
+        builder.Host.UseSerilog((_, services, logger) =>
+        {
+            var options = services.GetRequiredService<TicketServiceOptions>();
+            logger
+                .MinimumLevel.Is(LogSettings.Parse(options.LogLevel))
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .WriteTo.Console(new JsonLogFormatter());
+            // Test seam: sinks registered in DI receive every event too.
+            foreach (var sink in services.GetServices<ILogEventSink>())
+            {
+                logger.WriteTo.Sink(sink);
+            }
+        });
+        builder.Services
+            .AddControllers()
+            .AddJsonOptions(json => JsonSetup.Apply(json.JsonSerializerOptions));
+        builder.Services.Configure<ApiBehaviorOptions>(api =>
+        {
+            // No ProblemDetails anywhere: bare client errors reach the envelope middleware instead.
+            api.SuppressMapClientErrors = true;
+            api.InvalidModelStateResponseFactory = ModelStateEnvelope.Create;
+        });
         builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(15));
         builder.WebHost.ConfigureKestrel((_, kestrel) =>
             kestrel.ListenAnyIP(kestrel.ApplicationServices.GetRequiredService<TicketServiceOptions>().Port));
 
         var app = builder.Build();
-        app.Services.GetRequiredService<TicketServiceOptions>();
+        var config = app.Services.GetRequiredService<TicketServiceOptions>();
+
+        app.UseMiddleware<CorrelationIdMiddleware>();
+        app.UseMiddleware<RequestLoggingMiddleware>();
+        app.UseMiddleware<ErrorEnvelopeMiddleware>();
+        app.UseRouting();
+        app.UseDocs(config.SwaggerEnabled);
+        app.UseMiddleware<ApiKeyMiddleware>();
+        app.UseMiddleware<JsonBodyGuardMiddleware>();
         app.MapControllers();
+        // Unmatched paths land here, so the key check above still runs: 401 without a key, 404 with one.
+        app.MapFallback(_ => throw new RouteNotFoundException());
         return app;
     }
 

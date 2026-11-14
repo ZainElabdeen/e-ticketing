@@ -1,6 +1,9 @@
 {
   "name": "@eticket/ticket-service-dotnet",
   "private": true,
+  "devDependencies": {
+    "@eticket/contracts": "workspace:*"
+  },
   "scripts": {
     "build": "sh scripts/dotnet.sh build TicketService.sln -c Release",
     "lint": "sh scripts/dotnet.sh format TicketService.sln --verify-no-changes",

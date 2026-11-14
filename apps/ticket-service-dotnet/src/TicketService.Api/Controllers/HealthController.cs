@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using TicketService.Api.Http;
 
 namespace TicketService.Api.Controllers;
 
 [ApiController]
+[PublicEndpoint]
 [Route("health")]
 public sealed class HealthController(NpgsqlDataSource dataSource, ILogger<HealthController> logger) : ControllerBase
 {

@@ -2,6 +2,21 @@
 
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ContractFile>$(MSBuildThisFileDirectory)../../../../packages/contracts/dist/ticket-service.json</ContractFile>
+  </PropertyGroup>
+
+  <Target Name="RequireContract" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ContractFile)')"
+           Text="packages/contracts/dist/ticket-service.json is missing. Run: pnpm --filter @eticket/contracts build" />
+  </Target>
+
+  <ItemGroup>
+    <Content Include="$(ContractFile)" Link="openapi.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

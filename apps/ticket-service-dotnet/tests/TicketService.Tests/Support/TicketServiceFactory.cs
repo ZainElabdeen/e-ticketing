@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Serilog.Core;
 using TicketService.Api;
 
 namespace TicketService.Tests.Support;
@@ -10,6 +12,8 @@ public sealed class TicketServiceFactory : WebApplicationFactory<Program>
     public const string DefaultInternalKey = "test-internal-key-test-internal-0002";
 
     private readonly Dictionary<string, string?> _settings;
+
+    public CapturingSink Logs { get; } = new();
 
     public TicketServiceFactory(PostgresFixture db, IDictionary<string, string?>? overrides = null)
     {
@@ -35,5 +39,11 @@ public sealed class TicketServiceFactory : WebApplicationFactory<Program>
         {
             builder.UseSetting(key, value);
         }
+
+        builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<ILogEventSink>(Logs);
+            services.AddControllers().AddApplicationPart(typeof(TestEndpointsController).Assembly);
+        });
     }
 }
