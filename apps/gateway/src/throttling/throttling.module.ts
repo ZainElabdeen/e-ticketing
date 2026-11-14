@@ -7,11 +7,19 @@ import { FixedWindowStorage } from './fixed-window.storage';
 import { GatewayThrottlerGuard } from './gateway-throttler.guard';
 import { RATE_LIMIT_SCOPE, type RateLimitScope } from './rate-limit';
 
+/** Owns the storage as a provider, so Nest runs its `onApplicationShutdown`. */
+@Module({ providers: [FixedWindowStorage], exports: [FixedWindowStorage] })
+class RateLimitStorageModule {}
+
 @Module({
   imports: [
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) => {
+      imports: [RateLimitStorageModule],
+      inject: [ConfigService, FixedWindowStorage],
+      useFactory: (
+        config: ConfigService<EnvironmentVariables, true>,
+        storage: FixedWindowStorage,
+      ) => {
         const reflector = new Reflector();
         const scopeOf = (context: ExecutionContext): RateLimitScope | undefined =>
           reflector.getAllAndOverride<RateLimitScope | undefined>(RATE_LIMIT_SCOPE, [
@@ -37,7 +45,7 @@ import { RATE_LIMIT_SCOPE, type RateLimitScope } from './rate-limit';
               skipIf: (context: ExecutionContext) => scopeOf(context) === undefined,
             },
           ],
-          storage: new FixedWindowStorage(),
+          storage,
         };
       },
     }),
