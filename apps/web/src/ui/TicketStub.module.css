@@ -1,0 +1,116 @@
+.ticket {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  overflow: hidden;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
+}
+
+.ticket::before {
+  content: '';
+  grid-row: 1 / -1;
+  grid-column: 1;
+  width: 6px;
+  background: var(--band);
+}
+
+.gold {
+  --band: var(--tier-gold);
+}
+
+.premium {
+  --band: var(--tier-premium);
+}
+
+.vip {
+  --band: var(--tier-vip);
+}
+
+.neutral {
+  --band: var(--ink);
+}
+
+.body {
+  grid-row: 1;
+  grid-column: 1;
+  padding: 16px 16px 16px 28px;
+}
+
+.stub {
+  position: relative;
+  grid-row: 1;
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  border-left: 2px dashed var(--rule);
+}
+
+/* Half-circle notches at the perforation, drawn with radial-gradient (no images). */
+.stub::before,
+.stub::after {
+  content: '';
+  position: absolute;
+  left: -12px;
+  width: 22px;
+  height: 22px;
+  background: radial-gradient(
+    circle,
+    var(--paper) 0 9.5px,
+    var(--ink) 9.5px 11px,
+    transparent 11px
+  );
+}
+
+.stub::before {
+  top: -11px;
+}
+
+.stub::after {
+  bottom: -11px;
+}
+
+@media (max-width: 559px) {
+  .ticket {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket::before {
+    grid-row: 1 / -1;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+  .body {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .stub {
+    grid-row: 2;
+    grid-column: 1;
+    justify-content: flex-start;
+    padding: 16px 16px 16px 28px;
+    border-left: 0;
+    border-top: 2px dashed var(--rule);
+  }
+
+  .stub::before,
+  .stub::after {
+    top: -11px;
+    bottom: auto;
+  }
+
+  .stub::before {
+    left: -11px;
+  }
+
+  .stub::after {
+    left: auto;
+    right: -11px;
+  }
+}
