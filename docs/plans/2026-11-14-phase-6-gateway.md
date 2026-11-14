@@ -411,6 +411,14 @@ Design notes (not up for change in this phase):
     - Header must match `/^Bearer ([A-Za-z0-9._-]+)$/` exactly; it is case-sensitive.
     - `jwtService.verify(token, { algorithms: ['HS256'], issuer: 'e-ticketing-gateway' })`.
     - Any failure → `UnauthorizedException('Missing or invalid token')`.
+  - **Login audit log** (added 2026-11-14, user decision). Every login attempt writes one structured log line: `info` on success, `warn` on failure. The message is `'login attempt'`, with these fields:
+    - `event: 'auth.login'`
+    - `outcome: 'success' | 'invalid_credentials'`
+    - `emailMatched: boolean`
+    - `ip: req.ip`
+    - `correlationId`
+
+    The line never contains the submitted email, the password or the token. `emailMatched` alone is enough to spot probing.
   - **Backoffice controller** carries `@UseGuards(JwtAuthGuard)` and the four routes from the mapping table. Paginated routes forward only `page` and `pageSize`, as raw strings when present.
 
 - [ ] **Step 1: Write the failing tests.**
@@ -421,6 +429,11 @@ Design notes (not up for change in this phase):
       - a missing field, a 7-char password, an extra field, a non-email → 400 `VALIDATION_ERROR`;
       - malformed JSON → 400 `Malformed JSON body`.
     - **No password leakage:** the password never appears in captured logs. Use the `logStream` option and a distinctive password.
+    - **Audit log:**
+      - a successful login yields exactly one `event: 'auth.login'` line with `outcome: 'success'` and `emailMatched: true`;
+      - a wrong password yields `outcome: 'invalid_credentials'` and `emailMatched: true`;
+      - an unknown email yields `emailMatched: false`;
+      - none of these lines contains the submitted email, the password or the `accessToken`.
   - **`backoffice.int-spec.ts`:**
     - **Mapping:** with a valid token, each of the four routes hits the right downstream path with the right service key. Transactions with `?page=2&pageSize=5&x=1` → the stub saw exactly `page=2&pageSize=5`.
     - **Pass-through:** a downstream 400 is passed through.
