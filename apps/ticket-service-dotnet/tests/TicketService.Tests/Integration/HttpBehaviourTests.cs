@@ -186,11 +186,40 @@ public sealed class HttpBehaviourTests(PostgresFixture db)
     {
         await using var factory = new TicketServiceFactory(db);
         using var client = factory.CreateClient();
-        var huge = "{\"quantity\":1,\"pad\":\"" + new string('x', 31 * 1024 * 1024) + "\"}";
+        var huge = "{\"quantity\":1,\"pad\":\"" + new string('x', 150 * 1024) + "\"}";
 
         var response = await client.SendAsync(Request(HttpMethod.Post, "/v1/test/echo", factory.PublicKey, huge));
 
         await EnvelopeOf(response, 413, "PAYLOAD_TOO_LARGE");
+    }
+
+    [Fact]
+    public async Task A_cancellation_the_client_did_not_cause_is_a_500_envelope_and_logs_500()
+    {
+        await using var factory = new TicketServiceFactory(db);
+        using var client = factory.CreateClient();
+
+        var response = await client.SendAsync(Request(HttpMethod.Get, "/v1/test/cancel", factory.PublicKey));
+
+        await EnvelopeOf(response, 500, "INTERNAL_ERROR");
+        Assert.Contains(factory.Logs.Lines(), l => l.Contains("\"route\"") && l.Contains("\"statusCode\":500"));
+    }
+
+    [Theory]
+    [InlineData("{\"quantity\":\"2\"}")]
+    [InlineData("{\"quantity\":2,\"extra\":1}")]
+    public async Task Binding_errors_do_not_leak_parser_or_type_text(string json)
+    {
+        await using var factory = new TicketServiceFactory(db);
+        using var client = factory.CreateClient();
+
+        var response = await client.SendAsync(Request(HttpMethod.Post, "/v1/test/echo", factory.PublicKey, json));
+
+        var body = await EnvelopeOf(response, 400, "VALIDATION_ERROR");
+        var message = body.GetProperty("message").GetString()!;
+        Assert.DoesNotContain("TicketService.", message);
+        Assert.DoesNotContain("LineNumber", message);
+        Assert.DoesNotContain("System.", message);
     }
 
     [Fact]

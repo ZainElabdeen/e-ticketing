@@ -15,8 +15,8 @@ public static class CorrelationId
             return cached;
         }
         var candidate = context.Request.Headers[Header].FirstOrDefault();
-        var id = candidate is not null && Guid.TryParseExact(candidate, "D", out var parsed)
-            ? parsed.ToString("D")
+        var id = candidate is not null && Guid.TryParseExact(candidate, "D", out _)
+            ? candidate
             : Guid.NewGuid().ToString("D");
         context.Items[ItemKey] = id;
         return id;
@@ -25,9 +25,13 @@ public static class CorrelationId
 
 public sealed class CorrelationIdMiddleware(RequestDelegate next)
 {
-    public Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(HttpContext context)
     {
-        context.Response.Headers[CorrelationId.Header] = CorrelationId.Of(context);
-        return next(context);
+        var id = CorrelationId.Of(context);
+        context.Response.Headers[CorrelationId.Header] = id;
+        using (Serilog.Context.LogContext.PushProperty("correlationId", id))
+        {
+            await next(context);
+        }
     }
 }

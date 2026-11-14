@@ -47,6 +47,7 @@ public partial class Program
         {
             var options = services.GetRequiredService<TicketServiceOptions>();
             logger
+                .Enrich.FromLogContext()
                 .MinimumLevel.Is(LogSettings.Parse(options.LogLevel))
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                 .WriteTo.Console(new JsonLogFormatter());
@@ -58,7 +59,12 @@ public partial class Program
         });
         builder.Services
             .AddControllers()
-            .AddJsonOptions(json => JsonSetup.Apply(json.JsonSerializerOptions));
+            .AddJsonOptions(json =>
+            {
+                JsonSetup.Apply(json.JsonSerializerOptions);
+                // Parser text names CLR types and line numbers.
+                json.AllowInputFormatterExceptionMessages = false;
+            });
         builder.Services.Configure<ApiBehaviorOptions>(api =>
         {
             // No ProblemDetails anywhere: bare client errors reach the envelope middleware instead.
@@ -67,7 +73,10 @@ public partial class Program
         });
         builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(15));
         builder.WebHost.ConfigureKestrel((_, kestrel) =>
-            kestrel.ListenAnyIP(kestrel.ApplicationServices.GetRequiredService<TicketServiceOptions>().Port));
+            {
+                kestrel.Limits.MaxRequestBodySize = JsonBodyGuardMiddleware.BodyLimitBytes;
+                kestrel.ListenAnyIP(kestrel.ApplicationServices.GetRequiredService<TicketServiceOptions>().Port);
+            });
 
         var app = builder.Build();
         var config = app.Services.GetRequiredService<TicketServiceOptions>();

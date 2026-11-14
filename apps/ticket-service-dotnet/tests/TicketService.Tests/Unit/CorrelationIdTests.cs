@@ -25,6 +25,14 @@ public sealed class CorrelationIdTests
     }
 
     [Fact]
+    public void An_uppercase_uuid_is_echoed_as_sent()
+    {
+        var id = Guid.NewGuid().ToString().ToUpperInvariant();
+
+        Assert.Equal(id, CorrelationId.Of(ContextWith(id)));
+    }
+
+    [Fact]
     public void A_non_uuid_header_is_replaced_by_a_new_uuid()
     {
         var resolved = CorrelationId.Of(ContextWith("not-a-uuid"));

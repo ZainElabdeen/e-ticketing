@@ -14,7 +14,7 @@ public sealed class ErrorEnvelopeMiddleware(RequestDelegate next, Serilog.ILogge
         {
             await next(context);
         }
-        catch (Exception ex) when (!context.Response.HasStarted && ex is not OperationCanceledException)
+        catch (Exception ex) when (!context.Response.HasStarted && !(ex is OperationCanceledException && context.RequestAborted.IsCancellationRequested))
         {
             var (status, code, message) = Classify(ex, context);
             await ErrorWriter.WriteAsync(context, status, code, message);

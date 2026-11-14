@@ -56,7 +56,7 @@ public sealed class UtcDateTimeOffsetConverter : JsonConverter<DateTimeOffset>
 /// </summary>
 public sealed class JsonBodyGuardMiddleware(RequestDelegate next)
 {
-    private const long DefaultLimit = 30_000_000;
+    public const long BodyLimitBytes = 102_400;
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -65,7 +65,7 @@ public sealed class JsonBodyGuardMiddleware(RequestDelegate next)
             && request.ContentLength != 0 && request.HasJsonContentType())
         {
             var limit = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>()
-                ?.MaxRequestBodySize ?? DefaultLimit;
+                ?.MaxRequestBodySize ?? BodyLimitBytes;
             var bytes = await ReadAsync(request.Body, limit, context.RequestAborted);
             if (bytes.Length > 0)
             {

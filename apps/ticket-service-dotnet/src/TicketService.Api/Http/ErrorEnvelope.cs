@@ -17,6 +17,8 @@ public static class ErrorWriter
     public static Task WriteAsync(HttpContext context, int statusCode, string code, string message)
     {
         var envelope = new ErrorEnvelope(statusCode, code, message, CorrelationId.Of(context));
+        context.Response.Clear();
+        context.Response.Headers[CorrelationId.Header] = envelope.CorrelationId;
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json; charset=utf-8";
         context.Response.ContentLength = null;

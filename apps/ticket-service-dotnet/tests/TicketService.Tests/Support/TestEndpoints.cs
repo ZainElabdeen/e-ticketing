@@ -19,6 +19,9 @@ public sealed class TestEndpointsController : ControllerBase
     [HttpGet("v1/test/boom")]
     public IActionResult Boom() => throw new InvalidOperationException("secret stack detail");
 
+    [HttpGet("v1/test/cancel")]
+    public IActionResult Cancel() => throw new OperationCanceledException();
+
     [HttpGet("v1/test/quota")]
     public IActionResult Quota() => throw new QuotaExceededException("GOLD");
 
