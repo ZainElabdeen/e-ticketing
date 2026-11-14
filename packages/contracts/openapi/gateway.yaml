@@ -40,7 +40,11 @@ paths:
               additionalProperties: false
               properties:
                 email: { type: string, format: email }
-                password: { type: string, minLength: 8, maxLength: 128 }
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+                  description: At most 72 UTF-8 bytes (bcrypt limit).
       responses:
         '200':
           description: JWT issued (HS256, 1 hour)

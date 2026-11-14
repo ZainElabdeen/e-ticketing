@@ -608,6 +608,7 @@ export interface operations {
                 "application/json": {
                     /** Format: email */
                     email: string;
+                    /** @description At most 72 UTF-8 bytes (bcrypt limit). */
                     password: string;
                 };
             };

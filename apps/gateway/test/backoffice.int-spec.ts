@@ -106,6 +106,27 @@ describe('backoffice routes', () => {
   });
 
   describe('JWT bypass matrix', () => {
+    it.each([
+      '/v1/backoffice/transactions',
+      '/v1/backoffice/ledger-entries',
+      '/v1/backoffice/ticket-availability',
+    ])('%s without a header is 401 with no downstream call', async (path) => {
+      const r = await request(gw.baseUrl).get(path);
+      expect(r.status).toBe(401);
+      expect(bodyOf(r).code).toBe('UNAUTHORIZED');
+      expect(totalCalls()).toBe(0);
+    });
+
+    it('rejects a correctly signed token without exp', async () => {
+      const noExp = new JwtService().sign(
+        { sub: 'admin@example.com' },
+        { secret, algorithm: 'HS256', issuer: 'e-ticketing-gateway' },
+      );
+      const r = await request(gw.baseUrl).get('/v1/backoffice/accounts').set(auth(noExp));
+      expect(r.status).toBe(401);
+      expect(totalCalls()).toBe(0);
+    });
+
     const noneToken = () =>
       `${b64({ alg: 'none', typ: 'JWT' })}.${b64({
         sub: 'admin@example.com',

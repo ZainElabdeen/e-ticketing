@@ -5,22 +5,18 @@ import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 import type { EnvironmentVariables } from '../config/env';
 import { decodeAdminHash } from '../config/admin-hash';
+import { JWT_ISSUER, TOKEN_TTL_SECONDS } from './constants';
 import { InvalidCredentialsError } from './errors';
-
-export const JWT_ISSUER = 'e-ticketing-gateway';
-export const TOKEN_TTL_SECONDS = 3600;
-const BCRYPT_COST = 12;
-
-/**
- * Compared against when the email does not match, so an unknown email costs the
- * same bcrypt work as a wrong password. Random input: nobody can log in with it.
- */
-const DUMMY_HASH = bcrypt.hashSync(randomBytes(24).toString('hex'), BCRYPT_COST);
 
 @Injectable()
 export class AuthService {
   private readonly adminEmail: string;
   private readonly adminHash: string;
+  /**
+   * Compared against when the email does not match, so an unknown email costs the
+   * same bcrypt work as a wrong password. Same cost as the admin hash; random input.
+   */
+  private readonly dummyHash: string;
 
   constructor(
     private readonly jwt: JwtService,
@@ -28,6 +24,10 @@ export class AuthService {
   ) {
     this.adminEmail = config.get('ADMIN_EMAIL', { infer: true }).trim().toLowerCase();
     this.adminHash = decodeAdminHash(config.get('ADMIN_PASSWORD_HASH_B64', { infer: true }));
+    this.dummyHash = bcrypt.hashSync(
+      randomBytes(24).toString('hex'),
+      bcrypt.getRounds(this.adminHash),
+    );
   }
 
   /** Whether the email is the admin's; the audit log records this, never the email. */
@@ -41,7 +41,10 @@ export class AuthService {
     password: string,
   ): Promise<{ accessToken: string; expiresIn: number }> {
     const emailMatches = this.emailMatches(email);
-    const passwordOk = await bcrypt.compare(password, emailMatches ? this.adminHash : DUMMY_HASH);
+    const passwordOk = await bcrypt.compare(
+      password,
+      emailMatches ? this.adminHash : this.dummyHash,
+    );
     if (!(emailMatches && passwordOk)) {
       throw new InvalidCredentialsError();
     }

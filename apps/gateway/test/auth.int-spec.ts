@@ -85,13 +85,19 @@ describe('POST /v1/auth/login', () => {
     ['missing email', { password: 'long-enough-pw' }],
     ['7 char password', { email: 'admin@example.com', password: '1234567' }],
     ['129 char password', { email: 'admin@example.com', password: 'a'.repeat(129) }],
-    ['73 byte password', { email: 'admin@example.com', password: 'é'.repeat(37) }],
+    ['74 byte password', { email: 'admin@example.com', password: 'é'.repeat(37) }],
     ['extra field', { email: 'admin@example.com', password: 'long-enough-pw', role: 'x' }],
     ['non-email', { email: 'not-an-email', password: 'long-enough-pw' }],
   ])('rejects %s with 400 VALIDATION_ERROR', async (_name, body) => {
     const r = await login(body);
     expect(r.status).toBe(400);
     expect(bodyOf(r).code).toBe('VALIDATION_ERROR');
+  });
+
+  it('accepts exactly 72 bytes at validation and answers 401, not 400', async () => {
+    const r = await login({ email: gw.adminEmail, password: 'é'.repeat(36) });
+    expect(r.status).toBe(401);
+    expect(bodyOf(r).code).toBe('INVALID_CREDENTIALS');
   });
 
   it('rejects malformed JSON', async () => {
@@ -138,6 +144,7 @@ describe('POST /v1/auth/login', () => {
         emailMatched: true,
       });
       expect(lines.join('')).not.toContain(gw.adminEmail);
+      expect(lines.join('')).not.toContain('wrong-password-1');
     });
 
     it('records emailMatched false for an unknown email without logging it', async () => {

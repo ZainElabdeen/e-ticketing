@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { JWT_ISSUER } from './auth.service';
+import { JWT_ISSUER, TOKEN_TTL_SECONDS } from './constants';
 
 const BEARER = /^Bearer ([A-Za-z0-9._-]+)$/;
 
@@ -22,7 +22,15 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing or invalid token');
     }
     try {
-      this.jwt.verify(match[1]!, { algorithms: ['HS256'], issuer: JWT_ISSUER });
+      const payload = this.jwt.verify<{ exp?: unknown }>(match[1]!, {
+        algorithms: ['HS256'],
+        issuer: JWT_ISSUER,
+        maxAge: TOKEN_TTL_SECONDS,
+      });
+      // jsonwebtoken only enforces expiry when exp is present, so require it.
+      if (typeof payload.exp !== 'number') {
+        throw new Error('no exp');
+      }
     } catch {
       throw new UnauthorizedException('Missing or invalid token');
     }
