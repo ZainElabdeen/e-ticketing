@@ -14,6 +14,9 @@ import {
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { HealthController } from './health/health.controller';
+import { LedgerRepository } from './ledger/ledger.repository';
+import { PostingsController } from './ledger/postings.controller';
+import { PostingsService } from './ledger/postings.service';
 
 /** Test seam: where request logs are written (default: stdout). */
 export interface AppOptions {
@@ -50,9 +53,11 @@ export function createAppModule(
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController],
+    controllers: [HealthController, PostingsController],
     providers: [
       PrismaService,
+      LedgerRepository,
+      PostingsService,
       {
         provide: API_KEYS,
         inject: [ConfigService],

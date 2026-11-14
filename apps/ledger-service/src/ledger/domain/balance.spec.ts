@@ -22,6 +22,28 @@ describe('assertBalanced', () => {
   it.each([0, 1.5, -5])('rejects amount %p', (n) => {
     expect(() => assertBalanced([d(n), c(n)])).toThrow(UnbalancedEntryError);
   });
+  it.each([
+    ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1],
+    ['NaN', NaN],
+    ['Infinity', Infinity],
+  ])('rejects %s', (_label, n) => {
+    expect(() => assertBalanced([d(n), c(n)])).toThrow(UnbalancedEntryError);
+  });
+  it('rejects a sum that overflows the safe integer range', () => {
+    const half = Number.MAX_SAFE_INTEGER - 1;
+    expect(() => assertBalanced([d(half), d(half), c(half), c(half)])).toThrow(
+      UnbalancedEntryError,
+    );
+  });
+  it('rejects an empty entry', () => {
+    expect(() => assertBalanced([])).toThrow(UnbalancedEntryError);
+  });
+  it('rejects debit-only lines', () => {
+    expect(() => assertBalanced([d(50), d(50)])).toThrow(UnbalancedEntryError);
+  });
+  it('accepts a balanced three-line entry', () => {
+    expect(() => assertBalanced([d(60), d(40), c(100)])).not.toThrow();
+  });
   it('is a 500 INTERNAL_ERROR, never a client error', () => {
     try {
       assertBalanced([d(1)]);

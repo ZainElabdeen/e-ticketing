@@ -1,3 +1,4 @@
+import { UnbalancedEntryError } from './errors';
 import { planEntry, TEMPLATES } from './templates';
 import type { PostingInput } from './posting';
 
@@ -27,7 +28,7 @@ describe('planEntry', () => {
   });
 
   it('rejects a non-positive amount through its own balance check', () => {
-    expect(() => planEntry({ ...base, amountMinor: 0 })).toThrow();
+    expect(() => planEntry({ ...base, amountMinor: 0 })).toThrow(UnbalancedEntryError);
   });
 
   it('has a template for every posting type', () => {
