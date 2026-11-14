@@ -5,7 +5,7 @@ namespace TicketService.Api.Controllers;
 
 [ApiController]
 [Route("health")]
-public sealed class HealthController(NpgsqlDataSource dataSource) : ControllerBase
+public sealed class HealthController(NpgsqlDataSource dataSource, ILogger<HealthController> logger) : ControllerBase
 {
     private static readonly TimeSpan DbTimeout = TimeSpan.FromSeconds(2);
 
@@ -25,8 +25,9 @@ public sealed class HealthController(NpgsqlDataSource dataSource) : ControllerBa
             await command.ExecuteScalarAsync(timeout.Token);
             return Ok(new { status = "ok" });
         }
-        catch (Exception) when (!requestAborted.IsCancellationRequested)
+        catch (Exception ex) when (!requestAborted.IsCancellationRequested)
         {
+            logger.LogDebug(ex, "Readiness check failed");
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
                 new { status = "error", details = new { database = new { status = "down" } } });
         }

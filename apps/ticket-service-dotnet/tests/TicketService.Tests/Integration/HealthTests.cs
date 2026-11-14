@@ -6,7 +6,8 @@ using TicketService.Tests.Support;
 namespace TicketService.Tests.Integration;
 
 [Trait("Category", "Integration")]
-public sealed class HealthTests(PostgresFixture db) : IClassFixture<PostgresFixture>
+[Collection(PostgresCollection.Name)]
+public sealed class HealthTests(PostgresFixture db)
 {
     [Fact]
     public async Task Live_is_200_without_a_key()

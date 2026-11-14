@@ -7,7 +7,8 @@ using TicketService.Tests.Support;
 namespace TicketService.Tests.Integration;
 
 [Trait("Category", "Integration")]
-public sealed class SchemaMappingTests(PostgresFixture db) : IClassFixture<PostgresFixture>
+[Collection(PostgresCollection.Name)]
+public sealed class SchemaMappingTests(PostgresFixture db)
 {
     private TicketsDbContext NewContext()
     {

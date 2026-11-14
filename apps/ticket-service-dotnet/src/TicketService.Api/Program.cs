@@ -37,8 +37,7 @@ public partial class Program
         builder.Services.AddSingleton(sp =>
             new NpgsqlDataSourceBuilder(sp.GetRequiredService<TicketServiceOptions>().ConnectionString).Build());
         builder.Services.AddDbContext<TicketsDbContext>((sp, options) =>
-            options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>())
-                .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+            options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()));
         builder.Services.AddControllers();
         builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(15));
         builder.WebHost.ConfigureKestrel((_, kestrel) =>
