@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdtempSync, readFileSync, statSync, existsSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,8 +22,12 @@ function tempEnv() {
   return join(mkdtempSync(join(tmpdir(), 'setup-local-')), '.env');
 }
 
-function run(envPath, extra = [], input = '') {
-  return spawnSync(process.execPath, [SCRIPT, '--env', envPath, '--no-ports', ...extra], {
+const loginFileOf = (envPath) => join(dirname(envPath), '.admin-login.txt');
+
+function run(envPath, extra = [], input = '', { ports = false } = {}) {
+  const base = ['--env', envPath, '--login-file', loginFileOf(envPath)];
+  if (!ports) base.push('--no-ports');
+  return spawnSync(process.execPath, [SCRIPT, ...base, ...extra], {
     input,
     encoding: 'utf8',
   });
@@ -139,17 +143,113 @@ test('generatePassword returns 20 characters from the unambiguous alphabet', () 
   assert.equal(generatePassword(30).length, 30);
 });
 
-test('non-TTY run writes the login file with mode 600 and does not print the password', () => {
+test('non-TTY run with a generated password writes the login file (mode 600), not stdout', () => {
+  const env = tempEnv();
+  const r = run(env);
+  assert.equal(r.status, 0, r.stderr);
+  const file = loginFileOf(env);
+  assert.ok(r.stdout.includes(file));
+  assert.equal(statSync(file).mode & 0o777, 0o600);
+  assert.equal(statSync(env).mode & 0o777, 0o600);
+  const password = /Password: (\S+)/.exec(readFileSync(file, 'utf8'))[1];
+  assert.equal(password.length, 20);
+  assert.ok(!(r.stdout + r.stderr).includes(password));
+  assert.equal(parseEnv(readFileSync(env, 'utf8')).get('ADMIN_PASSWORD_DEV'), password);
+});
+
+test('a typed password is never echoed or written to the login file', () => {
   const env = tempEnv();
   const r = run(env, ['--password-stdin'], `${PASSWORD}\n`);
   assert.equal(r.status, 0, r.stderr);
   assert.ok(!(r.stdout + r.stderr).includes(PASSWORD));
-  const file = join(dirname(env), '.admin-login.txt');
-  assert.ok(r.stdout.includes(file));
-  assert.equal(statSync(file).mode & 0o777, 0o600);
+  assert.match(r.stdout, /Password: \(the one you entered\)/);
+  assert.equal(existsSync(loginFileOf(env)), false);
+  assert.equal(parseEnv(readFileSync(env, 'utf8')).get('ADMIN_PASSWORD_DEV'), PASSWORD);
+});
+
+test('a stale login file is removed when a typed password is set', () => {
+  const env = tempEnv();
+  writeFileSync(loginFileOf(env), 'old');
+  assert.equal(run(env, ['--password-stdin'], `${PASSWORD}\n`).status, 0);
+  assert.equal(existsSync(loginFileOf(env)), false);
+});
+
+test('an existing env with no port keys is left alone while the default port is busy', async () => {
+  const env = tempEnv();
+  assert.equal(run(env, ['--password-stdin'], `${PASSWORD}\n`).status, 0);
+  const before = readFileSync(env, 'utf8');
+  const server = createServer();
+  server.on('error', () => {});
+  await new Promise((resolve) => server.listen(3000, '127.0.0.1', resolve));
+  try {
+    const r = run(env, [], '', { ports: true });
+    assert.equal(r.status, 0, r.stderr);
+    assert.doesNotMatch(r.stdout, /Port \d+ is busy/);
+    assert.equal(readFileSync(env, 'utf8'), before);
+  } finally {
+    if (server.listening) await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('a new env file gets every port written, even when it is the default', () => {
+  const env = tempEnv();
+  const r = run(env, ['--password-stdin'], `${PASSWORD}\n`, { ports: true });
+  assert.equal(r.status, 0, r.stderr);
+  const out = parseEnv(readFileSync(env, 'utf8'));
+  for (const key of ['GATEWAY_HOST_PORT', 'POSTGRES_HOST_PORT', 'WEB_HOST_PORT']) {
+    assert.match(out.get(key), /^\d+$/);
+  }
+});
+
+test('real admin values survive a placeholder ADMIN_PASSWORD_DEV; a warning is printed', () => {
+  const env = tempEnv();
+  assert.equal(run(env, ['--password-stdin'], `${PASSWORD}\n`).status, 0);
+  const text = readFileSync(env, 'utf8').replace(
+    /^ADMIN_PASSWORD_DEV=.*$/m,
+    'ADMIN_PASSWORD_DEV=replace-with-the-dev-admin-password',
+  );
+  writeFileSync(env, text);
+  const r = run(env);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(readFileSync(env, 'utf8'), text);
+  assert.match(r.stdout, /ADMIN_PASSWORD_DEV is not set; smoke and contract tests need it/);
+});
+
+test('a missing hash keeps an existing real ADMIN_EMAIL as the default email', () => {
+  const env = tempEnv();
+  writeFileSync(env, 'ADMIN_EMAIL=keep@eticket.local\n');
+  assert.equal(run(env).status, 0);
+  assert.equal(parseEnv(readFileSync(env, 'utf8')).get('ADMIN_EMAIL'), 'keep@eticket.local');
+});
+
+test('a placeholder ADMIN_EMAIL counts as missing', () => {
+  const env = tempEnv();
+  writeFileSync(env, 'ADMIN_EMAIL=change-me\n');
+  assert.equal(run(env).status, 0);
+  assert.equal(parseEnv(readFileSync(env, 'utf8')).get('ADMIN_EMAIL'), 'admin@eticket.local');
+});
+
+test('an existing env with mode 0644 ends at 0600', () => {
+  const env = tempEnv();
+  writeFileSync(env, 'POSTGRES_PASSWORD=real-value\n', { mode: 0o644 });
+  chmodSync(env, 0o644);
+  assert.equal(run(env).status, 0);
   assert.equal(statSync(env).mode & 0o777, 0o600);
-  assert.ok(readFileSync(file, 'utf8').includes(PASSWORD));
-  assert.ok(!r.stdout.includes('Password:'));
+  assert.equal(parseEnv(readFileSync(env, 'utf8')).get('POSTGRES_PASSWORD'), 'real-value');
+});
+
+test('unparseable lines are kept verbatim and reported by line number only', () => {
+  const env = tempEnv();
+  writeFileSync(env, '# note\nexport FOO=bar-secret\nPOSTGRES_PASSWORD=real-value\n');
+  const r = run(env);
+  assert.equal(r.status, 0, r.stderr);
+  const out = readFileSync(env, 'utf8');
+  assert.match(out, /# Lines kept as written\nexport FOO=bar-secret\n/);
+  assert.match(r.stdout, /line 2/);
+  assert.ok(!r.stdout.includes('bar-secret'));
+  const before = out;
+  assert.equal(run(env).status, 0);
+  assert.equal(readFileSync(env, 'utf8'), before);
 });
 
 test('busy default port picks a free alternative', async () => {

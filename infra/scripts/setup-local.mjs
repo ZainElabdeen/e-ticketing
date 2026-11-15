@@ -3,9 +3,10 @@
 //
 //   node infra/scripts/setup-local.mjs [--email <addr>] [--password-stdin]
 //                                      [--reset-admin] [--env <path>] [--no-ports]
+//                                      [--login-file <path>]
 //
 // Needs `pnpm install` first (bcryptjs is loaded from the gateway package).
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
@@ -17,6 +18,7 @@ import { generatePassword, hashAdminPassword, MAX_BYTES } from './lib/admin-hash
 const here = dirname(fileURLToPath(import.meta.url));
 const EXAMPLE_PATH = join(here, '..', '.env.example');
 const DEFAULT_ENV_PATH = join(here, '..', '.env');
+const DEFAULT_LOGIN_FILE = join(here, '..', '.admin-login.txt');
 const MIN_BYTES = 8;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEFAULT_EMAIL = 'admin@eticket.local';
@@ -28,7 +30,7 @@ const PORTS = [
 ];
 
 export const USAGE =
-  'usage: setup-local.mjs [--email <addr>] [--password-stdin] [--reset-admin] [--env <path>] [--no-ports]';
+  'usage: setup-local.mjs [--email <addr>] [--password-stdin] [--reset-admin] [--env <path>] [--no-ports] [--login-file <path>]';
 
 export function isPlaceholder(value) {
   return value === '' || /^(replace-with|change-me)/i.test(value);
@@ -43,8 +45,26 @@ export function parseEnv(text) {
   return map;
 }
 
+/** Non-comment, non-blank lines parseEnv ignores, as 1-based line numbers and text. */
+export function unmatchedLines(text) {
+  const out = [];
+  text.split(/\r?\n/).forEach((line, i) => {
+    if (line.trim() === '' || /^\s*#/.test(line)) return;
+    if (!/^[A-Za-z_][A-Za-z0-9_]*=/.test(line)) out.push({ number: i + 1, text: line });
+  });
+  return out;
+}
+
+/** Writes via <path>.tmp (mode 600 from the start) and renames, so no world-readable window. */
+export function writeAtomic(path, content) {
+  const tmp = `${path}.tmp`;
+  rmSync(tmp, { force: true });
+  writeFileSync(tmp, content, { flag: 'wx', mode: 0o600 });
+  renameSync(tmp, path);
+}
+
 /** Re-renders the example with `values`, keeping its comments and key order. */
-export function renderEnv(exampleText, values) {
+export function renderEnv(exampleText, values, keptLines = []) {
   const seen = new Set();
   const lines = exampleText.split('\n').map((line) => {
     const m = /^(# ?)?([A-Z][A-Z0-9_]*)=/.exec(line);
@@ -60,6 +80,9 @@ export function renderEnv(exampleText, values) {
   const extras = [...values].filter(([key]) => !seen.has(key));
   if (extras.length > 0) {
     out += `${out.endsWith('\n') ? '' : '\n'}${extras.map(([k, v]) => `${k}=${v}`).join('\n')}\n`;
+  }
+  if (keptLines.length > 0) {
+    out += `${out.endsWith('\n') ? '' : '\n'}\n# Lines kept as written\n${keptLines.join('\n')}\n`;
   }
   return out;
 }
@@ -107,19 +130,21 @@ function parseArgs(argv) {
     resetAdmin: false,
     env: DEFAULT_ENV_PATH,
     ports: true,
+    loginFile: DEFAULT_LOGIN_FILE,
   };
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
-    if (flag === '--email' || flag === '--env') {
+    if (flag === '--email' || flag === '--env' || flag === '--login-file') {
       const value = argv[++i];
       if (!value) fail(`${flag} needs a value\n${USAGE}`, 2);
-      args[flag.slice(2)] = value;
+      args[flag === '--login-file' ? 'loginFile' : flag.slice(2)] = value;
     } else if (flag === '--password-stdin') args.passwordStdin = true;
     else if (flag === '--reset-admin') args.resetAdmin = true;
     else if (flag === '--no-ports') args.ports = false;
     else fail(USAGE, 2);
   }
   args.env = resolve(args.env);
+  args.loginFile = resolve(args.loginFile);
   // A newline in the email would let it inject extra lines into the env file.
   if (args.email !== undefined && !EMAIL.test(args.email))
     fail('--email must be a plain email address', 2);
@@ -151,16 +176,20 @@ async function readStdinLine() {
 
 async function chooseAdminPassword(args) {
   let password;
+  let generated = false;
   if (args.passwordStdin) password = await readStdinLine();
   else if (process.stdin.isTTY) {
     password = await promptHidden('Admin password (leave empty to generate): ');
-    if (password === '') password = generatePassword();
-  } else password = generatePassword();
+  } else password = '';
+  if (password === '' && !args.passwordStdin) {
+    password = generatePassword();
+    generated = true;
+  }
   const bytes = Buffer.byteLength(password);
   if (bytes < MIN_BYTES || bytes > MAX_BYTES) {
     fail(`Admin password must be ${MIN_BYTES}-${MAX_BYTES} bytes`, 2);
   }
-  return password;
+  return { password, generated };
 }
 
 async function main() {
@@ -169,59 +198,87 @@ async function main() {
   const envExisted = existsSync(args.env);
 
   let values = parseEnv(exampleText);
-  if (envExisted) for (const [k, v] of parseEnv(readFileSync(args.env, 'utf8'))) values.set(k, v);
+  let kept = [];
+  if (envExisted) {
+    const existingText = readFileSync(args.env, 'utf8');
+    for (const [k, v] of parseEnv(existingText)) values.set(k, v);
+    kept = unmatchedLines(existingText);
+  }
 
   const filled = fillSecrets(values);
   values = filled.values;
   const generated = filled.generated;
 
-  const adminNeeded =
-    args.resetAdmin ||
-    !values.get('ADMIN_EMAIL') ||
-    !values.get('ADMIN_PASSWORD_HASH_B64') ||
-    isPlaceholder(values.get('ADMIN_PASSWORD_DEV') ?? '');
+  const existingEmail = values.get('ADMIN_EMAIL') ?? '';
+  const adminMissing =
+    isPlaceholder(existingEmail) || isPlaceholder(values.get('ADMIN_PASSWORD_HASH_B64') ?? '');
+  const adminNeeded = args.resetAdmin || adminMissing;
+  const warnings = kept.map(
+    ({ number }) => `Warning: line ${number} of the env file is not KEY=value; kept as written`,
+  );
+  if (!adminNeeded && isPlaceholder(values.get('ADMIN_PASSWORD_DEV') ?? '')) {
+    warnings.push(
+      'ADMIN_PASSWORD_DEV is not set; smoke and contract tests need it. Run with --reset-admin to set a new admin password.',
+    );
+  }
+
   let adminPassword;
+  let passwordGenerated = false;
   if (adminNeeded) {
-    adminPassword = await chooseAdminPassword(args);
-    values.set('ADMIN_EMAIL', args.email ?? DEFAULT_EMAIL);
+    const chosen = await chooseAdminPassword(args);
+    adminPassword = chosen.password;
+    passwordGenerated = chosen.generated;
+    values.set(
+      'ADMIN_EMAIL',
+      args.email ?? (isPlaceholder(existingEmail) ? DEFAULT_EMAIL : existingEmail),
+    );
     values.set('ADMIN_PASSWORD_HASH_B64', await hashAdminPassword(adminPassword));
     values.set('ADMIN_PASSWORD_DEV', adminPassword);
   }
 
+  // Only a new env file gets ports picked: on a later run the stack's own containers hold the defaults.
   const portNotes = [];
-  if (args.ports) {
+  if (args.ports && !envExisted) {
     for (const { key, port, label } of PORTS) {
       if (values.get(key)) continue;
       const picked = await pickPort(port);
-      if (picked === port) continue;
       values.set(key, String(picked));
-      portNotes.push(`Port ${port} is busy; ${label} will use ${picked}`);
+      if (picked !== port) portNotes.push(`Port ${port} is busy; ${label} will use ${picked}`);
     }
   }
 
-  writeFileSync(args.env, renderEnv(exampleText, values), { mode: 0o600 });
-  chmodSync(args.env, 0o600);
+  writeAtomic(
+    args.env,
+    renderEnv(
+      exampleText,
+      values,
+      kept.map((k) => k.text),
+    ),
+  );
 
   console.log(
     generated.length > 0 ? `Generated: ${generated.join(', ')}` : 'No secrets to generate',
   );
   for (const note of portNotes) console.log(note);
+  for (const warning of warnings) console.log(warning);
 
   if (adminPassword !== undefined) {
     const webPort = values.get('WEB_HOST_PORT') || '8080';
+    const shown = passwordGenerated ? adminPassword : '(the one you entered)';
     const login = [
       'Backoffice login (shown once — store it now):',
       `  URL:      http://127.0.0.1:${webPort}/backoffice`,
       `  Email:    ${values.get('ADMIN_EMAIL')}`,
-      `  Password: ${adminPassword}`,
+      `  Password: ${shown}`,
     ].join('\n');
-    if (process.stdout.isTTY) console.log(login);
-    else {
-      const loginFile = join(dirname(args.env), '.admin-login.txt');
-      writeFileSync(loginFile, `${login}\n`, { mode: 0o600 });
-      chmodSync(loginFile, 0o600);
+    if (process.stdout.isTTY || !passwordGenerated) {
+      // A stale file would hold an older password.
+      rmSync(args.loginFile, { force: true });
+      console.log(login);
+    } else {
+      writeAtomic(args.loginFile, `${login}\n`);
       console.log(
-        `Backoffice login written to ${loginFile} (mode 600, git-ignored); delete it once stored.`,
+        `Backoffice login written to ${args.loginFile} (mode 600, git-ignored); delete it once stored.`,
       );
     }
   } else {
