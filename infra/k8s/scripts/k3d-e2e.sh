@@ -145,7 +145,10 @@ done
 curl -fsS "$base_url/api/health/ready" >/dev/null || fail "gateway not ready through the ingress"
 
 step "smoke test through the ingress"
-SMOKE_GATEWAY_URL="$base_url/api" node --env-file="$env_file" infra/scripts/smoke.mjs
+# Both URLs go through the ingress. Without SMOKE_WEB_URL the web step falls back to
+# 127.0.0.1:8080 (the compose web container), which is absent in CI and the wrong target locally.
+SMOKE_GATEWAY_URL="$base_url/api" SMOKE_WEB_URL="$base_url" \
+  node --env-file="$env_file" infra/scripts/smoke.mjs
 
 step "gateway contract suite through the ingress"
 CONTRACT_GATEWAY_BASE_URL="$base_url/api" CONTRACT_ENV_FILE="$env_file" infra/scripts/contract.sh gateway
