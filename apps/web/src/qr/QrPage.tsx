@@ -56,9 +56,10 @@ export function QrPage(): ReactElement {
   const cancelFailed = cancel.isError && !conflict;
   const timeout = state === 'timeout';
 
-  // Mounted from the first render so screen readers announce later text.
+  // Mounted from the first render so screen readers announce later text. The key keeps the same
+  // DOM node when the branches below put it at a different child index.
   const live = (text: string | null) => (
-    <div aria-live="polite" className={styles.status}>
+    <div key="live" aria-live="polite" className={styles.status}>
       {text ? <p>{text}</p> : null}
       {reconnecting && !notFound ? <p className={styles.quiet}>Reconnecting…</p> : null}
     </div>

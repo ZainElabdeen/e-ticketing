@@ -227,6 +227,16 @@ describe('QrPage', () => {
     expect(screen.getByText('Waiting for payment…')).toBeInTheDocument();
   });
 
+  it('keeps the same live region node from loading to payment', async () => {
+    const { container } = renderQr([getRoute(200, pay('PENDING'))]);
+    const region = container.querySelector('[aria-live="polite"]');
+    expect(region).not.toBeNull();
+    expect(region).toHaveTextContent('Loading your payment…');
+    await screen.findByText('Scan to pay');
+    expect(region).toBeInTheDocument();
+    expect(region).toHaveTextContent('Waiting for payment…');
+  });
+
   it('shows the rate-limit text when cancel is throttled', async () => {
     const throttled: StubRoute = {
       ...cancelRoute(429, { code: 'RATE_LIMITED', message: 'x' }),
