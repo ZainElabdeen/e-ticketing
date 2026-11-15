@@ -404,3 +404,59 @@ describe('BackofficePage', () => {
     expect(screen.getByText('Type')).toBeInTheDocument();
   });
 });
+
+describe('BackofficePage tabs keyboard', () => {
+  const setup = () => {
+    saveSession('jwt', 3600);
+    return renderBackoffice([txPage(2)]);
+  };
+  const tab = (name: string) => screen.getByRole('tab', { name });
+
+  it('puts only the selected tab in the tab order', async () => {
+    setup();
+    await screen.findByText('PAY-20261114-ABC1');
+    expect(tab('Transactions')).toHaveAttribute('tabindex', '0');
+    expect(tab('Ledger entries')).toHaveAttribute('tabindex', '-1');
+    expect(tab('Account balances')).toHaveAttribute('tabindex', '-1');
+    expect(tab('Ticket availability')).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('ArrowRight selects and focuses the next tab', async () => {
+    const { user } = setup();
+    await screen.findByText('PAY-20261114-ABC1');
+    tab('Transactions').focus();
+    await user.keyboard('{ArrowRight}');
+    expect(tab('Ledger entries')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Ledger entries')).toHaveFocus();
+    expect(screen.getByTestId('where')).toHaveTextContent('tab=ledger');
+  });
+
+  it('ArrowLeft from the first tab wraps to the last', async () => {
+    const { user } = setup();
+    await screen.findByText('PAY-20261114-ABC1');
+    tab('Transactions').focus();
+    await user.keyboard('{ArrowLeft}');
+    expect(tab('Ticket availability')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Ticket availability')).toHaveFocus();
+  });
+
+  it('ArrowRight from the last tab wraps to the first', async () => {
+    saveSession('jwt', 3600);
+    const { user } = renderBackoffice([txPage(2)], '/backoffice?tab=availability');
+    tab('Ticket availability').focus();
+    await user.keyboard('{ArrowRight}');
+    expect(tab('Transactions')).toHaveFocus();
+  });
+
+  it('Home and End jump to the first and last tab', async () => {
+    const { user } = setup();
+    await screen.findByText('PAY-20261114-ABC1');
+    tab('Transactions').focus();
+    await user.keyboard('{End}');
+    expect(tab('Ticket availability')).toHaveFocus();
+    expect(tab('Ticket availability')).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{Home}');
+    expect(tab('Transactions')).toHaveFocus();
+    expect(tab('Transactions')).toHaveAttribute('aria-selected', 'true');
+  });
+});
