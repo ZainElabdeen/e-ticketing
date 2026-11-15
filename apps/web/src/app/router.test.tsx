@@ -14,6 +14,7 @@ describe('route errors', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Start over' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: 'Backoffice' })).toBeInTheDocument();
+    expect(document.title).toBe('Page not found · E-Ticket');
   });
 
   it('renders a generic error page when a route element throws', async () => {
@@ -38,6 +39,7 @@ describe('route errors', () => {
     ).toBeVisible();
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.queryByText('kaboom')).toBeNull();
+    expect(document.title).toBe('Something went wrong · E-Ticket');
     expect(screen.getByRole('link', { name: 'Start over' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: 'E-Ticket' })).toBeInTheDocument();
   });

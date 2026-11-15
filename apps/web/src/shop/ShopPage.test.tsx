@@ -263,4 +263,10 @@ describe('ShopPage', () => {
     expect(await posts[1]!.json()).toEqual({ items: [{ ticketTypeCode: 'GOLD', quantity: 1 }] });
     expect(await posts[2]!.json()).toEqual({ items: [{ ticketTypeCode: 'GOLD', quantity: 1 }] });
   });
+
+  it('sets the document title', async () => {
+    renderShop([typesRoute]);
+    await screen.findByText('Gold');
+    expect(document.title).toBe('Pick your tickets · E-Ticket');
+  });
 });

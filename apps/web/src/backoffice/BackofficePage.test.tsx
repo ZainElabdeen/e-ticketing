@@ -459,4 +459,11 @@ describe('BackofficePage tabs keyboard', () => {
     expect(tab('Transactions')).toHaveFocus();
     expect(tab('Transactions')).toHaveAttribute('aria-selected', 'true');
   });
+
+  it('sets the document title', async () => {
+    saveSession('jwt', 3600);
+    renderBackoffice([txPage(2)]);
+    await screen.findByText('PAY-20261114-ABC1');
+    expect(document.title).toBe('Backoffice · E-Ticket');
+  });
 });

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useApi, type Api } from '../api/client';
 import { ApiError, GENERIC_MESSAGE, call, isRetryable, messageFor } from '../api/errors';
 import type { CardDetails, Order } from '../api/types';
@@ -31,6 +32,7 @@ function StartOver(): ReactElement {
 }
 
 export function CheckoutPage(): ReactElement {
+  useDocumentTitle('Your order');
   const { orderId = '' } = useParams();
   const api = useApi();
   // True while another window holds the payment: refetch the order until it settles.

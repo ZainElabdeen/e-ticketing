@@ -33,6 +33,8 @@ export const routes: RouteObject[] = [
           {
             path: '*',
             loader: () => {
+              // React Router's documented way to raise a 404 into the errorElement.
+              // eslint-disable-next-line @typescript-eslint/only-throw-error
               throw new Response('Not Found', { status: 404 });
             },
           },

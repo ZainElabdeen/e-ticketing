@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useRef, type ReactElement } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useApi } from '../api/client';
 import { ApiError, GENERIC_MESSAGE, call } from '../api/errors';
 import { forgetPayment } from '../checkout/paymentMemory';
@@ -13,6 +14,7 @@ import styles from './QrPage.module.css';
 import { paymentKey, usePaymentPolling } from './usePaymentPolling';
 
 export function QrPage(): ReactElement {
+  useDocumentTitle('Scan to pay');
   const { orderId = '', paymentId = '' } = useParams();
   const api = useApi();
   const navigate = useNavigate();

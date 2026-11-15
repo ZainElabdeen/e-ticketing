@@ -1,5 +1,6 @@
 import { useCallback, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { Button } from '../ui/Button';
 import { useAuth } from './AuthProvider';
 import styles from './BackofficePage.module.css';
@@ -22,6 +23,7 @@ function parsePage(raw: string | null): number {
 }
 
 export function BackofficePage(): ReactElement {
+  useDocumentTitle('Backoffice');
   const { logout } = useAuth();
   const [params, setParams] = useSearchParams();
   const rawTab = params.get('tab');
