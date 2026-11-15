@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useApi, type Api } from '../api/client';
-import { ApiError, call, isRetryable } from '../api/errors';
+import { ApiError, GENERIC_MESSAGE, call, isRetryable, messageFor } from '../api/errors';
 import type { CardDetails, Order } from '../api/types';
 import { formatMinor } from '../lib/money';
 import { formatRemaining } from '../lib/time';
@@ -18,7 +18,6 @@ import { useCountdown } from './useCountdown';
 type Method = 'CARD' | 'QR';
 type BannerState = { tone: 'error' | 'info'; text: string };
 
-const GENERIC = 'Something went wrong on our side. Try again.';
 const TIER_NAMES: Record<string, string> = { GOLD: 'Gold', PREMIUM: 'Premium', VIP: 'VIP' };
 
 const orderKey = (orderId: string) => ['order', orderId] as const;
@@ -52,7 +51,7 @@ export function CheckoutPage(): ReactElement {
     return (
       <section>
         <h1 className={styles.head}>Your order</h1>
-        <Banner>{notFound ? "We couldn't find this order" : GENERIC}</Banner>
+        <Banner>{notFound ? "We couldn't find this order" : messageFor(order.error)}</Banner>
         <div className={styles.actions}>
           {notFound ? null : (
             <Button variant="quiet" onClick={() => void order.refetch()}>
@@ -118,7 +117,7 @@ function CheckoutBody(props: {
   // Maps a failed submit to the spec §5 table. Returns true when it handled the error.
   const handleError = (e: unknown, setNumberError?: (m: string) => void): void => {
     if (!(e instanceof ApiError)) {
-      setBanner({ tone: 'error', text: GENERIC });
+      setBanner({ tone: 'error', text: GENERIC_MESSAGE });
       return;
     }
     switch (e.code) {
@@ -144,11 +143,8 @@ function CheckoutBody(props: {
       case 'ORDER_ALREADY_PAID':
         goToResultOrPaid();
         return;
-      case 'RATE_LIMITED':
-        setBanner({ tone: 'error', text: 'Too many requests, try again shortly' });
-        return;
       default:
-        setBanner({ tone: 'error', text: GENERIC });
+        setBanner({ tone: 'error', text: messageFor(e) });
     }
   };
 

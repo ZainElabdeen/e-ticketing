@@ -90,6 +90,13 @@ describe('ResultPage', () => {
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   });
 
+  it('shows the rate limit text when the first load is rate limited', async () => {
+    renderResult([
+      route(429, { statusCode: 429, code: 'RATE_LIMITED', message: 'x', correlationId: 'c' }),
+    ]);
+    expect(await screen.findByText('Too many requests, try again shortly')).toBeInTheDocument();
+  });
+
   it('a transient first-load error offers try again, never not found', async () => {
     const { user } = renderResult([
       {

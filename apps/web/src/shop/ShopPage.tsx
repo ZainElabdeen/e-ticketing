@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type ReactElement } from 'react';
 import { useNavigate } from 'react-router';
 import { useApi } from '../api/client';
-import { ApiError, call } from '../api/errors';
+import { ApiError, call, messageFor } from '../api/errors';
 import type { TicketType } from '../api/types';
 import { formatMinor, sumMinor } from '../lib/money';
 import { Banner } from '../ui/Banner';
@@ -13,16 +13,12 @@ import styles from './ShopPage.module.css';
 import { TICKET_TYPES_KEY, useTicketTypes } from './useTicketTypes';
 
 const MAX_PER_TYPE = 10;
-const GENERIC = 'Something went wrong on our side. Try again.';
 
 const maxFor = (t: TicketType): number => Math.min(MAX_PER_TYPE, Math.max(0, t.available));
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.code === 'QUOTA_EXCEEDED') return 'Not enough tickets left';
-    if (error.code === 'RATE_LIMITED') return 'Too many requests, try again shortly';
-  }
-  return GENERIC;
+function orderMessage(error: unknown): string {
+  if (error instanceof ApiError && error.code === 'QUOTA_EXCEEDED') return 'Not enough tickets left';
+  return messageFor(error);
 }
 
 export function ShopPage(): ReactElement {
@@ -54,7 +50,7 @@ export function ShopPage(): ReactElement {
     onError: async (e) => {
       // Released on failure only: on success the page stays locked until navigation unmounts it.
       inFlight.current = false;
-      setError(messageFor(e));
+      setError(orderMessage(e));
       if (e instanceof ApiError && e.code === 'QUOTA_EXCEEDED') {
         await queryClient.refetchQueries({ queryKey: TICKET_TYPES_KEY });
         const fresh = queryClient.getQueryData<TicketType[]>(TICKET_TYPES_KEY);
@@ -82,7 +78,7 @@ export function ShopPage(): ReactElement {
       {types.isPending ? <p className={styles.quiet}>Loading tickets…</p> : null}
       {types.isError ? (
         <div>
-          <Banner>{GENERIC}</Banner>
+          <Banner>{messageFor(types.error)}</Banner>
           <Button variant="quiet" onClick={() => void types.refetch()}>
             Try again
           </Button>

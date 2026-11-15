@@ -217,6 +217,11 @@ describe('CheckoutPage', () => {
     expect(await screen.findByText('Too many requests, try again shortly')).toBeInTheDocument();
   });
 
+  it('shows the rate limit text when the first order load is rate limited', async () => {
+    renderCheckout([orderRoute(errBody(429, 'RATE_LIMITED') as never, { status: 429 })]);
+    expect(await screen.findByText('Too many requests, try again shortly')).toBeInTheDocument();
+  });
+
   it('shows not found for a missing order', async () => {
     renderCheckout([orderRoute(errBody(404, 'ORDER_NOT_FOUND') as never, { status: 404 })]);
     expect(await screen.findByText("We couldn't find this order")).toBeInTheDocument();

@@ -2,15 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { Link, useParams } from 'react-router';
 import { useApi } from '../api/client';
-import { ApiError, call } from '../api/errors';
+import { ApiError, call, messageFor } from '../api/errors';
 import type { Payment } from '../api/types';
+import { paymentKey } from '../qr/usePaymentPolling';
 import { formatMinor } from '../lib/money';
 import { formatDateTime } from '../lib/time';
 import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
 import styles from './ResultPage.module.css';
-
-const GENERIC = 'Something went wrong on our side. Try again.';
 
 function Row(props: { label: string; children: React.ReactNode }): ReactElement {
   return (
@@ -65,9 +64,8 @@ export function ResultPage(): ReactElement {
   const { paymentId = '' } = useParams();
   const api = useApi();
   const query = useQuery({
-    queryKey: ['payment', paymentId],
+    queryKey: paymentKey(paymentId),
     queryFn: () => call(api.GET('/v1/payments/{paymentId}', { params: { path: { paymentId } } })),
-    retry: false,
     refetchOnWindowFocus: false,
   });
   const payment = query.data;
@@ -79,7 +77,7 @@ export function ResultPage(): ReactElement {
     return (
       <section>
         <h1 className={styles.title}>Payment</h1>
-        <Banner>{notFound ? "We couldn't find this payment" : GENERIC}</Banner>
+        <Banner>{notFound ? "We couldn't find this payment" : messageFor(query.error)}</Banner>
         <div className={styles.actions}>
           {notFound ? null : (
             <Button variant="quiet" onClick={() => void query.refetch()}>

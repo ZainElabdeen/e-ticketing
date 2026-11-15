@@ -72,3 +72,13 @@ export function isRetryable(e: unknown): boolean {
   if (!(e instanceof ApiError)) return true;
   return e.status === 0 || e.status >= 500;
 }
+
+export const GENERIC_MESSAGE = 'Something went wrong on our side. Try again.';
+
+/** User-facing text for a failed request that has no screen-specific wording. */
+export function messageFor(e: unknown): string {
+  if (e instanceof ApiError && e.code === 'RATE_LIMITED') {
+    return 'Too many requests, try again shortly';
+  }
+  return GENERIC_MESSAGE;
+}

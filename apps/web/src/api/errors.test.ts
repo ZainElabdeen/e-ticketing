@@ -1,4 +1,4 @@
-import { ApiError, call, isRetryable, unwrap } from './errors';
+import { ApiError, GENERIC_MESSAGE, call, isRetryable, messageFor, unwrap } from './errors';
 
 const envelope = (statusCode: number, code: string) => ({
   statusCode,
@@ -65,4 +65,20 @@ describe('isRetryable', () => {
     expect(isRetryable(err(s))).toBe(false),
   );
   it('retries a plain Error', () => expect(isRetryable(new Error('x'))).toBe(true));
+});
+
+describe('messageFor', () => {
+  const apiError = (status: number, code: string) => new ApiError({ status, code, message: 'm' });
+
+  it('maps RATE_LIMITED to the rate limit text', () => {
+    expect(messageFor(apiError(429, 'RATE_LIMITED'))).toBe(
+      'Too many requests, try again shortly',
+    );
+  });
+
+  it('maps anything else to the generic text', () => {
+    expect(messageFor(apiError(500, 'INTERNAL_ERROR'))).toBe(GENERIC_MESSAGE);
+    expect(messageFor(new Error('x'))).toBe(GENERIC_MESSAGE);
+    expect(GENERIC_MESSAGE).toBe('Something went wrong on our side. Try again.');
+  });
 });

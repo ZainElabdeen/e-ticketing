@@ -193,6 +193,18 @@ describe('ShopPage', () => {
     );
   });
 
+  it('shows the rate limit text when the first list load is rate limited', async () => {
+    renderShop([
+      {
+        method: 'GET',
+        path: '/v1/ticket-types',
+        status: 429,
+        body: { status: 429, code: 'RATE_LIMITED', message: 'x', correlationId: 'c' },
+      },
+    ]);
+    expect(await screen.findByText('Too many requests, try again shortly')).toBeInTheDocument();
+  });
+
   it('shows a retry banner when the list fails', async () => {
     renderShop([
       {

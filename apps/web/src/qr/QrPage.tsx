@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useRef, type ReactElement } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useApi } from '../api/client';
-import { ApiError, call } from '../api/errors';
+import { ApiError, GENERIC_MESSAGE, call } from '../api/errors';
 import { forgetPayment } from '../checkout/paymentMemory';
 import { formatMinor } from '../lib/money';
 import { Banner } from '../ui/Banner';
@@ -11,8 +11,6 @@ import { Button } from '../ui/Button';
 import { TicketStub } from '../ui/TicketStub';
 import styles from './QrPage.module.css';
 import { paymentKey, usePaymentPolling } from './usePaymentPolling';
-
-const GENERIC = 'Something went wrong on our side. Try again.';
 
 export function QrPage(): ReactElement {
   const { orderId = '', paymentId = '' } = useParams();
@@ -116,7 +114,7 @@ export function QrPage(): ReactElement {
       </TicketStub>
 
       {live(timeout ? 'Still processing' : 'Waiting for payment…')}
-      {cancelFailed ? <Banner>{GENERIC}</Banner> : null}
+      {cancelFailed ? <Banner>{GENERIC_MESSAGE}</Banner> : null}
       {conflict && !cancel.isPending ? (
         <Banner>{"That payment can't be switched right now. Try again."}</Banner>
       ) : null}
