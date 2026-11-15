@@ -20,9 +20,9 @@ reference: a behaviour change lands in both.
 - **Config parity**: `Config/EnvLoader.cs` mirrors the NestJS `config/env.ts`.
   `Program.BuildApp(args, envOverride)` is the test seam.
 - **HTTP parity with Express** (keep when editing):
-  - `Http/ErrorEnvelopeMiddleware.cs` maps 405 → 404 and 415 → 400.
-  - `ModelStateEnvelope` + `ValidateBodyFilter` are the only validation path.
-  - Middleware order: Correlation, Logging, Envelope, Routing, Docs, ApiKey,
-    BodyGuard. The API key check stays after routing.
+    - `Http/ErrorEnvelopeMiddleware.cs` maps 405 → 404 and 415 → 400.
+    - `ModelStateEnvelope` + `ValidateBodyFilter` are the only validation path.
+    - Middleware order: Correlation, Logging, Envelope, Routing, Docs, ApiKey,
+      BodyGuard. The API key check stays after routing.
 - **Format**: `lint` = `dotnet format --verify-no-changes`; file-scoped namespaces,
   LF, 4 spaces; warnings are errors except NuGet audit NU1901–1904.
