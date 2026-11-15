@@ -715,3 +715,4 @@ QR → result → backoffice → balances) ships with it.
 | [0020](./adr/0020-shared-nest-common-package.md) | Shared NestJS plumbing in @eticket/nest-common | Copy per service |
 | [0021](./adr/0021-ticket-service-dotnet-port.md) | .NET Ticket Service: one web project, EF Core on the Prisma-owned schema, raw SQL for locks, envelope middleware; contract suite is the parity gate | Minimal APIs, four assemblies, EF migrations, Dapper |
 | [0022](./adr/0022-gateway-auth-libraries-and-admin-hash.md) | `@nestjs/jwt` + `bcryptjs`; admin hash stored as base64 (`ADMIN_PASSWORD_HASH_B64`); expiry-only revocation | `jose`, native `bcrypt`, `$$` escaping, a secret file |
+| [0025](./adr/0025-ci-pipeline-and-coverage.md) | GitHub Actions CI: opt-in coverage (`CI_COVERAGE=1`) from unit and integration runs, two SonarCloud projects, native arm64 runners, only `main` publishes images | QEMU arm64, unit-only coverage, one Sonar project, turbo `--affected` |

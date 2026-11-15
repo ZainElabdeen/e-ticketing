@@ -90,13 +90,14 @@ Run it locally (setup, login, seed data, test cards, demo script): `docs/local-d
   @nestjs/terminus, @nestjs/schedule, @nestjs/axios + axios (service-to-service
   HTTP, ADR-0019), @nestjs/jwt + bcryptjs (gateway auth, ADR-0022), Jest, Supertest, Testcontainers.
 - .NET: ASP.NET Core Web API, EF Core + Npgsql, FluentValidation, Swagger UI,
-  Serilog, xUnit, Testcontainers, dotnet format.
+  Serilog, xUnit, Testcontainers, dotnet format. Test-only (ADR-0025): `coverlet.collector`.
 - Web: React Router 8 (`react-router`), TanStack Query, React Hook Form + Zod,
   openapi-typescript + openapi-fetch, CSS Modules (no UI framework),
   qrcode.react, Vitest + Testing Library. No mock data. Companions (ADR-0023):
   @vitejs/plugin-react, @hookform/resolvers, jsdom, @testing-library/user-event,
   @testing-library/jest-dom, @testing-library/dom, eslint-plugin-react-hooks, globals,
-  @fontsource-variable/archivo (self-hosted font).
+  @fontsource-variable/archivo (self-hosted font). Test-only (ADR-0025):
+  @vitest/coverage-v8 (pinned to the vitest version); `dotnet-sonarscanner` joins the .NET side in the CI task.
 
 ## Commands
 
