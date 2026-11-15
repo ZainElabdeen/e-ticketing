@@ -22,7 +22,7 @@ public static class ErrorWriter
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json; charset=utf-8";
         context.Response.ContentLength = null;
-        return context.Response.WriteAsync(JsonSerializer.Serialize(envelope, Options));
+        return context.Response.WriteAsync(JsonSerializer.Serialize(envelope, Options), context.RequestAborted);
     }
 }
 
