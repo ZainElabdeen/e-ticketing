@@ -1,6 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["docs/spec.md", "docs/adr/*.md"],
+  "instructions": [
+    "docs/spec.md",
+    "docs/adr/*.md",
+    "apps/*/AGENTS.md",
+    "packages/*/AGENTS.md",
+    "infra/AGENTS.md"
+  ],
   "mcp": {
     "context7": {
       "type": "local",
