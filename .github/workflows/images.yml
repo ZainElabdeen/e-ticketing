@@ -15,8 +15,11 @@ on:
 permissions:
   contents: read
 
+# PR runs cancel each other. main/dev runs get a unique group so a newer run never replaces an
+# older pending one (paths-filter on push only diffs against the previous commit, so a dropped
+# run would silently skip images). Recover a failed main run by dispatching with all=true.
 concurrency:
-  group: images-${{ github.ref }}
+  group: images-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -28,6 +31,9 @@ jobs:
   changes:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       images: ${{ steps.select.outputs.images }}
     steps:
@@ -37,7 +43,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      - if: inputs.all != true
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: .github/filters.yml

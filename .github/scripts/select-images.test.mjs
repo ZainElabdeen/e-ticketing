@@ -106,3 +106,33 @@ test('PRISMA_VERSION matches the docker-compose anchor', () => {
     assert.equal(m.buildArgs.PRISMA_VERSION, anchor, m.name);
   }
 });
+
+// Filter body with `- *node-shared` expanded, so path checks see what paths-filter sees.
+function expanded(name) {
+  const body = filterBlocks[name];
+  return body.includes('- *node-shared') ? body + filterBlocks['node-shared'] : body;
+}
+
+test('COPY . . images watch every workspace package their app depends on', () => {
+  let checked = 0;
+  for (const image of images) {
+    const dockerfile = readFileSync(new URL(`../../${image.dockerfile}`, import.meta.url), 'utf8');
+    if (!/^COPY \. \./m.test(dockerfile)) continue;
+    const app = image.buildArgs.SERVICE ?? image.name;
+    const pkg = JSON.parse(read(`../../apps/${app}/package.json`));
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    const workspaceDeps = Object.entries(deps)
+      .filter(([, v]) => v === 'workspace:*')
+      .map(([n]) => n.replace('@eticket/', ''));
+    assert.ok(workspaceDeps.length > 0, `${image.name} has no workspace deps?`);
+    for (const dep of workspaceDeps) {
+      const body = expanded(image.name);
+      assert.ok(
+        body.includes(`'packages/${dep}/**'`) || body.includes("'packages/**'"),
+        `${image.name} filter lacks packages/${dep}/**`,
+      );
+    }
+    checked++;
+  }
+  assert.ok(checked >= 4, 'expected the web and nest images to be checked');
+});
