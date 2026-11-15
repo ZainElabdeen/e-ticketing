@@ -166,4 +166,55 @@ console.log('4. both orders CONFIRMED with matching paidTransactionId');
 }
 console.log('5. accounts balanced: debit = credit = 40000');
 
+// Step 6: web origin (nginx serves the SPA and proxies /api to the gateway)
+{
+  const WEB = process.env.SMOKE_WEB_URL ?? `http://127.0.0.1:${process.env.WEB_HOST_PORT ?? 8080}`;
+  const get = async (path) => {
+    try {
+      const res = await fetch(`${WEB}${path}`, { signal: AbortSignal.timeout(10_000) });
+      return { res, text: await res.text() };
+    } catch (err) {
+      return fail(`web origin: GET ${WEB}${path} failed: ${err.message}`);
+    }
+  };
+  const home = await get('/');
+  expect(home.res.status === 200, `web origin: / expected 200, got ${home.res.status}`);
+  expect(home.text.includes('<div id="root">'), 'web origin: / has no <div id="root">');
+  const csp = home.res.headers.get('content-security-policy') ?? '';
+  expect(csp.includes("default-src 'self'"), 'web origin: / has no CSP with default-src self');
+  console.log('6a. web origin serves the SPA with a CSP');
+
+  const deep = await get('/checkout/00000000-0000-4000-8000-000000000000');
+  expect(deep.res.status === 200, `web origin: deep link expected 200, got ${deep.res.status}`);
+  expect(deep.text === home.text, 'web origin: deep link did not return index.html');
+  console.log('6b. web origin deep link returns index.html');
+
+  const live = await get('/api/health/live');
+  expect(
+    live.res.status === 200,
+    `web origin: /api/health/live expected 200, got ${live.res.status}`,
+  );
+  try {
+    JSON.parse(live.text);
+  } catch {
+    fail('web origin: /api/health/live is not JSON');
+  }
+  const types = await get('/api/v1/ticket-types');
+  expect(
+    types.res.status === 200,
+    `web origin: /api/v1/ticket-types expected 200, got ${types.res.status}`,
+  );
+  let typesJson;
+  try {
+    typesJson = JSON.parse(types.text);
+  } catch {
+    fail('web origin: /api/v1/ticket-types is not JSON');
+  }
+  expect(
+    typesJson.data?.length === 3,
+    `web origin: ticket-types expected 3, got ${typesJson.data?.length}`,
+  );
+  console.log('6c. web origin proxies /api to the gateway (health, 3 ticket types)');
+}
+
 console.log('SMOKE OK');

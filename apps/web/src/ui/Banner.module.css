@@ -1,0 +1,18 @@
+.banner {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--rule);
+  border-left-width: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.error {
+  border-color: var(--stamp);
+  color: var(--stamp);
+}
+
+.info {
+  border-color: var(--ink-muted);
+}

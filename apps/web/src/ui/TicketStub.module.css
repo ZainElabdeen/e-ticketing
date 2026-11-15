@@ -1,0 +1,122 @@
+/*
+ * The ticket is two stacked, identically notched layers: an outer --ink layer and an inner --card
+ * surface inset by the outline width. The outer notch has radius r, the inner r + 1.5px, so the
+ * 1.5px outline follows the cut and the page shows through (no painted circles).
+ * --stub-w / --stub-h are the fixed stub size; notch centres sit on the middle of the 2px
+ * dashed divider. Outer and surface coordinates differ by the 1.5px inset, hence the offsets.
+ */
+.ticket,
+.surface {
+  --notch-a: radial-gradient(
+    circle at var(--ax) var(--ay),
+    transparent var(--r),
+    #000 calc(var(--r) + 0.5px)
+  );
+  --notch-b: radial-gradient(
+    circle at var(--bx) var(--by),
+    transparent var(--r),
+    #000 calc(var(--r) + 0.5px)
+  );
+}
+
+.ticket {
+  display: flow-root; /* keep the surface margin from collapsing through the ink layer */
+  --r: 11px;
+  --stub-w: 176px;
+  --stub-h: 78px;
+  --ax: calc(100% - var(--stub-w) - 0.5px);
+  --ay: 0px;
+  --bx: var(--ax);
+  --by: 100%;
+
+  position: relative;
+  background: var(--ink);
+  -webkit-mask-image: var(--notch-a), var(--notch-b);
+  mask-image: var(--notch-a), var(--notch-b);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+.surface {
+  --r: 12.5px;
+  --ax: calc(100% - var(--stub-w) + 1px);
+  --ay: -1.5px;
+  --bx: var(--ax);
+  --by: calc(100% + 1.5px);
+
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr var(--stub-w);
+  margin: 1.5px;
+  background: var(--card);
+  -webkit-mask-image: var(--notch-a), var(--notch-b);
+  mask-image: var(--notch-a), var(--notch-b);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+/* The tier band. */
+.surface::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  background: var(--band);
+}
+
+.gold {
+  --band: var(--tier-gold);
+}
+
+.premium {
+  --band: var(--tier-premium);
+}
+
+.vip {
+  --band: var(--tier-vip);
+}
+
+.neutral {
+  --band: var(--ink);
+}
+
+.body {
+  padding: 16px 16px 16px 28px;
+}
+
+.stub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  border-left: 2px dashed var(--rule);
+}
+
+@media (max-width: 559px) {
+  .ticket {
+    --ax: 0px;
+    --ay: calc(100% - var(--stub-h) - 0.5px);
+    --bx: 100%;
+    --by: var(--ay);
+  }
+
+  .surface {
+    --ax: -1.5px;
+    --ay: calc(100% - var(--stub-h) + 1px);
+    --bx: calc(100% + 1.5px);
+    --by: var(--ay);
+
+    grid-template-columns: 1fr;
+  }
+
+  .stub {
+    box-sizing: border-box;
+    height: var(--stub-h);
+    justify-content: flex-start;
+    padding: 16px 16px 16px 28px;
+    border-left: 0;
+    border-top: 2px dashed var(--rule);
+  }
+}

@@ -1,0 +1,58 @@
+.form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 480px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.holder,
+.number,
+.pay {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.field input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--stamp);
+}
+
+.error {
+  margin: 0;
+  color: var(--stamp);
+  font-size: var(--text-sm);
+}
+
+.pay {
+  justify-self: start;
+}
+
+@media (max-width: 559px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+
+  .pay {
+    justify-self: stretch;
+  }
+}
