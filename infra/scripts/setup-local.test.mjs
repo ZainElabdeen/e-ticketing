@@ -1,9 +1,17 @@
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,8 +26,15 @@ const PASSWORD = 'a-long-test-password';
 
 const rand = (bytes) => 'ab'.repeat(bytes / 2 + (bytes % 2)).slice(0, bytes * 2);
 
+const tempDirs = [];
+after(() => {
+  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
+
 function tempEnv() {
-  return join(mkdtempSync(join(tmpdir(), 'setup-local-')), '.env');
+  const dir = mkdtempSync(join(tmpdir(), 'setup-local-'));
+  tempDirs.push(dir);
+  return join(dir, '.env');
 }
 
 const loginFileOf = (envPath) => join(dirname(envPath), '.admin-login.txt');
@@ -277,4 +292,50 @@ test('busy default port picks a free alternative', async () => {
     await new Promise((resolve) => server.close(resolve));
   }
   assert.equal(await pickPort(busy), busy);
+});
+
+test('a typed password with a space, #, $, quote, backslash or backtick is rejected without echo', () => {
+  for (const bad of [
+    'has space 1234',
+    'has#hash1234',
+    'has$dollar1234',
+    "it's-quoted1",
+    'back\\slash123',
+    'tick`tick1234',
+    'dq"quote1234',
+  ]) {
+    const env = tempEnv();
+    const r = run(env, ['--password-stdin'], `${bad}\n`);
+    assert.notEqual(r.status, 0, bad);
+    assert.equal(existsSync(env), false, bad);
+    assert.ok(!(r.stdout + r.stderr).includes(bad), 'password echoed');
+    assert.match(r.stderr, /A-Za-z0-9/);
+  }
+});
+
+test('a typed password from the safe set is accepted', () => {
+  const env = tempEnv();
+  const safe = 'Ab1._~!@%^&*+=-xyz';
+  const r = run(env, ['--password-stdin'], `${safe}\n`);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(parseEnv(readFileSync(env, 'utf8')).get('ADMIN_PASSWORD_DEV'), safe);
+});
+
+test('the volume-reset warning is printed only when a password was generated', () => {
+  const env = tempEnv();
+  const first = run(env, ['--password-stdin'], `${PASSWORD}\n`);
+  assert.match(first.stdout, /down -v \(this deletes all data\)/);
+  const second = run(env);
+  assert.doesNotMatch(second.stdout, /down -v/);
+});
+
+test('--reset-admin on an existing env prints the gateway-then-web restart line', () => {
+  const env = tempEnv();
+  assert.equal(run(env, [], `${PASSWORD}\n`).status, 0);
+  const r = run(env, ['--reset-admin', '--password-stdin'], 'another-long-password\n');
+  assert.ok(
+    r.stdout.includes(
+      'Restart: docker compose -f infra/docker-compose.yml up -d gateway && docker compose -f infra/docker-compose.yml restart web',
+    ),
+  );
 });

@@ -20,6 +20,8 @@ const EXAMPLE_PATH = join(here, '..', '.env.example');
 const DEFAULT_ENV_PATH = join(here, '..', '.env');
 const DEFAULT_LOGIN_FILE = join(here, '..', '.admin-login.txt');
 const MIN_BYTES = 8;
+// Characters an env file and compose pass through unchanged.
+const SAFE_PASSWORD = /^[A-Za-z0-9._~!@%^&*+=-]+$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEFAULT_EMAIL = 'admin@eticket.local';
 const SECRET_KEY = /(_PASSWORD|_API_KEY_[A-Z]+|^JWT_SECRET)$/;
@@ -188,6 +190,12 @@ async function chooseAdminPassword(args) {
     password = generatePassword();
     generated = true;
   }
+  if (!generated && password !== '' && !SAFE_PASSWORD.test(password)) {
+    fail(
+      'Admin password may only use these characters: A-Za-z0-9 . _ ~ ! @ % ^ & * + = - (no spaces, #, $, quotes, backslash or backtick)',
+      2,
+    );
+  }
   const bytes = Buffer.byteLength(password);
   if (bytes < MIN_BYTES || bytes > MAX_BYTES) {
     fail(`Admin password must be ${MIN_BYTES}-${MAX_BYTES} bytes`, 2);
@@ -262,6 +270,11 @@ async function main() {
   console.log(
     generated.length > 0 ? `Generated: ${generated.join(', ')}` : 'No secrets to generate',
   );
+  if (generated.some((key) => key.endsWith('_PASSWORD'))) {
+    console.log(
+      'If you ran the stack before with other passwords, reset the database volume first: docker compose -f infra/docker-compose.yml down -v (this deletes all data).',
+    );
+  }
   for (const note of portNotes) console.log(note);
   for (const warning of warnings) console.log(warning);
 
@@ -289,7 +302,9 @@ async function main() {
   }
 
   if (adminPassword !== undefined && envExisted) {
-    console.log('Restart the gateway: docker compose -f infra/docker-compose.yml up -d gateway');
+    console.log(
+      'Restart: docker compose -f infra/docker-compose.yml up -d gateway && docker compose -f infra/docker-compose.yml restart web',
+    );
   }
   console.log('Next: docker compose -f infra/docker-compose.yml up -d --build --wait');
 }
