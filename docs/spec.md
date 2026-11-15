@@ -523,9 +523,9 @@ The total on `/` is a preview from listed prices; the server total from
   `paymentId` and method in `sessionStorage` (`paymentMemory`), so
   `PAYMENT_IN_PROGRESS` / `ORDER_ALREADY_PAID` can resume or go to the result
   without a lookup by order.
-- **Idempotency key timing (implementation note)**: the key is created lazily
-  at the first submit, not at the button press, and cleared on any edit or
-  method change; a manual re-press without edits replays the same key safely.
+- **Idempotency key timing (implementation note)**: The key is created at the
+  first Pay press for a given form body and kept until an edit or method
+  change, so a manual re-press without edits replays the same key.
 
 ## 6. API conventions
 

@@ -82,7 +82,7 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
   openapi-typescript + openapi-fetch, CSS Modules (no UI framework),
   qrcode.react, Vitest + Testing Library. No mock data. Companions (ADR-0023):
   @vitejs/plugin-react, @hookform/resolvers, jsdom, @testing-library/user-event,
-  @testing-library/jest-dom, eslint-plugin-react-hooks, globals,
+  @testing-library/jest-dom, @testing-library/dom, eslint-plugin-react-hooks, globals,
   @fontsource-variable/archivo (self-hosted font).
 
 ## Commands
