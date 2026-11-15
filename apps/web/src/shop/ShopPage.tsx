@@ -52,6 +52,8 @@ export function ShopPage(): ReactElement {
       void navigate(`/checkout/${created.id}`);
     },
     onError: async (e) => {
+      // Released on failure only: on success the page stays locked until navigation unmounts it.
+      inFlight.current = false;
       setError(messageFor(e));
       if (e instanceof ApiError && e.code === 'QUOTA_EXCEEDED') {
         await queryClient.refetchQueries({ queryKey: TICKET_TYPES_KEY });
@@ -63,9 +65,6 @@ export function ShopPage(): ReactElement {
           );
         }
       }
-    },
-    onSettled: () => {
-      inFlight.current = false;
     },
   });
 
@@ -118,7 +117,7 @@ export function ShopPage(): ReactElement {
             <p className={styles.total}>
               Total <strong>{formatMinor(total, currency)}</strong>
             </p>
-            <Button disabled={total === 0 || order.isPending} onClick={checkout}>
+            <Button disabled={total === 0 || order.isPending || order.isSuccess} onClick={checkout}>
               Checkout
             </Button>
           </div>

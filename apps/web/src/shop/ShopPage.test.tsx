@@ -132,6 +132,28 @@ describe('ShopPage', () => {
     expect(postCalls(fetch)).toHaveLength(1);
   });
 
+  it('sends one order when clicked again after the POST resolved but before navigation', async () => {
+    // The wildcard route keeps ShopPage mounted after navigate(), like the gap before the commit.
+    const fetch = stubFetch([
+      typesRoute,
+      { method: 'POST', path: '/v1/orders', status: 201, body: { id: 'ord-1' } },
+    ]);
+    const { user } = renderWithApp(
+      <Routes>
+        <Route path="*" element={<ShopPage />} />
+      </Routes>,
+      { fetch },
+    );
+    await screen.findByText('Sold out');
+    await user.click(within(stubOf('Gold')).getByRole('button', { name: /increase/iu }));
+    const checkout = screen.getByRole('button', { name: 'Checkout' });
+    await user.click(checkout);
+    await waitFor(() => expect(postCalls(fetch)).toHaveLength(1));
+    await waitFor(() => expect(checkout).toBeDisabled());
+    await user.click(checkout);
+    expect(postCalls(fetch)).toHaveLength(1);
+  });
+
   it('quota exceeded shows message and refetches', async () => {
     const { user, fetch } = renderShop([
       typesRoute,
