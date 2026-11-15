@@ -1,3 +1,4 @@
+import { afterEach, vi } from 'vitest';
 import { createApi } from './client';
 
 function recorder() {
@@ -37,4 +38,16 @@ describe('createApi', () => {
     await api.GET('/v1/ticket-types');
     expect(new URL(requests[0]!.url, 'http://localhost').pathname).toMatch(/^\/api\/v1\//u);
   });
+
+  it('falls back to /api when VITE_API_BASE_URL is an empty string', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    const { requests, fetchImpl } = recorder();
+    const api = createApi({ fetch: fetchImpl });
+    await api.GET('/v1/ticket-types');
+    expect(new URL(requests[0]!.url, 'http://localhost').pathname).toMatch(/^\/api\/v1\//u);
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });

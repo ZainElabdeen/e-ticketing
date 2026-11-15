@@ -10,7 +10,7 @@ export function createApi(
   opts: { baseUrl?: string; fetch?: typeof fetch; getToken?: () => string | null } = {},
 ): Api {
   const envBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
-  let baseUrl = opts.baseUrl ?? envBase ?? '/api';
+  let baseUrl = opts.baseUrl ?? (envBase || '/api');
   // Node's Request rejects relative URLs; browsers resolve them. Resolve at runtime so no
   // absolute gateway URL is baked into the bundle.
   if (baseUrl.startsWith('/') && typeof globalThis.location !== 'undefined') {
