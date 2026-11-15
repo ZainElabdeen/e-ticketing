@@ -30,7 +30,7 @@ must not slow local `pnpm test`.
 Defaults:
 
 - Triggers: `pull_request` to `dev`/`main`, `push` to `dev`/`main`, and
-  `workflow_dispatch` (input `images`, default `all`).
+  `workflow_dispatch` (boolean input `all`, default false; true builds every image).
 - NuGet audit fails CI on High and Critical only (NU1901 and NU1902 stay warnings).
 - Every third-party action is pinned to a full commit SHA with a version comment.
 - Two SonarCloud projects, because the generic scanner cannot analyze C#. The

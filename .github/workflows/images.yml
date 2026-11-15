@@ -89,6 +89,9 @@ jobs:
           platforms: linux/${{ matrix.platform.arch }}
           build-args: ${{ matrix.image.buildArgsText }}
           push: false
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
           cache-to: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }},mode=max
       # main: push by digest; the merge job stitches the per-arch digests into one manifest.
@@ -101,6 +104,9 @@ jobs:
           platforms: linux/${{ matrix.platform.arch }}
           build-args: ${{ matrix.image.buildArgsText }}
           outputs: type=image,name=${{ env.REGISTRY_PREFIX }}/${{ matrix.image.name }},push-by-digest=true,name-canonical=true,push=true
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
           cache-to: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }},mode=max
       - if: env.PUSH_IMAGES == 'true'

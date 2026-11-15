@@ -38,6 +38,19 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: CI_COVERAGE=1 pnpm test
+      - name: Verify unit coverage reports exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in apps/ticket-service/coverage/unit/lcov.info apps/payment-service/coverage/unit/lcov.info \
+            apps/ledger-service/coverage/unit/lcov.info apps/gateway/coverage/unit/lcov.info \
+            packages/nest-common/coverage/unit/lcov.info apps/web/coverage/lcov.info; do
+            [ -s "$f" ] || { echo "::error::missing coverage report: $f"; missing=1; }
+          done
+          compgen -G 'apps/ticket-service-dotnet/TestResults/unit/*/coverage.opencover.xml' >/dev/null \
+            || { echo "::error::missing .NET unit coverage (TestResults/unit/*/coverage.opencover.xml)"; missing=1; }
+          exit "$missing"
       # upload-artifact strips the common parent of all files. The marker file sits at the
       # workspace root, so the paths below keep their repo-relative layout on download.
       - run: echo "coverage root marker" > coverage-root.txt
@@ -63,6 +76,18 @@ jobs:
       - uses: ./.github/actions/setup
       # Testcontainers uses the Docker daemon preinstalled on the runner.
       - run: CI_COVERAGE=1 pnpm test:int
+      - name: Verify integration coverage reports exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in apps/ticket-service/coverage/int/lcov.info apps/payment-service/coverage/int/lcov.info \
+            apps/ledger-service/coverage/int/lcov.info apps/gateway/coverage/int/lcov.info; do
+            [ -s "$f" ] || { echo "::error::missing coverage report: $f"; missing=1; }
+          done
+          compgen -G 'apps/ticket-service-dotnet/TestResults/integration/*/coverage.opencover.xml' >/dev/null \
+            || { echo "::error::missing .NET integration coverage (TestResults/integration/*/coverage.opencover.xml)"; missing=1; }
+          exit "$missing"
       - run: echo "coverage root marker" > coverage-root.txt
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -89,7 +114,7 @@ jobs:
       # because there is no TTY; it is never printed or uploaded.
       - run: node infra/scripts/setup-local.mjs --no-ports --email ci@example.test --login-file "$RUNNER_TEMP/admin-login.txt"
       - run: infra/scripts/smoke.sh
-      - run: docker compose -f infra/docker-compose.yml up -d --build --wait
+      - run: docker compose -f infra/docker-compose.yml up -d --build --wait --wait-timeout 300
       - run: infra/scripts/verify-db.sh
       - run: infra/scripts/contract.sh ticket
       - run: infra/scripts/contract.sh payment

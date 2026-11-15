@@ -39,6 +39,7 @@ gateway:
 
 web:
   - 'apps/web/**'
+  - 'apps/*/package.json'
   - 'packages/contracts/**'
   - 'packages/config/**'
   - 'infra/docker/web.Dockerfile'
