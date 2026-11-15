@@ -6,4 +6,7 @@
 # infra/.env, so a key must not contain `$`; generated hex keys never do.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+# The suites load the bundled OpenAPI JSON (@eticket/contracts/openapi/*.json ->
+# packages/contracts/dist). A fresh checkout has no dist/, so bundle first.
+pnpm --silent --filter @eticket/contracts bundle >/dev/null
 exec node --env-file=infra/.env infra/scripts/contract.mjs "$@"
