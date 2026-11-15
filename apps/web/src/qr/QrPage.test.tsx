@@ -226,4 +226,14 @@ describe('QrPage', () => {
     await act(() => vi.advanceTimersByTimeAsync(1100));
     expect(screen.getByText('Waiting for payment…')).toBeInTheDocument();
   });
+
+  it('shows the rate-limit text when cancel is throttled', async () => {
+    const throttled: StubRoute = {
+      ...cancelRoute(429, { code: 'RATE_LIMITED', message: 'x' }),
+      headers: { 'Retry-After': '5' },
+    };
+    const { user } = renderQr([getRoute(200, pay('PENDING')), throttled]);
+    await user.click(await screen.findByRole('button', { name: 'Use card instead' }));
+    expect(await screen.findByText('Too many requests, try again shortly')).toBeInTheDocument();
+  });
 });

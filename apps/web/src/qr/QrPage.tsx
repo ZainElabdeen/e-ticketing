@@ -4,7 +4,7 @@ import { useEffect, useRef, type ReactElement } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useApi } from '../api/client';
-import { ApiError, GENERIC_MESSAGE, call } from '../api/errors';
+import { ApiError, call, messageFor } from '../api/errors';
 import { forgetPayment } from '../checkout/paymentMemory';
 import { formatMinor } from '../lib/money';
 import { Banner } from '../ui/Banner';
@@ -116,7 +116,7 @@ export function QrPage(): ReactElement {
       </TicketStub>
 
       {live(timeout ? 'Still processing' : 'Waiting for payment…')}
-      {cancelFailed ? <Banner>{GENERIC_MESSAGE}</Banner> : null}
+      {cancelFailed ? <Banner>{messageFor(cancel.error)}</Banner> : null}
       {conflict && !cancel.isPending ? (
         <Banner>{"That payment can't be switched right now. Try again."}</Banner>
       ) : null}
