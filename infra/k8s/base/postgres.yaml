@@ -1,0 +1,124 @@
+# One Postgres, bootstrapped once by docker-entrypoint-initdb.d on an empty
+# volume (ADR-0026). The roles script is the same file compose mounts.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+    spec:
+      terminationGracePeriodSeconds: 60
+      # 70 is the postgres user of the alpine image. Started as non-root, the
+      # entrypoint skips its chown and runs initdb as this uid.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:18-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: eticketing
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: eticket-secrets, key: POSTGRES_PASSWORD }
+            - name: TICKETS_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: eticket-secrets, key: TICKETS_OWNER_PASSWORD }
+            - name: TICKETS_APP_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: eticket-secrets, key: TICKETS_APP_PASSWORD }
+            - name: PAYMENTS_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: eticket-secrets, key: PAYMENTS_OWNER_PASSWORD }
+            - name: PAYMENTS_APP_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: eticket-secrets, key: PAYMENTS_APP_PASSWORD }
+            - name: LEDGER_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: eticket-secrets, key: LEDGER_OWNER_PASSWORD }
+            - name: LEDGER_APP_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: eticket-secrets, key: LEDGER_APP_PASSWORD }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          # TCP on 127.0.0.1, so the probes stay failing while the init scripts
+          # run on the socket-only temporary server (same as the compose check).
+          startupProbe:
+            exec:
+              command: [pg_isready, -h, 127.0.0.1, -U, postgres, -d, eticketing]
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36
+          readinessProbe:
+            exec:
+              command: [pg_isready, -h, 127.0.0.1, -U, postgres, -d, eticketing]
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: [pg_isready, -h, 127.0.0.1, -U, postgres, -d, eticketing]
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: '1', memory: 1Gi }
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: initdb
+          configMap:
+            name: postgres-initdb
+            defaultMode: 365 # 0555
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi

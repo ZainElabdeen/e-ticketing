@@ -7,6 +7,13 @@ export interface PaymentContractTarget {
   newPayableOrder(): Promise<{ id: string; totalMinor: number; currency: string }>;
 }
 
+/** Loop, not `/\/+$/` (that regex backtracks on long slash runs). */
+function trimTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') end--;
+  return url.slice(0, end);
+}
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -17,7 +24,7 @@ function required(name: string): string {
 
 /** Runner 2: an external Payment Service plus the Ticket Service it reads orders from. */
 export function paymentTargetFromEnv(): PaymentContractTarget {
-  const ticketBase = required('CONTRACT_TICKET_BASE_URL').replace(/\/+$/, '');
+  const ticketBase = trimTrailingSlashes(required('CONTRACT_TICKET_BASE_URL'));
   const ticketKey = required('CONTRACT_TICKET_API_KEY');
   return {
     baseUrl: required('CONTRACT_PAYMENT_BASE_URL'),

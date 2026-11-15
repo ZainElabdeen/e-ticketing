@@ -1,0 +1,220 @@
+name: Images
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      all:
+        description: Build every image, ignoring path filters
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# PR runs cancel each other. main/dev runs get a unique group so a newer run never replaces an
+# older pending one (paths-filter on push only diffs against the previous commit, so a dropped
+# run would silently skip images). Recover a failed main run by dispatching with all=true.
+concurrency:
+  group: images-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  REGISTRY_PREFIX: ghcr.io/zainelabdeen/e-ticketing
+  # Images are pushed only from main, and never for pull requests.
+  PUSH_IMAGES: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      images: ${{ steps.select.outputs.images }}
+      unchanged: ${{ steps.select.outputs.unchanged }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - if: inputs.all != true
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: .github/filters.yml
+      - id: select
+        run: node .github/scripts/select-images.mjs
+        env:
+          CHANGES: ${{ steps.filter.outputs.changes }}
+          ALL: ${{ inputs.all }}
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.images != '[]'
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.changes.outputs.images) }}
+        platform:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: env.PUSH_IMAGES == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Pull requests and dev pushes: prove the image builds on both architectures, push nothing.
+      - if: env.PUSH_IMAGES != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.image.dockerfile }}
+          platforms: linux/${{ matrix.platform.arch }}
+          build-args: ${{ matrix.image.buildArgsText }}
+          push: false
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }},mode=max
+      # main: push by digest; the merge job stitches the per-arch digests into one manifest.
+      - if: env.PUSH_IMAGES == 'true'
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.image.dockerfile }}
+          platforms: linux/${{ matrix.platform.arch }}
+          build-args: ${{ matrix.image.buildArgsText }}
+          outputs: type=image,name=${{ env.REGISTRY_PREFIX }}/${{ matrix.image.name }},push-by-digest=true,name-canonical=true,push=true
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }},mode=max
+      - if: env.PUSH_IMAGES == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+      - if: env.PUSH_IMAGES == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: [changes, build]
+    if: needs.changes.outputs.images != '[]' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.changes.outputs.images) }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digest-${{ matrix.image.name }}-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/digests
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create multi-arch manifest
+        env:
+          IMAGE: ${{ matrix.image.name }}
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          ref="$REGISTRY_PREFIX/$IMAGE"
+          # shellcheck disable=SC2046
+          docker buildx imagetools create \
+            -t "$ref:latest" -t "$ref:sha-${GITHUB_SHA::7}" \
+            $(printf "$ref@sha256:%s " *)
+      - name: Verify both platforms
+        env:
+          IMAGE: ${{ matrix.image.name }}
+        run: |
+          out=$(docker buildx imagetools inspect "$REGISTRY_PREFIX/$IMAGE:latest")
+          echo "$out"
+          echo "$out" | grep -q 'linux/amd64'
+          echo "$out" | grep -q 'linux/arm64'
+
+  # main only: images not rebuilt in this run get the new sha tag by a registry-side retag of
+  # the PREVIOUS main commit's tag (github.event.before), not of `latest`. paths-filter diffs
+  # against the same commit, so "unchanged" means identical to sha-<before7>, and the result is
+  # race-free even when main runs overlap. Every main commit has a full sha tag set, so the
+  # source always exists once seeded. Dispatch with all=false has no `before` and fails with the
+  # seed message; dispatch with all=true builds everything, so unchanged is empty (no-op).
+  # Runs only when changes succeeded and build/merge each succeeded or were skipped (merge is
+  # skipped when nothing was built); a failed build or merge blocks it.
+  retag:
+    needs: [changes, build, merge]
+    if: >-
+      always()
+      && github.ref == 'refs/heads/main'
+      && github.event_name != 'pull_request'
+      && needs.changes.result == 'success'
+      && contains(fromJSON('["success","skipped"]'), needs.build.result)
+      && contains(fromJSON('["success","skipped"]'), needs.merge.result)
+      && needs.changes.outputs.unchanged != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag unchanged images
+        env:
+          UNCHANGED: ${{ needs.changes.outputs.unchanged }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          seed="dispatch Images on main with all=true to seed the tag set"
+          if ! [[ "$BEFORE" =~ ^[0-9a-f]{40}$ ]] || [[ "$BEFORE" =~ ^0+$ ]]; then
+            echo "::error::no previous main commit to retag from; $seed"
+            exit 1
+          fi
+          tag="sha-${GITHUB_SHA::7}"
+          from="sha-${BEFORE::7}"
+          for name in $(jq -r '.[]' <<<"$UNCHANGED"); do
+            ref="$REGISTRY_PREFIX/$name"
+            if ! docker buildx imagetools inspect "$ref:$from" >/dev/null 2>&1; then
+              echo "::error::$ref:$from does not exist; $seed"
+              exit 1
+            fi
+            docker buildx imagetools create -t "$ref:$tag" "$ref:$from"
+          done

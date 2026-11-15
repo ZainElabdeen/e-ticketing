@@ -17,8 +17,8 @@ output, quoted in the report. Commands and prerequisites: root `AGENTS.md`
 4. `pnpm build` → exit 0.
 5. `pnpm test` → exit 0 (includes `node --test infra/scripts/`).
 6. `pnpm test:int` → exit 0 (Docker running).
-7. `pnpm --filter @eticket/contracts check:generated` and
-   `git status --short packages/contracts/src/generated` → no output.
+7. `pnpm --filter @eticket/contracts check:generated` → exit 0 (also fails on
+   untracked generated files).
 8. **Runtime check** when services, infra or contracts changed:
    `infra/scripts/smoke.sh` → ends with `SMOKE OK`. It runs `down -v`, so ask
    first if the local stack holds data the user needs. Contract-affecting

@@ -630,18 +630,30 @@ payload.
 - **Local**: `docker compose -f infra/docker-compose.yml up -d` — Postgres,
   one-shot migrate containers, 4 services, web (nginx). Phase 5 switches the
   ticket-service image to .NET.
-- **Online**: one Oracle Cloud Always Free Ampere A1 VM (ARM64, 4 OCPU,
-  24 GB) running K3s; Traefik ingress; TLS from Let's Encrypt via Traefik's
-  ACME resolver; free DuckDNS hostname. Images are multi-arch (amd64 + arm64)
-  in GHCR. Postgres runs as a StatefulSet with a local-path volume.
+- **Online**: one single-node K3s VM, host-agnostic (Oracle Cloud Always Free
+  Ampere A1 or Google Cloud; amd64 or arm64, at least 2 vCPU / 4 GB); Traefik
+  ingress; TLS from Let's Encrypt via Traefik's ACME resolver (HelmChartConfig,
+  `externalTrafficPolicy: Local`); free DuckDNS hostname or any A record. Images
+  are multi-arch in GHCR. Postgres runs as a StatefulSet with a local-path
+  volume plus a daily `pg_dump` CronJob. Manifests: Kustomize `infra/k8s`
+  (base, `local` and `prod` overlays; ADR-0026); the guide is
+  `infra/k8s/README.md`.
+- **Deploy path**: `infra/k8s/scripts/deploy.sh sha-<7>` (secrets from a
+  VM-generated git-ignored env file, one Secret), or the opt-in `deploy.yml`
+  CD job after `Images` succeeds on a push to `main`. `images.yml` re-tags
+  unchanged images from the previous main commit so every commit has all eight
+  `sha-<7>` tags. CI proves the manifests with kubeconform and a k3d (K3s in
+  Docker) end-to-end job.
 - **Database bootstrap**: an init SQL script (compose:
-  `docker-entrypoint-initdb.d`; K3s: Job before services) creates the three
+  `docker-entrypoint-initdb.d`; K3s: the same script mounted from a ConfigMap
+  into `docker-entrypoint-initdb.d`, run once on the empty volume) creates the three
   schemas, an owner role per schema (`*_owner`, runs migrations) and a runtime
   role per schema (`*_app`, DML only). The ledger script revokes `UPDATE`,
   `DELETE` on journal tables from `ledger_app`.
 - **Migrations**: Prisma raw-SQL migrations per service, applied by a
-  one-shot `migrate deploy` container (compose) or a K8s Job (K3s) using
-  `MIGRATION_DATABASE_URL`, before the service starts. After the .NET port,
+  one-shot `migrate deploy` container (compose) or a `migrate` initContainer
+  of each database service (K3s) using `MIGRATION_DATABASE_URL`, before the
+  service starts (ADR-0026). After the .NET port,
   the `tickets` schema keeps its Prisma SQL migrations (the NestJS service
   stays as the contract reference and migration owner); EF Core maps the
   existing schema and runs no migrations (ADR-0002).
@@ -676,8 +688,8 @@ payload.
 | API key, validation, idempotency, no secrets | §2.2, §4.2, §6, §7.1, ADR-0005, ADR-0010 | |
 | Separation of tickets / orders-transactions / ledger, audit trail | §3, `orders.paid_transaction_id` | |
 | Pluggable payment methods | ADR-0008 | |
-| Deployed online, free domain | §9, ADR-0011 | |
-| CI: lint, build, test, Docker image; bonus Sonar, coverage | Phase 8 | |
+| Deployed online, free domain | §9, `infra/k8s/README.md`, ADR-0011, ADR-0026 | K3s on one VM (Oracle or Google Cloud), host-agnostic; live deploy follows the guide; CD is opt-in |
+| CI: lint, build, test, Docker image; bonus Sonar, coverage | `.github/workflows/ci.yml`, `.github/workflows/images.yml`, `.github/workflows/deploy.yml`, ADR-0025, ADR-0026 | |
 | README contents | §12 | |
 
 ## 12. Deliverable documentation
@@ -715,3 +727,5 @@ QR → result → backoffice → balances) ships with it.
 | [0020](./adr/0020-shared-nest-common-package.md) | Shared NestJS plumbing in @eticket/nest-common | Copy per service |
 | [0021](./adr/0021-ticket-service-dotnet-port.md) | .NET Ticket Service: one web project, EF Core on the Prisma-owned schema, raw SQL for locks, envelope middleware; contract suite is the parity gate | Minimal APIs, four assemblies, EF migrations, Dapper |
 | [0022](./adr/0022-gateway-auth-libraries-and-admin-hash.md) | `@nestjs/jwt` + `bcryptjs`; admin hash stored as base64 (`ADMIN_PASSWORD_HASH_B64`); expiry-only revocation | `jose`, native `bcrypt`, `$$` escaping, a secret file |
+| [0025](./adr/0025-ci-pipeline-and-coverage.md) | GitHub Actions CI: opt-in coverage (`CI_COVERAGE=1`) from unit and integration runs, two SonarCloud projects, native arm64 runners, only `main` publishes images | QEMU arm64, unit-only coverage, one Sonar project, turbo `--affected` |
+| [0026](./adr/0026-k3s-manifests-and-deploy.md) | K3s via Kustomize (base, local and prod overlays), initdb and migrate initContainers instead of Jobs, Secret from a VM-generated env file, opt-in CD, k3d CI | Jobs, Helm, Sealed Secrets |

@@ -2,10 +2,10 @@
 #   docker build -f infra/docker/nest-service.Dockerfile \
 #     --build-arg SERVICE=ticket-service --build-arg PORT=3001 -t eticket/ticket-service:dev .
 # Pure JS dependencies only, so the same file builds for linux/arm64.
-FROM node:26-alpine AS build
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS build
 ARG SERVICE
 # Node 26 no longer ships corepack; pin pnpm to the packageManager version.
-RUN npm install -g pnpm@10.34.9
+RUN npm install -g --ignore-scripts pnpm@10.34.9
 WORKDIR /repo
 
 # Manifests first so the install layer is cached until a dependency changes.
@@ -33,7 +33,7 @@ RUN cd /out && rm -rf src test prisma prisma.config.ts jest*.cjs tsconfig*.json 
 # of them because the client is generated at build time.
 RUN cd /out/node_modules/.pnpm && rm -rf prisma@* @prisma+studio-core@* @electric-sql+pglite@* typescript@*
 
-FROM node:26-alpine
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 ARG PORT
 ENV NODE_ENV=production
 # The app listens on PORT and the HEALTHCHECK reads it at runtime.

@@ -31,3 +31,8 @@ apps/web/.vitest/
 
 # Local setup: one-time admin login written by infra/scripts/setup-local.mjs
 infra/.admin-login.txt*
+
+# K3s deploy (Phase 9): secrets file and generated render output
+infra/k8s/.env
+infra/k8s/overlays/prod/kustomization.yaml
+infra/k8s/.rendered/

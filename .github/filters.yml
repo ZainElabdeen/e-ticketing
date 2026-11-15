@@ -1,0 +1,77 @@
+# dorny/paths-filter filters, one per image name in .github/images.json.
+# `node-shared` is an anchor only; select-images.mjs ignores it (not an image name).
+node-shared: &node-shared
+  - 'package.json'
+  - 'pnpm-lock.yaml'
+  - 'pnpm-workspace.yaml'
+  - 'packages/**'
+  - 'infra/docker/nest-service.Dockerfile'
+  - '.dockerignore'
+  - '.npmrc'
+  - 'apps/*/package.json'
+  - '.github/workflows/images.yml'
+  - '.github/images.json'
+
+ticket-service:
+  - 'apps/ticket-service-dotnet/**'
+  - 'packages/contracts/**'
+  - 'infra/docker/dotnet-ticket.Dockerfile'
+  - 'package.json'
+  - 'pnpm-lock.yaml'
+  - 'pnpm-workspace.yaml'
+  - 'packages/config/package.json'
+  - '.npmrc'
+  - '.dockerignore'
+  - '.github/workflows/images.yml'
+  - '.github/images.json'
+
+payment-service:
+  - *node-shared
+  - 'apps/payment-service/**'
+
+ledger-service:
+  - *node-shared
+  - 'apps/ledger-service/**'
+
+gateway:
+  - *node-shared
+  - 'apps/gateway/**'
+
+web:
+  - 'apps/web/**'
+  - 'apps/*/package.json'
+  - 'packages/contracts/**'
+  - 'packages/config/**'
+  - 'infra/docker/web.Dockerfile'
+  - 'infra/docker/nginx*.conf'
+  - 'package.json'
+  - 'pnpm-lock.yaml'
+  - 'pnpm-workspace.yaml'
+  - '.npmrc'
+  - '.dockerignore'
+  - '.github/workflows/images.yml'
+  - '.github/images.json'
+
+migrate-tickets:
+  - 'apps/ticket-service/prisma/**'
+  - 'apps/ticket-service/prisma.config.ts'
+  - 'infra/migrate/**'
+  - 'infra/docker-compose.yml'
+  - '.github/workflows/images.yml'
+  - '.github/images.json'
+
+migrate-payments:
+  - 'apps/payment-service/prisma/**'
+  - 'apps/payment-service/prisma.config.ts'
+  - 'infra/migrate/**'
+  - 'infra/docker-compose.yml'
+  - '.github/workflows/images.yml'
+  - '.github/images.json'
+
+migrate-ledger:
+  - 'apps/ledger-service/prisma/**'
+  - 'apps/ledger-service/prisma.config.ts'
+  - 'infra/migrate/**'
+  - 'infra/docker-compose.yml'
+  - '.github/workflows/images.yml'
+  - '.github/images.json'

@@ -1,0 +1,42 @@
+[
+  {
+    "name": "ticket-service",
+    "dockerfile": "infra/docker/dotnet-ticket.Dockerfile",
+    "buildArgs": {}
+  },
+  {
+    "name": "payment-service",
+    "dockerfile": "infra/docker/nest-service.Dockerfile",
+    "buildArgs": { "SERVICE": "payment-service", "PORT": "3002" }
+  },
+  {
+    "name": "ledger-service",
+    "dockerfile": "infra/docker/nest-service.Dockerfile",
+    "buildArgs": { "SERVICE": "ledger-service", "PORT": "3003" }
+  },
+  {
+    "name": "gateway",
+    "dockerfile": "infra/docker/nest-service.Dockerfile",
+    "buildArgs": { "SERVICE": "gateway", "PORT": "3000" }
+  },
+  {
+    "name": "web",
+    "dockerfile": "infra/docker/web.Dockerfile",
+    "buildArgs": {}
+  },
+  {
+    "name": "migrate-tickets",
+    "dockerfile": "infra/migrate/Dockerfile",
+    "buildArgs": { "SERVICE": "ticket-service" }
+  },
+  {
+    "name": "migrate-payments",
+    "dockerfile": "infra/migrate/Dockerfile",
+    "buildArgs": { "SERVICE": "payment-service" }
+  },
+  {
+    "name": "migrate-ledger",
+    "dockerfile": "infra/migrate/Dockerfile",
+    "buildArgs": { "SERVICE": "ledger-service" }
+  }
+]

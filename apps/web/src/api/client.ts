@@ -16,7 +16,7 @@ export function createApi(
   if (baseUrl.startsWith('/') && typeof globalThis.location !== 'undefined') {
     baseUrl = new URL(baseUrl, globalThis.location.origin).toString().replace(/\/$/u, '');
   }
-  const basePath = new URL(baseUrl, 'http://placeholder.invalid').pathname.replace(/\/$/u, '');
+  const basePath = new URL(baseUrl, 'https://placeholder.invalid').pathname.replace(/\/$/u, '');
 
   const api = createClient<Gateway.paths>({
     baseUrl,

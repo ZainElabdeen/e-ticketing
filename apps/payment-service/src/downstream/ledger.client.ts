@@ -1,6 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { trimTrailingSlashes } from '@eticket/nest-common';
 import type { EnvironmentVariables } from '../config/env';
 import { callDownstream, downstreamTimeoutMs, unexpectedStatus } from './downstream-http';
 
@@ -25,7 +26,7 @@ export class LedgerClient {
     private readonly http: HttpService,
     config: ConfigService<EnvironmentVariables, true>,
   ) {
-    this.baseUrl = config.get<string>('LEDGER_SERVICE_URL').replace(/\/+$/, '');
+    this.baseUrl = trimTrailingSlashes(config.get<string>('LEDGER_SERVICE_URL'));
     this.apiKey = config.get<string>('INTERNAL_API_KEY_LEDGER');
     this.timeoutMs = downstreamTimeoutMs(config);
   }

@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: eticketing
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - ticket-service.yaml
+  - payment-service.yaml
+  - ledger-service.yaml
+  - gateway.yaml
+  - web.yaml
+  - ingress.yaml
+  - backup.yaml
+# Single source with compose and Testcontainers. The file lives outside this
+# directory, so every render needs --load-restrictor LoadRestrictionsNone
+# (scripts/render.sh does that).
+configMapGenerator:
+  - name: postgres-initdb
+    files:
+      - 00-roles.sh=../../postgres/init/00-roles.sh
+generatorOptions:
+  disableNameSuffixHash: true
+# The Secret `eticket-secrets` is not in git: scripts/apply-secrets.sh creates
+# it from infra/k8s/.env before the workloads start.

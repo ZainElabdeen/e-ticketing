@@ -1,5 +1,9 @@
 # ADR-0011: Deploy on K3s on one free-tier ARM VM, Traefik + Let's Encrypt, DuckDNS
 
+Amended by [ADR-0026](./0026-k3s-manifests-and-deploy.md): the host is any single Linux VM (amd64 or
+arm64, Oracle or Google Cloud), and bootstrap and migrations are initdb and an
+initContainer instead of Jobs.
+
 ## Context
 
 The challenge requires the system to be deployed online (free tier or

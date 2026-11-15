@@ -9,11 +9,15 @@
       "dependsOn": ["^build", "build"]
     },
     "test": {
-      "dependsOn": ["^build", "build"]
+      "dependsOn": ["^build", "build"],
+      "env": ["CI_COVERAGE"],
+      "outputs": ["coverage/**", "TestResults/**"]
     },
     "test:int": {
       "dependsOn": ["^build", "build"],
-      "cache": false
+      "cache": false,
+      "env": ["CI_COVERAGE"],
+      "outputs": ["coverage/**", "TestResults/**"]
     }
   }
 }

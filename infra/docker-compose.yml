@@ -1,11 +1,8 @@
 name: eticketing
 
-# Keep in step with the prisma pin in apps/*/package.json.
-x-prisma-version: &prisma-version 7.10.1
-
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015
     environment:
       POSTGRES_DB: eticketing
       POSTGRES_USER: postgres
@@ -27,7 +24,10 @@ services:
       # socket-only temporary server.
       test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d eticketing']
       interval: 5s
+      timeout: 3s
       retries: 20
+      start_period: 10s
+    restart: unless-stopped
 
   # One-shot migration containers (ADR-0015). Each connects as its schema's
   # owner role and runs `prisma migrate deploy`; later phases make the services
@@ -38,7 +38,6 @@ services:
       dockerfile: infra/migrate/Dockerfile
       args:
         SERVICE: ticket-service
-        PRISMA_VERSION: *prisma-version
     environment:
       MIGRATION_DATABASE_URL: postgresql://tickets_owner:${TICKETS_OWNER_PASSWORD:?set TICKETS_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
     depends_on:
@@ -52,7 +51,6 @@ services:
       dockerfile: infra/migrate/Dockerfile
       args:
         SERVICE: payment-service
-        PRISMA_VERSION: *prisma-version
     environment:
       MIGRATION_DATABASE_URL: postgresql://payments_owner:${PAYMENTS_OWNER_PASSWORD:?set PAYMENTS_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=payments
     depends_on:
@@ -66,7 +64,6 @@ services:
       dockerfile: infra/migrate/Dockerfile
       args:
         SERVICE: ledger-service
-        PRISMA_VERSION: *prisma-version
     environment:
       MIGRATION_DATABASE_URL: postgresql://ledger_owner:${LEDGER_OWNER_PASSWORD:?set LEDGER_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=ledger
     depends_on:
@@ -102,6 +99,7 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
 
   # Reference implementation (ADR-0021): the original NestJS Ticket Service, run only
   # with `--profile reference` so the contract suite can target both.
@@ -134,6 +132,7 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
 
   payment-service:
     build:
@@ -173,6 +172,7 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
 
   ledger-service:
     build:
@@ -201,6 +201,7 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
 
   # Public edge (spec section 6): the only service the browser talks to. It holds the three
   # public keys and the admin credentials, never an internal key.
@@ -244,6 +245,7 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
 
   # The SPA (spec section 5): nginx serves the Vite build and proxies /api/ to the gateway,
   # so the browser has one origin and the gateway needs no CORS in this setup.
@@ -262,6 +264,7 @@ services:
       timeout: 3s
       retries: 20
       start_period: 3s
+    restart: unless-stopped
 
 volumes:
   pgdata: {}

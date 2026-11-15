@@ -1,0 +1,62 @@
+# k3d (CI and laptop): locally built images, plain HTTP. Images are imported
+# into the cluster, never pulled (imagePullPolicy Never).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - {
+      name: ghcr.io/zainelabdeen/e-ticketing/ticket-service,
+      newName: eticketing/ticket-service,
+      newTag: local,
+    }
+  - {
+      name: ghcr.io/zainelabdeen/e-ticketing/payment-service,
+      newName: eticketing/payment-service,
+      newTag: local,
+    }
+  - {
+      name: ghcr.io/zainelabdeen/e-ticketing/ledger-service,
+      newName: eticketing/ledger-service,
+      newTag: local,
+    }
+  - { name: ghcr.io/zainelabdeen/e-ticketing/gateway, newName: eticketing/gateway, newTag: local }
+  - { name: ghcr.io/zainelabdeen/e-ticketing/web, newName: eticketing/web, newTag: local }
+  - {
+      name: ghcr.io/zainelabdeen/e-ticketing/migrate-tickets,
+      newName: eticketing/migrate-tickets,
+      newTag: local,
+    }
+  - {
+      name: ghcr.io/zainelabdeen/e-ticketing/migrate-payments,
+      newName: eticketing/migrate-payments,
+      newTag: local,
+    }
+  - {
+      name: ghcr.io/zainelabdeen/e-ticketing/migrate-ledger,
+      newName: eticketing/migrate-ledger,
+      newTag: local,
+    }
+patches:
+  # Containers of the db services: [0] = migrate is initContainers[1].
+  - target: { kind: Deployment, name: 'ticket-service|payment-service|ledger-service' }
+    patch: |-
+      - { op: add, path: /spec/template/spec/containers/0/imagePullPolicy, value: Never }
+      - { op: add, path: /spec/template/spec/initContainers/1/imagePullPolicy, value: Never }
+  - target: { kind: Deployment, name: 'gateway|web' }
+    patch: |-
+      - { op: add, path: /spec/template/spec/containers/0/imagePullPolicy, value: Never }
+  - target: { kind: Deployment, name: gateway }
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: gateway
+      spec:
+        template:
+          spec:
+            containers:
+              - name: gateway
+                env:
+                  - name: WEB_ORIGIN
+                    value: http://localhost:8081

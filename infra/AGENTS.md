@@ -28,18 +28,21 @@ Local run guide: `docs/local-demo.md`. Commands: root `AGENTS.md`.
 
 - `postgres/init/00-roles.sh` runs only on an empty volume (after a password
   change: `down -v`). It is shared by compose, Testcontainers
-  (`packages/testing`) and the future K3s bootstrap, so it stays env-driven.
+  (`packages/testing`) and the K3s bootstrap, so it stays env-driven.
 - One owner role (migrations) and one app role (runtime) per schema; PUBLIC is
   revoked. Default privileges cover tables only, so a migration adding a
   sequence must grant it.
-- Migrations run in the `migrate` image; `PRISMA_VERSION` there is a manual copy
-  of the apps' Prisma pin.
+- Migrations run in the `migrate` image, which installs from
+  `infra/migrate/package-lock.json`; its `prisma` pin is a manual copy of the
+  apps' Prisma pin.
 
 ## Images
 
 - Three Dockerfiles (`nest-service`, `web`, `dotnet-ticket`) copy every
   workspace `package.json` before install. A new workspace package means adding
   its line to all three, or `--frozen-lockfile` fails.
+- Base images are pinned `tag@sha256:<index digest>`. Refresh with
+  `docker buildx imagetools inspect <image:tag>` (the top-level `Digest:`).
 - pnpm is installed with `npm i -g pnpm@<version>` (Node 26 ships no corepack);
   keep it equal to `packageManager` in the root `package.json`.
 
@@ -48,3 +51,23 @@ Local run guide: `docs/local-demo.md`. Commands: root `AGENTS.md`.
 - `add_header` inside a `location` drops server-level headers, so every location
   includes `docker/nginx-security-headers.conf`.
 - nginx sets `X-Forwarded-For: $remote_addr`; locally `TRUST_PROXY` is 0.
+
+## K3s manifests (`infra/k8s`, ADR-0026)
+
+- Kustomize `base` + overlays `local` (k3d) and `prod` (template filled by
+  `scripts/render-prod.mjs`). Render with `scripts/render.sh <local|dir>`; it
+  needs `--load-restrictor LoadRestrictionsNone` (the initdb ConfigMap reads
+  `infra/postgres/init/00-roles.sh`).
+- Generated, git-ignored: `infra/k8s/.env`, `overlays/prod/kustomization.yaml`,
+  `.rendered/`. The Secret `eticket-secrets` is never in git or in the render.
+- Checks: `node --test infra/k8s/scripts/` (needs `kubectl`, else skips) and
+  `infra/k8s/scripts/validate.sh` (needs `kubectl` + `kubeconform`).
+- `k3d-e2e.sh` creates its own k3d cluster `eticketing` on host port 8081 and
+  exports a private `KUBECONFIG`; keep it that way. Never run `kubectl`, `k3d`
+  or `deploy.sh` against any other context: the dev machine's default context
+  is a real GKE cluster. Only `deploy.sh --dry-run` and `apply-secrets.sh
+--dry-run` are safe outside the gate.
+- Never read or print `infra/k8s/.env` (real secrets, like `infra/.env`).
+  Deploy guide, CD setup, backups and rotation: `infra/k8s/README.md`.
+- Postgres bootstrap on K3s is initdb (ConfigMap of `00-roles.sh`), migrations
+  are an initContainer per DB service (ADR-0026), not Jobs.

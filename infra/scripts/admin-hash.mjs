@@ -11,6 +11,7 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { Writable } from 'node:stream';
 import { hashAdminPassword, MAX_BYTES } from './lib/admin-hash-lib.mjs';
+import { isEmail } from './lib/strings.mjs';
 
 const MIN_LENGTH = 12;
 
@@ -18,8 +19,6 @@ function fail(message, code = 1) {
   console.error(message);
   process.exit(code);
 }
-
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function parseArgs(argv) {
   const args = { append: undefined, email: undefined };
@@ -35,7 +34,7 @@ function parseArgs(argv) {
   }
   if (Boolean(args.append) !== Boolean(args.email)) fail('--append and --email go together');
   // A newline in the email would let it inject extra lines into the env file.
-  if (args.email !== undefined && (/[\r\n]/.test(args.email) || !EMAIL.test(args.email))) {
+  if (args.email !== undefined && (/[\r\n]/.test(args.email) || !isEmail(args.email))) {
     fail('--email must be a plain email address', 2);
   }
   return args;

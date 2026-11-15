@@ -238,7 +238,7 @@ describe('POST /v1/payments and GET /v1/payments/:id', () => {
       const results = await Promise.all(
         Array.from({ length: 6 }, () => postPayment(svc, cardBody(order.id))),
       );
-      const statuses = results.map((r) => r.status).sort();
+      const statuses = results.map((r) => r.status).sort((a, b) => a - b);
       expect(statuses).toEqual([201, 409, 409, 409, 409, 409]);
       for (const r of results.filter((x) => x.status === 409)) {
         expect(r.body.code).toBe('ORDER_ALREADY_PAID');
