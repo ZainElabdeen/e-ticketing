@@ -41,6 +41,8 @@ Local run guide: `docs/local-demo.md`. Commands: root `AGENTS.md`.
 - Three Dockerfiles (`nest-service`, `web`, `dotnet-ticket`) copy every
   workspace `package.json` before install. A new workspace package means adding
   its line to all three, or `--frozen-lockfile` fails.
+- Base images are pinned `tag@sha256:<index digest>`. Refresh with
+  `docker buildx imagetools inspect <image:tag>` (the top-level `Digest:`).
 - pnpm is installed with `npm i -g pnpm@<version>` (Node 26 ships no corepack);
   keep it equal to `packageManager` in the root `package.json`.
 

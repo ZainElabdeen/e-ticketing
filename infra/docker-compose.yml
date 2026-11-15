@@ -99,10 +99,10 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
 
   # Reference implementation (ADR-0021): the original NestJS Ticket Service, run only
   # with `--profile reference` so the contract suite can target both.
-    restart: unless-stopped
   ticket-service-node:
     profiles: ['reference']
     build:
@@ -201,11 +201,11 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
 
   # Public edge (spec section 6): the only service the browser talks to. It holds the three
   # public keys and the admin credentials, never an internal key.
   # RATE_LIMIT_WINDOW_MS is test-only: never set it here.
-    restart: unless-stopped
   gateway:
     build:
       context: ..
@@ -245,10 +245,10 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
 
   # The SPA (spec section 5): nginx serves the Vite build and proxies /api/ to the gateway,
   # so the browser has one origin and the gateway needs no CORS in this setup.
-    restart: unless-stopped
   web:
     build:
       context: ..

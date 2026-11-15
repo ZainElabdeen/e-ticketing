@@ -8,10 +8,10 @@ ARG SERVICE
 WORKDIR /app
 
 # The prisma pin in package.json must equal the apps' prisma pin (apps/*/package.json).
-# Scripts stay enabled: prisma's postinstall prepares @prisma/engines; without it
-# `migrate deploy` fails with "Can't write to /app/node_modules/@prisma/engines".
+# Scripts are off for the install; only the @prisma/engines postinstall is rebuilt, because
+# without it `migrate deploy` fails with "Can't write to /app/node_modules/@prisma/engines".
 COPY infra/migrate/package.json infra/migrate/package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts && npm rebuild @prisma/engines
 
 COPY apps/${SERVICE}/prisma.config.ts ./prisma.config.ts
 COPY apps/${SERVICE}/prisma ./prisma
