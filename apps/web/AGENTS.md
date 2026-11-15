@@ -36,11 +36,16 @@ nginx sends `script-src`/`style-src 'self'` with no `unsafe-eval`
   of the rules and has its own unit test (`cardSchema.test.ts`). Errors render
   inline with `aria-invalid` + `aria-describedby`.
 - **Routing**: routes are declared once in `src/app/router.tsx`; protected pages
-  wrap in `RequireAuth`. Every route renders a recoverable message for an unknown
-  or expired id.
+  wrap in `RequireAuth`. Pages used by few visitors (backoffice, login, QR) load
+  through the route `lazy` property. Every route renders a recoverable message
+  for an unknown or expired id; unknown paths hit the `*` route (404).
+- **Page shell**: each page calls `useDocumentTitle('<page>')` above any early
+  return; `Layout` moves focus to `<main>` when the pathname changes.
 - **Errors**: every query and mutation renders loading, error (via
-  `messageFor`) and empty states. Render errors need a route `errorElement`
-  (missing today, see `docs/engineering/initial-assessment.md` M1).
+  `messageFor`) and empty states. Render errors land in `RouteError`, the
+  `errorElement` inside `Layout`.
+- **Contrast**: `src/styles/tokens.test.ts` asserts WCAG AA contrast for the
+  text tokens; a colour change must keep it green.
 - **TypeScript**: types for API data come from `@eticket/contracts` through
   `src/api/types.ts`; no hand-written response types, no `any`.
 - **Tests** use Testing Library queries by role and label, `userEvent` for
