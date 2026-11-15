@@ -84,14 +84,25 @@ mkdir -p ~/.kube && sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config && sudo cho
 kubectl get nodes                   # the scripts call plain `kubectl`; it must work without sudo
 ```
 
-The CD job runs `deploy.sh` over a non-interactive SSH session, so confirm that works too from your laptop:
-`ssh <user>@<host> kubectl get nodes`.
-
-Install Node 26 and pnpm on the VM (`setup-local.mjs` loads `bcryptjs` from the workspace; `deploy.sh` needs only `node` and `kubectl`):
+Install Node 26 **system-wide** and pnpm on the VM. CD runs `deploy.sh` over a non-interactive SSH session, which does not load
+nvm or other shell-profile setups, so `node` must be on the default `PATH`. (`setup-local.mjs` loads `bcryptjs` from the workspace;
+`deploy.sh` needs only `node` and `kubectl`.)
 
 ```bash
-# [VM] one way, with nvm (https://github.com/nvm-sh/nvm); any Node 26 install works
-nvm install 26 && npm i -g pnpm@10.34.9
+# [VM] official tarball into /usr/local, verified against the published checksum (x64 shown; use linux-arm64 on Arm VMs)
+V=$(curl -fsSL https://nodejs.org/dist/latest-v26.x/SHASUMS256.txt | grep -o 'node-v26[0-9.]*-linux-x64.tar.xz' | head -1 | sed 's/node-\(v[0-9.]*\)-.*/\1/')
+F=node-$V-linux-x64.tar.xz
+cd "$(mktemp -d)" && curl -fsSLO https://nodejs.org/dist/$V/$F && curl -fsSL https://nodejs.org/dist/$V/SHASUMS256.txt | grep " $F\$" | sha256sum -c -
+sudo tar -xJf "$F" -C /usr/local --strip-components=1 --no-same-owner
+sudo npm i -g pnpm@10.34.9
+node --version        # v26.x
+```
+
+Then confirm the exact path CD uses, from your laptop (non-interactive, no login profile):
+
+```bash
+# [laptop]
+ssh <user>@<host> 'node --version && kubectl get nodes'
 ```
 
 ### 4. Clone the repo and generate the secrets [VM]
@@ -127,23 +138,26 @@ sudo cp /tmp/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-c
 
 (`--tag` only fills the prod overlay written to `--out`; the value is irrelevant here.) K3s reconciles the file and restarts Traefik.
 
-### 6. Make the GHCR images pullable [GitHub]
-
-Images are pushed by CI to `ghcr.io/zainelabdeen/e-ticketing/<name>` from `main` only. The cluster pulls
-anonymously, so each of the eight packages must be public: GitHub, your profile, Packages, open a package,
-Package settings, Danger Zone, Change visibility, Public. Repeat for `ticket-service`, `payment-service`,
-`ledger-service`, `gateway`, `web`, `migrate-tickets`, `migrate-payments`, `migrate-ledger`. (Alternative: keep them private and add an `imagePullSecret` to
-each workload yourself; the repo does not do that.) `deploy.sh` checks every tag anonymously and names the image
-that is missing or private.
-
-### 7. First deploy
+### 6. Build the images [GitHub]
 
 CI builds only the images that changed, and re-tags the rest from the previous `main` commit. The very first
 `main` commit has no previous tags, so seed them once:
 
 1. [GitHub] Actions, workflow `Images`, Run workflow on `main` with `all` checked (or `gh workflow run images.yml --ref main -f all=true`).
    Wait for it to finish; it tags all eight images `sha-<7>` and `latest`.
-2. [VM] Deploy that commit:
+
+### 7. Make the GHCR images pullable [GitHub]
+
+Do this after the `Images` run in step 6 has created the packages (they do not exist before the first push). Images are pushed by CI to `ghcr.io/zainelabdeen/e-ticketing/<name>` from `main` only. The cluster pulls
+anonymously, so each of the eight packages must be public: GitHub, your profile, Packages, open a package,
+Package settings, Danger Zone, Change visibility, Public. Repeat for `ticket-service`, `payment-service`,
+`ledger-service`, `gateway`, `web`, `migrate-tickets`, `migrate-payments`, `migrate-ledger`. (Alternative: keep them private and add an `imagePullSecret` to
+each workload yourself; the repo does not do that.) `deploy.sh` checks every tag anonymously and names the image
+that is missing or private.
+
+### 8. First deploy
+
+[VM] Deploy that commit (the packages must be public, step 7):
 
 ```bash
 cd ~/e-ticketing && git checkout --detach <sha>        # the commit the Images run built
@@ -156,6 +170,20 @@ Re-running never re-bootstraps the database. Add `--dry-run` to validate and lis
 Open `https://<host>/`. The first request can take a minute while Traefik obtains the certificate
 (see [Troubleshooting](#troubleshooting)). Log in to `https://<host>/backoffice` with the email and password from step 4.
 
+Verify that the gateway sees real client IPs (`externalTrafficPolicy: Local`); otherwise every visitor shares one rate-limit bucket:
+
+```bash
+# [laptop] 11 rapid wrong-password logins; the last ones must return 429 from the gateway
+for i in $(seq 11); do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<host>/api/v1/auth/login \
+    -H 'content-type: application/json' -d '{"email":"nobody@example.org","password":"wrong-password"}'
+done
+```
+
+Then, from a second network (for example a phone hotspot), try one normal login in the browser. It must **not** be rate limited
+(per-client buckets). You can also check `kubectl logs deploy/gateway -n eticketing --tail=50` shows your public IP, not a `10.42.x.x` address.
+If the second network is limited too, or the logs show only a cluster IP, client IPs are not preserved: recheck step 5.
+
 ## Continuous deployment (optional)
 
 `.github/workflows/deploy.yml` deploys after each successful `Images` run on a push to `main`, and on manual dispatch.
@@ -166,6 +194,8 @@ Rules:
 
 - Auto-deploy only follows a **push** to `main` (fork-safe). An `Images` run you dispatched by hand (for example the
   seeding run with `all=true`) does not deploy; dispatch `Deploy` yourself with the tag.
+- An auto-deploy only deploys the current head of `main`: if a newer commit exists when the run starts, it prints a notice and skips (green); the newer commit's own `Images` run deploys it.
+- A manual dispatch may deploy an older tag (rollback), but the commit must be on `main`.
 - One deploy runs at a time (`concurrency: deploy-prod`); GitHub keeps one pending run, so with several merges in a row only the latest waits and wins.
 - The `production` environment must be limited to `main`, otherwise any branch's workflow could read the SSH key.
 
@@ -212,13 +242,13 @@ sudo ls -l /var/lib/rancher/k3s/storage/*_eticketing_backups/
 
 # [VM] restore into the running database (replaces objects in the dump)
 f=/var/lib/rancher/k3s/storage/<pvc dir>/eticketing-<timestamp>.dump
-kubectl -n eticketing cp "$f" postgres-0:/tmp/restore.dump
-kubectl -n eticketing exec postgres-0 -- pg_restore -U postgres -d eticketing --clean --if-exists /tmp/restore.dump
-kubectl -n eticketing exec postgres-0 -- rm /tmp/restore.dump
-kubectl -n eticketing rollout restart deploy
+kubectl -n eticketing scale deploy --all --replicas=0          # stop writes first
+sudo cat "$f" | kubectl -n eticketing exec -i postgres-0 -- pg_restore -U postgres -d eticketing --clean --if-exists
+kubectl -n eticketing scale deploy --all --replicas=1          # services start again (no rollout restart needed)
 ```
 
-Stop writes first for a clean restore: `kubectl -n eticketing scale deploy --all --replicas=0`, then scale back to 1 afterwards.
+The dump is streamed from the VM (the PVC directory is root-only, and `kubectl cp` needs `tar` in the image). `pg_restore` runs inside the
+pod over the local socket, where the official Postgres image allows the `postgres` superuser without a password (only host connections use scram).
 
 ### Password rotation
 
@@ -227,7 +257,8 @@ database roles. To rotate, change the role and the Secret together:
 
 ```bash
 # [VM] 1. set the new role password (example: ledger owner; use the same value you put in .env)
-kubectl -n eticketing exec -it postgres-0 -- psql -U postgres -d eticketing -c "ALTER ROLE ledger_owner PASSWORD '<new>'"
+kubectl -n eticketing exec -it postgres-0 -- psql -U postgres -d eticketing
+#    then at the psql prompt:  \password ledger_owner   (prompts twice; the value never enters shell history or the process list)
 # 2. update the matching *_PASSWORD value in infra/k8s/.env (edit by hand; keep it URL-safe: A-Z a-z 0-9 . _ ~ -)
 # 3. re-apply the Secret and restart the workloads so they read it
 infra/k8s/scripts/apply-secrets.sh
@@ -235,13 +266,23 @@ kubectl -n eticketing rollout restart deploy
 ```
 
 Roles: `<schema>_owner` (migrations) and `<schema>_app` (runtime) for `tickets`, `payments`, `ledger`; the superuser is `postgres`
-(`POSTGRES_PASSWORD` is only read by the first initdb, rotate it with `ALTER ROLE postgres` too). Rotating `PUBLIC_API_KEY_*`,
+(`POSTGRES_PASSWORD` is only read by the first initdb, rotate it with `\password postgres` too). Rotating `PUBLIC_API_KEY_*`,
 `INTERNAL_API_KEY_*`, `JWT_SECRET` or the admin hash needs only steps 2 and 3.
 
 If the Secret was first created by an older client-side `kubectl apply`, it carries a `last-applied-configuration` annotation holding the values.
 Remove it once: `kubectl annotate secret eticket-secrets kubectl.kubernetes.io/last-applied-configuration- -n eticketing`.
 
 ### Upgrade, roll back
+
+If `infra/k8s/traefik/helmchartconfig.yaml` changed, `deploy.sh` does not apply it (it lives outside the namespace and K3s reads it from disk).
+`deploy.sh` prints a hint when the VM copy differs. Re-render and re-copy it as in step 5:
+
+```bash
+# [VM]
+node infra/k8s/scripts/render-prod.mjs --host <host> --tag sha-0000000 --out infra/k8s/.rendered/traefik \
+  --acme-email <you@example.com> --traefik-out /tmp/traefik-config.yaml
+sudo cp /tmp/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+```
 
 Deploy a newer tag with `deploy.sh sha-<7>` (or let CD do it). Roll back by deploying an older tag that still exists on GHCR. A new tag
 re-runs the `migrate` initContainer; migrations are forward-only, so a rollback across a migration needs a restore from backup.
