@@ -22,7 +22,8 @@ concurrency:
 
 jobs:
   deploy:
-    # workflow_run: only a successful push run of Images. Dispatch: any run (the tag is validated below).
+    # workflow_run: only a successful push run of Images (stricter and fork-safe). An Images run
+    # dispatched with all=true does not auto-deploy; the operator then dispatches this workflow with the tag.
     if: >-
       github.event_name == 'workflow_dispatch'
       || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
@@ -80,7 +81,7 @@ jobs:
           chmod 600 "$key" "$hosts"
           # SHA and TAG were validated as hex above; DEPLOY_PATH against a conservative charset.
           remote="cd $DEPLOY_PATH && git fetch --depth 1 origin '$SHA' && git checkout --detach FETCH_HEAD && infra/k8s/scripts/deploy.sh '$TAG'"
-          ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts" -o BatchMode=yes \
+          ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts" -o BatchMode=yes -o IdentitiesOnly=yes \
             -i "$key" "$DEPLOY_USER@$DEPLOY_HOST" "$remote" | tee "$RUNNER_TEMP/deploy.log"
           grep -qxF "DEPLOY OK $TAG" "$RUNNER_TEMP/deploy.log"
       - name: Remove SSH material
