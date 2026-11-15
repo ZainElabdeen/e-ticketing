@@ -356,6 +356,55 @@ describe('CheckoutPage under fake timers', () => {
     expect(all[used.length]).toBe(used[used.length - 1]);
   });
 
+  it('does not bind the reuse key to a body edited while the first request was in flight', async () => {
+    const inner = stubFetch([
+      orderRoute(),
+      payRoute(502, null, {
+        responses: [
+          { status: 422, body: errBody(422, 'IDEMPOTENCY_KEY_REUSE') },
+          { status: 502, body: errBody(502, 'UPSTREAM_UNAVAILABLE') },
+        ],
+      }),
+    ]);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    let held = false;
+    const gated = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (new Request(input, init).method === 'POST' && !held) {
+          held = true;
+          await gate;
+        }
+        return inner(input, init);
+      },
+      { calls: inner.calls },
+    ) as unknown as typeof fetch;
+    renderWithApp(
+      <Routes>
+        <Route path="/checkout/:orderId" element={<CheckoutPage />} />
+      </Routes>,
+      { fetch: gated, route: qrRoute },
+    );
+    await startQr();
+    // Switch method and back while the first POST is still pending: the key is reset.
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('Credit card'));
+      fireEvent.click(screen.getByLabelText('QR scan'));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    release();
+    await tick(2500);
+    const used = posts(inner.calls).map((c) => c.headers.get('idempotency-key'));
+    expect(used).toHaveLength(4);
+    await click('Show QR code');
+    await tick(0);
+    const all = posts(inner.calls).map((c) => c.headers.get('idempotency-key'));
+    expect(all[4]).not.toBe(used[3]);
+    expect(all[4]).not.toBe(used[0]);
+  });
+
   it('keeps the form and shows Reconnecting when a refetch fails, and polling stops once paid', async () => {
     const { fetch } = renderCheckout([
       orderRoute(order(), {
@@ -389,6 +438,27 @@ describe('CheckoutPage under fake timers', () => {
     const gets = fetch.calls.filter((c) => c.method === 'GET').length;
     await tick(10_000);
     expect(fetch.calls.filter((c) => c.method === 'GET').length).toBe(gets);
+  });
+
+  it('drops Reconnecting once Check again is pressed even if the refetch fails again', async () => {
+    renderCheckout(
+      [
+        orderRoute(order(), {
+          responses: [
+            { status: 200, body: order() },
+            { status: 429, body: errBody(429, 'RATE_LIMITED') },
+          ],
+        }),
+        payRoute(409, errBody(409, 'PAYMENT_IN_PROGRESS')),
+      ],
+      qrRoute,
+    );
+    await startQr();
+    await tick(2100);
+    expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
+    await click('Check again');
+    await tick(50);
+    expect(screen.queryByText('Reconnecting…')).not.toBeInTheDocument();
   });
 
   it('Check again clears the other-window state and refetches', async () => {

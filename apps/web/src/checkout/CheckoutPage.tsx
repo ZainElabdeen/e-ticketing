@@ -70,7 +70,7 @@ export function CheckoutPage(): ReactElement {
       order={order.data}
       otherWindow={otherWindow}
       setOtherWindow={setOtherWindow}
-      reconnecting={order.isRefetchError}
+      reconnecting={otherWindow && order.isRefetchError}
       refetch={() => void order.refetch()}
     />
   );
@@ -166,9 +166,12 @@ function CheckoutBody(props: {
         ? ({ orderId, method: 'CARD', card } as const)
         : ({ orderId, method: 'QR' } as const);
       key.current ??= newIdempotencyKey();
-      const result = await submitPayment(api, body, key.current, {
+      const sent = key.current;
+      const result = await submitPayment(api, body, sent, {
+        // Only while the form still holds the body this key was made for: an edit during the
+        // request clears the key, and a reuse key must not bind to the edited body.
         onKey: (k) => {
-          key.current = k;
+          if (key.current === sent) key.current = k;
         },
       });
       key.current = result.key;
