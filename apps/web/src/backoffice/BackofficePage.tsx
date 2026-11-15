@@ -1,5 +1,6 @@
-import { useCallback, type ReactElement } from 'react';
+import { useCallback, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { Button } from '../ui/Button';
 import { useAuth } from './AuthProvider';
 import styles from './BackofficePage.module.css';
@@ -22,6 +23,7 @@ function parsePage(raw: string | null): number {
 }
 
 export function BackofficePage(): ReactElement {
+  useDocumentTitle('Backoffice');
   const { logout } = useAuth();
   const [params, setParams] = useSearchParams();
   const rawTab = params.get('tab');
@@ -38,6 +40,26 @@ export function BackofficePage(): ReactElement {
   );
   const onPage = useCallback((p: number, replace?: boolean) => go(tab, p, replace), [go, tab]);
 
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  // APG tabs, automatic activation: arrows, Home and End select the tab and move focus to it.
+  const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number): void => {
+    const last = TABS.length - 1;
+    const target =
+      e.key === 'ArrowRight'
+        ? (index + 1) % TABS.length
+        : e.key === 'ArrowLeft'
+          ? (index + last) % TABS.length
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? last
+              : null;
+    if (target === null) return;
+    e.preventDefault();
+    go(TABS[target]!.id, 1);
+    tabRefs.current[target]?.focus();
+  };
+
   return (
     <section>
       <div className={styles.head}>
@@ -47,9 +69,14 @@ export function BackofficePage(): ReactElement {
         </Button>
       </div>
       <div className={styles.tabs} role="tablist" aria-label="Backoffice sections">
-        {TABS.map((t) => (
+        {TABS.map((t, i) => (
           <button
             key={t.id}
+            ref={(el) => {
+              tabRefs.current[i] = el;
+            }}
+            tabIndex={tab === t.id ? 0 : -1}
+            onKeyDown={(e) => onTabKeyDown(e, i)}
             type="button"
             role="tab"
             id={`tab-${t.id}`}

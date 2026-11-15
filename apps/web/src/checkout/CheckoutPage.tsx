@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useApi, type Api } from '../api/client';
 import { ApiError, GENERIC_MESSAGE, call, isRetryable, messageFor } from '../api/errors';
 import type { CardDetails, Order } from '../api/types';
@@ -31,6 +32,7 @@ function StartOver(): ReactElement {
 }
 
 export function CheckoutPage(): ReactElement {
+  useDocumentTitle('Your order');
   const { orderId = '' } = useParams();
   const api = useApi();
   // True while another window holds the payment: refetch the order until it settles.
@@ -86,8 +88,9 @@ function CheckoutBody(props: {
   const { api, order, otherWindow, setOtherWindow, reconnecting, refetch } = props;
   const orderId = order.id;
   const navigate = useNavigate();
-  const [search] = useSearchParams();
-  const [method, setMethod] = useState<Method>(search.get('method') === 'qr' ? 'QR' : 'CARD');
+  const [search, setSearch] = useSearchParams();
+  // The URL owns the method, so a refresh keeps the choice.
+  const method: Method = search.get('method') === 'qr' ? 'QR' : 'CARD';
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [notPayable, setNotPayable] = useState(false);
   const [paidElsewhere, setPaidElsewhere] = useState(false);
@@ -252,7 +255,14 @@ function CheckoutBody(props: {
                     value={m}
                     checked={method === m}
                     onChange={() => {
-                      setMethod(m);
+                      setSearch(
+                        (prev) => {
+                          const next = new URLSearchParams(prev);
+                          next.set('method', m === 'QR' ? 'qr' : 'card');
+                          return next;
+                        },
+                        { replace: true },
+                      );
                       newKey();
                     }}
                   />

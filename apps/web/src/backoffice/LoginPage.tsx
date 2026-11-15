@@ -1,3 +1,4 @@
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
@@ -29,6 +30,7 @@ function loginMessage(e: unknown): string {
 }
 
 export function LoginPage(): ReactElement {
+  useDocumentTitle('Sign in');
   const { token, login, notice, clearNotice } = useAuth();
   // Show the expiry notice once: keep it locally, then clear it from the auth state.
   const [shownNotice] = useState(notice);

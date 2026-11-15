@@ -2,8 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useRef, type ReactElement } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useApi } from '../api/client';
-import { ApiError, GENERIC_MESSAGE, call } from '../api/errors';
+import { ApiError, call, messageFor } from '../api/errors';
 import { forgetPayment } from '../checkout/paymentMemory';
 import { formatMinor } from '../lib/money';
 import { Banner } from '../ui/Banner';
@@ -13,6 +14,7 @@ import styles from './QrPage.module.css';
 import { paymentKey, usePaymentPolling } from './usePaymentPolling';
 
 export function QrPage(): ReactElement {
+  useDocumentTitle('Scan to pay');
   const { orderId = '', paymentId = '' } = useParams();
   const api = useApi();
   const navigate = useNavigate();
@@ -54,9 +56,10 @@ export function QrPage(): ReactElement {
   const cancelFailed = cancel.isError && !conflict;
   const timeout = state === 'timeout';
 
-  // Mounted from the first render so screen readers announce later text.
+  // Mounted from the first render so screen readers announce later text. The key keeps the same
+  // DOM node when the branches below put it at a different child index.
   const live = (text: string | null) => (
-    <div aria-live="polite" className={styles.status}>
+    <div key="live" aria-live="polite" className={styles.status}>
       {text ? <p>{text}</p> : null}
       {reconnecting && !notFound ? <p className={styles.quiet}>Reconnecting…</p> : null}
     </div>
@@ -104,17 +107,23 @@ export function QrPage(): ReactElement {
         tier="NEUTRAL"
         stub={<p className={styles.amount}>{formatMinor(payment.amountMinor, payment.currency)}</p>}
       >
-        <div className={styles.code}>
-          <QRCodeSVG value={payment.qrPayload ?? ''} size={224} level="M" title="Payment QR code" />
-        </div>
-        <p className={styles.hint}>
-          Scan the code with your banking app. In this simulation the server completes the payment
-          by itself after about 8 seconds.
-        </p>
+        {payment.qrPayload ? (
+          <>
+            <div className={styles.code}>
+              <QRCodeSVG value={payment.qrPayload} size={224} level="M" title="Payment QR code" />
+            </div>
+            <p className={styles.hint}>
+              Scan the code with your banking app. In this simulation the server completes the
+              payment by itself after about 8 seconds.
+            </p>
+          </>
+        ) : (
+          <Banner>{"We couldn't load this QR code"}</Banner>
+        )}
       </TicketStub>
 
       {live(timeout ? 'Still processing' : 'Waiting for payment…')}
-      {cancelFailed ? <Banner>{GENERIC_MESSAGE}</Banner> : null}
+      {cancelFailed ? <Banner>{messageFor(cancel.error)}</Banner> : null}
       {conflict && !cancel.isPending ? (
         <Banner>{"That payment can't be switched right now. Try again."}</Banner>
       ) : null}
@@ -132,6 +141,7 @@ export function QrPage(): ReactElement {
         >
           Use card instead
         </Button>
+        {payment.qrPayload ? null : back}
       </div>
     </section>
   );

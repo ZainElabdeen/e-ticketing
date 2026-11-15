@@ -1,3 +1,4 @@
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type ReactElement } from 'react';
 import { useNavigate } from 'react-router';
@@ -23,6 +24,7 @@ function orderMessage(error: unknown): string {
 }
 
 export function ShopPage(): ReactElement {
+  useDocumentTitle('Pick your tickets');
   const api = useApi();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

@@ -19,3 +19,7 @@
   margin: 0 auto;
   padding: 16px var(--gutter) 64px;
 }
+
+.main:focus {
+  outline: none;
+}

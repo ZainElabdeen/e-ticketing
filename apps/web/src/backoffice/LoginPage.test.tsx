@@ -101,4 +101,9 @@ describe('LoginPage', () => {
     renderLogin([]);
     expect(await screen.findByText('Backoffice home')).toBeInTheDocument();
   });
+
+  it('sets the document title', () => {
+    renderLogin([]);
+    expect(document.title).toBe('Sign in · E-Ticket');
+  });
 });
