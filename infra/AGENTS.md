@@ -28,7 +28,7 @@ Local run guide: `docs/local-demo.md`. Commands: root `AGENTS.md`.
 
 - `postgres/init/00-roles.sh` runs only on an empty volume (after a password
   change: `down -v`). It is shared by compose, Testcontainers
-  (`packages/testing`) and the future K3s bootstrap, so it stays env-driven.
+  (`packages/testing`) and the K3s bootstrap, so it stays env-driven.
 - One owner role (migrations) and one app role (runtime) per schema; PUBLIC is
   revoked. Default privileges cover tables only, so a migration adding a
   sequence must grant it.
@@ -62,3 +62,12 @@ Local run guide: `docs/local-demo.md`. Commands: root `AGENTS.md`.
   `.rendered/`. The Secret `eticket-secrets` is never in git or in the render.
 - Checks: `node --test infra/k8s/scripts/` (needs `kubectl`, else skips) and
   `infra/k8s/scripts/validate.sh` (needs `kubectl` + `kubeconform`).
+- `k3d-e2e.sh` creates its own k3d cluster `eticketing` on host port 8081 and
+  exports a private `KUBECONFIG`; keep it that way. Never run `kubectl`, `k3d`
+  or `deploy.sh` against any other context: the dev machine's default context
+  is a real GKE cluster. Only `deploy.sh --dry-run` and `apply-secrets.sh
+--dry-run` are safe outside the gate.
+- Never read or print `infra/k8s/.env` (real secrets, like `infra/.env`).
+  Deploy guide, CD setup, backups and rotation: `infra/k8s/README.md`.
+- Postgres bootstrap on K3s is initdb (ConfigMap of `00-roles.sh`), migrations
+  are an initContainer per DB service (ADR-0026), not Jobs.

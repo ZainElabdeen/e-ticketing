@@ -44,7 +44,7 @@ Run it locally (setup, login, seed data, test cards, demo script): `docs/local-d
 - `apps/ledger-service`: NestJS.
 - `packages/contracts`: OpenAPI specs + generated TS types.
 - `packages/config`: shared eslint + tsconfig.
-- `infra/`: docker-compose.yml and k8s manifests (K3s, Traefik ingress).
+- `infra/`: docker-compose.yml and k8s manifests (K3s, Traefik ingress; ADR-0026).
 - PostgreSQL: one instance, one schema and one DB user per service
   (`tickets`, `payments`, `ledger`). No cross-schema foreign keys.
 
@@ -132,6 +132,8 @@ Run it locally (setup, login, seed data, test cards, demo script): `docs/local-d
 - Migrations are hand-written SQL (ADR-0015). Never run `prisma migrate dev`.
 - Web: `pnpm --filter @eticket/web dev` (Vite, proxies `/api` to the gateway; `cp apps/web/.env.example apps/web/.env` to change the target) | `pnpm --filter @eticket/web test` | `pnpm --filter @eticket/web build`
 - .NET: `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`
+- K3s (ADR-0026; guide `infra/k8s/README.md`): `node --test infra/k8s/scripts/` (manifest and script tests, also in `pnpm test`), `infra/k8s/scripts/render.sh <local|prod|dir>`, `infra/k8s/scripts/validate.sh` (kubeconform), `infra/k8s/scripts/k3d-e2e.sh [--keep]` (real K3s in Docker, own cluster, private KUBECONFIG, port 8081, ~10 min), `infra/k8s/scripts/apply-secrets.sh [--dry-run]`, `infra/k8s/scripts/deploy.sh <sha-xxxxxxx> [--dry-run]` (VM or any cluster `kubectl` points at; never run it without `--dry-run` here), `infra/k8s/scripts/install-ci-tools.sh <dir> kubectl|kubeconform|k3d`
 - CI (ADR-0025): `.github/workflows/ci.yml` runs `verify`, `test`, `test-int`, `e2e` and `sonar` on PRs and pushes to `dev`/`main`. Coverage is opt-in: `CI_COVERAGE=1 pnpm test` / `pnpm test:int`. SonarCloud needs secret `SONAR_TOKEN`; optional repo variables `SONAR_ORGANIZATION`, `SONAR_PROJECT_KEY`, `SONAR_DOTNET_PROJECT_KEY` (defaults in the workflow). The `sonar` job skips when the secret is absent. Actions are pinned to full commit SHAs with a version comment. NuGet audit gate: `sh apps/ticket-service-dotnet/scripts/nuget-audit.sh`
 - Images (ADR-0025): `.github/workflows/images.yml` builds changed images on both arches (path filters in `.github/filters.yml`, list in `.github/images.json`) and pushes to GHCR only from `main`. A failed `main` image run is recovered by dispatching `images.yml` on `main` with `all=true`.
+- Phase 9 CI binaries (ADR-0026, not repo dependencies): kubectl, kubeconform and k3d, pinned with sha256 in `install-ci-tools.sh`.
 - Before saying a phase is done: lint, build, test and test:int must pass.

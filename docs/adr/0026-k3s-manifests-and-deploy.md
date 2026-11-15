@@ -18,8 +18,14 @@ manifests must be provable without that VM, and no secret may live in git.
    reference it with `secretKeyRef`, and `DATABASE_URL` /
    `MIGRATION_DATABASE_URL` are built with `$(VAR)` interpolation, so no URL
    with a password is stored anywhere.
-2. **Deploy** is an opt-in GitHub Actions CD job that SSHes to the VM and runs
-   `infra/k8s/scripts/deploy.sh`; the same script is the manual path.
+2. **Deploy** is an opt-in GitHub Actions CD job (`deploy.yml`) that SSHes to
+   the VM and runs `infra/k8s/scripts/deploy.sh`; the same script is the manual
+   path. The job auto-runs only after a successful **push** run of `Images` on
+   `main` (fork-safe; no untrusted ref reaches the secrets), and its
+   `production` environment is limited to `main`. An `Images` run dispatched by
+   hand (the seeding run) does not deploy: dispatch `deploy.yml` with the tag.
+   Runs queue behind one `deploy-prod` concurrency group, so only the latest
+   pending deploy survives.
 3. **Testing without the VM**: kubeconform validates the rendered manifests,
    `manifest.test.mjs` asserts the review-focus invariants, and a k3d CI job
    deploys the `local` overlay in a real K3s.
@@ -34,9 +40,13 @@ manifests must be provable without that VM, and no secret may live in git.
    `migrate deploy` exits 0, and a new image tag re-runs it on every rollout.
    Prisma takes an advisory lock, so a second replica is safe. A
    `wait-postgres` initContainer runs first.
-7. **Every image gets every `sha-<7>` tag** (images.yml re-tags unchanged
-   images from `latest` on `main`), so a deploy pins all eight images to one
-   commit and the prod overlay never uses `latest`.
+7. **Every image gets every `sha-<7>` tag.** `images.yml` re-tags each unchanged
+   image on `main` from the **previous main commit's** `sha-<7>` tag (registry
+   side, no rebuild), not from `latest`: `latest` moves with concurrent runs, the
+   previous commit's tag does not, so no run is dropped and none races. The first
+   `main` commit has no predecessor: seed the set once by dispatching `Images`
+   on `main` with `all=true`. A deploy then pins all eight images to one commit
+   and the prod overlay never uses `latest`.
 8. **Client IP**: Traefik's Service gets `externalTrafficPolicy: Local` (a
    HelmChartConfig), and the gateway trusts one hop (`TRUST_PROXY=1`).
 9. **Two Ingress objects**, `api` (middlewares `strip-api` and `api-ratelimit`)
@@ -54,7 +64,12 @@ manifests must be provable without that VM, and no secret may live in git.
     no privilege escalation, all capabilities dropped, seccomp
     `RuntimeDefault`, requests and limits, one replica (spec section 10: the
     jobs assume one replica).
-12. **Manifest tests need no YAML dependency**: they parse `kubectl kustomize`
+12. **CI binaries**: `k3d` v5.9.0 and `kubeconform` v0.8.0 (plus `kubectl`
+    v1.37.2) are downloaded by `install-ci-tools.sh`, pinned by version and
+    sha256, linux/amd64 only. They are CI and dev-laptop tools, not repo
+    dependencies. `k3d-e2e.sh` uses a private `KUBECONFIG`, so it can never
+    touch another cluster context.
+13. **Manifest tests need no YAML dependency**: they parse `kubectl kustomize`
     output with a small purpose-built parser (`lib/yaml-lite.mjs`).
 
 ## Alternatives
