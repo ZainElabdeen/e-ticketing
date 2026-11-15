@@ -34,10 +34,9 @@ export function QrPage(): ReactElement {
       forgetPayment(orderId);
       void navigate(`/checkout/${orderId}?method=card`, { replace: true });
     },
-    onSettled: () => {
-      cancelling.current = false;
-    },
     onError: async (e) => {
+      // Released on failure only: on success the page stays locked until navigation unmounts it.
+      cancelling.current = false;
       if (e instanceof ApiError && e.code === 'PAYMENT_NOT_CANCELLABLE') {
         // Raced with the server: whatever the payment is now decides where we go.
         await queryClient.invalidateQueries({ queryKey: paymentKey(paymentId) });
@@ -61,7 +60,7 @@ export function QrPage(): ReactElement {
   const live = (text: string | null) => (
     <div aria-live="polite" className={styles.status}>
       {text ? <p>{text}</p> : null}
-      {reconnecting ? <p className={styles.quiet}>Reconnecting…</p> : null}
+      {reconnecting && !notFound ? <p className={styles.quiet}>Reconnecting…</p> : null}
     </div>
   );
 

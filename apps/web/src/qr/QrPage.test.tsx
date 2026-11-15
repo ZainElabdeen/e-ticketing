@@ -186,6 +186,7 @@ describe('QrPage', () => {
     renderQr([getRoute(404, { statusCode: 404, code: 'PAYMENT_NOT_FOUND', message: 'x' })]);
     expect(await screen.findByText("We couldn't find this payment")).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to checkout' })).toBeInTheDocument();
+    expect(screen.queryByText('Reconnecting…')).not.toBeInTheDocument();
   });
 
   it('stops polling on a 404', async () => {
