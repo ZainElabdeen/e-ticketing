@@ -5,6 +5,7 @@ This file is the single source of rules for every AI coding tool
 
 Source of truth for requirements: `docs/challenge.md`.
 Design decisions: `docs/spec.md` and `docs/adr/`.
+Run it locally (setup, login, seed data, test cards, demo script): `docs/local-demo.md`.
 
 ## How to work
 
@@ -96,6 +97,7 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 - Payment Service only: `pnpm --filter @eticket/payment-service test` (unit) and `pnpm --filter @eticket/payment-service test:int` (integration)
 - Ledger Service only: `pnpm --filter @eticket/ledger-service test` (unit) and `pnpm --filter @eticket/ledger-service test:int` (integration)
 - Gateway only: `pnpm --filter @eticket/gateway test` (unit) and `pnpm --filter @eticket/gateway test:int` (integration)
+- One-command local setup (after `pnpm install`): `node infra/scripts/setup-local.mjs` generates every secret in `infra/.env` and the backoffice admin login, never overwriting real values. Flags: `--email <addr>`, `--password-stdin`, `--reset-admin`, `--env <path>`, `--no-ports`, `--login-file <path>`. The login is printed once to a TTY; otherwise it goes to `infra/.admin-login.txt` (mode 600, git-ignored). Script tests: `node --test infra/scripts/` (also run by `pnpm test`)
 - Admin password hash for the Gateway: `node infra/scripts/admin-hash.mjs` (prompts, prints `ADMIN_PASSWORD_HASH_B64`). After `cp infra/.env.example infra/.env`, generate `ADMIN_EMAIL` and the hash with `--append infra/.env --email <addr>` (prints only key names); `ADMIN_PASSWORD_DEV` must be the same password that was hashed
 - Gateway contract suite via compose (suites run in order ticket → payment → ledger → gateway): `infra/scripts/contract.sh gateway`
 - .NET Ticket Service unit tests: `pnpm --filter @eticket/ticket-service-dotnet test`
@@ -106,8 +108,9 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 - Ticket contract suite against a running target: `CONTRACT_BASE_URL=… CONTRACT_API_KEY=… CONTRACT_INTERNAL_API_KEY=… pnpm --filter @eticket/contract-tests test:contract:ticket`
 - Payment contract suite against a running target: `CONTRACT_PAYMENT_BASE_URL=… CONTRACT_PAYMENT_API_KEY=… CONTRACT_TICKET_BASE_URL=… CONTRACT_TICKET_API_KEY=… CONTRACT_QR_DELAY_SECONDS=8 pnpm --filter @eticket/contract-tests test:contract:payment` (run the ticket suite first; it drains VIP)
 - Ledger contract suite against a running target: `CONTRACT_LEDGER_BASE_URL=… CONTRACT_LEDGER_API_KEY=… CONTRACT_LEDGER_INTERNAL_API_KEY=… pnpm --filter @eticket/contract-tests test:contract:ledger`
+- Demo data (stack up): `infra/scripts/seed-demo.sh` buys card and QR tickets through the gateway so the backoffice has data (not idempotent: every run consumes 6 tickets of quota, so repeated runs eventually exhaust VIP (quota 100) and the order fails with a 409 partway through; `--dry-run` prints the plan; ends with `SEED OK`)
 - Smoke test (Docker running): `infra/scripts/smoke.sh` (destroys the local compose volume with `down -v`; ends with `SMOKE OK`; `--keep` leaves the stack up)
-- Local env: `cp infra/.env.example infra/.env` and set passwords. If host port 5432 or 3000 is taken by another project, set `POSTGRES_HOST_PORT` / `GATEWAY_HOST_PORT` in `infra/.env` (both bind to 127.0.0.1; smoke and `contract.sh gateway` follow `GATEWAY_HOST_PORT` and abort if the port is not this Gateway)
+- Local env: `node infra/scripts/setup-local.mjs` (recommended; generates every secret), or manually `cp infra/.env.example infra/.env` and set passwords. If host port 5432 or 3000 is taken by another project, set `POSTGRES_HOST_PORT` / `GATEWAY_HOST_PORT` in `infra/.env` (both bind to 127.0.0.1; smoke and `contract.sh gateway` follow `GATEWAY_HOST_PORT` and abort if the port is not this Gateway)
 - Stack: `docker compose -f infra/docker-compose.yml up -d --build`
 - Web in compose (nginx serves the SPA and proxies `/api/` to the gateway): `http://127.0.0.1:${WEB_HOST_PORT:-8080}`; set `WEB_HOST_PORT` in `infra/.env` if 8080 is taken (smoke's web-origin step follows it, or `SMOKE_WEB_URL`)
 - Verify DB + migrations: `infra/scripts/verify-db.sh` | Reset DB: `docker compose -f infra/docker-compose.yml down -v`

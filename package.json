@@ -8,7 +8,7 @@
   "scripts": {
     "lint": "turbo run lint && eslint infra/scripts",
     "build": "turbo run build",
-    "test": "turbo run test",
+    "test": "turbo run test && node --test infra/scripts/",
     "test:int": "turbo run test:int",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

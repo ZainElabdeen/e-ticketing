@@ -7,19 +7,12 @@
 //
 // With --append, ADMIN_EMAIL and ADMIN_PASSWORD_HASH_B64 are added to the file
 // only when missing, and only the key names written are printed.
-import { createRequire } from 'node:module';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { fileURLToPath } from 'node:url';
 import { Writable } from 'node:stream';
+import { hashAdminPassword, MAX_BYTES } from './lib/admin-hash-lib.mjs';
 
-const COST = 12;
 const MIN_LENGTH = 12;
-
-const here = dirname(fileURLToPath(import.meta.url));
-const requireFromGateway = createRequire(join(here, '..', '..', 'apps', 'gateway', 'package.json'));
-const bcrypt = requireFromGateway('bcryptjs');
 
 function fail(message, code = 1) {
   console.error(message);
@@ -27,8 +20,6 @@ function fail(message, code = 1) {
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// bcrypt ignores everything past byte 72, so a longer password would be truncated silently.
-const MAX_BYTES = 72;
 
 function parseArgs(argv) {
   const args = { append: undefined, email: undefined };
@@ -82,7 +73,7 @@ if (Buffer.byteLength(password) > MAX_BYTES) {
 }
 if (password.length < MIN_LENGTH) fail(`Password must be at least ${MIN_LENGTH} characters`);
 
-const value = Buffer.from(bcrypt.hashSync(password, COST)).toString('base64');
+const value = await hashAdminPassword(password);
 
 if (!args.append) {
   console.log(`ADMIN_PASSWORD_HASH_B64=${value}`);
