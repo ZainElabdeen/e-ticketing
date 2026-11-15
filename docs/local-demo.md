@@ -23,6 +23,8 @@ docker compose -f infra/docker-compose.yml up -d --build --wait
 infra/scripts/seed-demo.sh                # optional: real demo purchases
 ```
 
+If you ran the stack before with other passwords, reset the database volume first: `docker compose -f infra/docker-compose.yml down -v` (this deletes all data).
+
 What each step does:
 
 1. `setup-local.mjs` creates `infra/.env` (mode 600, git-ignored). It generates every password, API key and the JWT secret, picks free host ports, and sets the backoffice login.
@@ -41,10 +43,12 @@ Then open `http://127.0.0.1:8080` (or the port the script chose, see below).
 | Gateway Swagger | `/docs`       | 3000         | `GATEWAY_HOST_PORT`  |
 | Postgres        |               | 5432         | `POSTGRES_HOST_PORT` |
 
+- Your real ports are in `infra/.env`: run `grep _HOST_PORT infra/.env`. If nothing prints, the defaults apply. Shell snippets below that use `${GATEWAY_HOST_PORT:-3000}` expand in your own shell, which does not load `infra/.env`, so substitute the printed value.
+- Host ports 3001, 3002 and 3003 (Ticket, Payment, Ledger) are fixed and must be free. The setup script only moves 3000, 5432 and 8080.
 - All URLs use host `127.0.0.1`, for example `http://127.0.0.1:3000/docs`.
 - The Ticket, Payment and Ledger services also listen on `127.0.0.1:3001`, `3002` and `3003`. This is for debugging only. They need internal API keys, and the browser never uses them.
 - On a new `infra/.env`, the setup script checks each default port and picks the next free one (default + 100 and up) if it is busy. It prints a line such as `Port 3000 is busy; gateway will use 3100`.
-- To change a port later, set the variable in `infra/.env` (`WEB_HOST_PORT=8081`) and run `docker compose -f infra/docker-compose.yml up -d`. The scripts (`seed-demo.sh`, `smoke.sh`, `contract.sh`) read the same file, so they follow the change.
+- To change a port later, set the variable in `infra/.env` (`WEB_HOST_PORT=8081`) and run `docker compose -f infra/docker-compose.yml up -d`, then `docker compose -f infra/docker-compose.yml restart web`. The scripts (`seed-demo.sh`, `smoke.sh`, `contract.sh`) read the same file, so they follow the change.
 
 ## Backoffice login
 
@@ -52,11 +56,12 @@ Then open `http://127.0.0.1:8080` (or the port the script chose, see below).
 - If stdout is not a terminal (for example a pipe), the generated password is written to `infra/.admin-login.txt` (mode 600, git-ignored) and the script prints that path. Delete the file once you have stored the password.
 - Only a bcrypt hash of the password goes to the gateway. The plain password is never committed. The one place it exists in plain text is `ADMIN_PASSWORD_DEV` in the git-ignored `infra/.env`, which the smoke and contract tests use to log in.
 - Running the setup script again keeps all existing values and says `Admin login unchanged`.
-- To set a new login, run `node infra/scripts/setup-local.mjs --reset-admin` (add `--email you@example.com` or `--password-stdin` if you want to choose them), then restart the gateway so it reads the new hash:
+- To set a new login, run `node infra/scripts/setup-local.mjs --reset-admin` (add `--email you@example.com` or `--password-stdin` if you want to choose them), then restart the gateway so it reads the new hash, and the web container so nginx re-resolves the gateway address:
 
   ```bash
-  docker compose -f infra/docker-compose.yml up -d gateway
+  docker compose -f infra/docker-compose.yml up -d gateway && docker compose -f infra/docker-compose.yml restart web
   ```
+- A typed password must be 8 to 72 characters from `A-Za-z0-9 . _ ~ ! @ % ^ & * + = -`. Spaces, `#`, `$`, quotes, backslash and backtick are rejected, because the env file and compose would change them.
 
 ## Seed data
 
@@ -98,6 +103,7 @@ On a fresh database, after one seed run:
 
 Notes:
 
+- If you ran the contract suites first, reset with `down -v` (see below) before seeding. The ticket suite drains VIP, so seed step 3 would fail with a 409.
 - The numbers differ if you already bought tickets or ran the contract suites.
 - Each run buys again. It is not idempotent and uses quota, so run it once (quota is 100 per type).
 - `infra/scripts/seed-demo.sh --dry-run` prints the plan and sends nothing.
@@ -188,12 +194,12 @@ Architecture checks (challenge section 3). Run these any time after the stack is
 
 12. **.NET Ticket Service.** *Proves: the Ticket Service is ASP.NET Core.* Run `docker compose -f infra/docker-compose.yml ps ticket-service`: the command column shows `dotnet TicketService...`. Its own Swagger is at `http://127.0.0.1:3001/docs` (debug port, loopback only).
 13. **Microservice separation.** *Proves: separate services and data.* The gateway is the only public edge, and the browser talks only to it (through nginx at `/api`). Each service has its own schema and its own database user in the one PostgreSQL instance: `tickets`/`tickets_app`, `payments`/`payments_app`, `ledger`/`ledger_app`. There are no cross-schema foreign keys. Services call each other over REST with API keys.
-14. **Swagger.** *Proves: documented API.* Open `http://127.0.0.1:${GATEWAY_HOST_PORT:-3000}/docs`. The Payment and Ledger services have their own `/docs` on `3002` and `3003`.
+14. **Swagger.** *Proves: documented API.* Open `http://127.0.0.1:3000/docs` (use your gateway port, see [URLs and ports](#urls-and-ports)). The Payment and Ledger services have their own `/docs` on `3002` and `3003`.
 15. **No secrets in git.** *Proves: secret handling.* Only `infra/.env.example` is committed, with placeholders. `setup-local.mjs` generates the real values into the git-ignored `infra/.env`. Check with `git ls-files infra | grep env`.
 
 ## Health and checks
 
-- Gateway readiness: `curl http://127.0.0.1:${GATEWAY_HOST_PORT:-3000}/health/ready`. It checks the downstream services. `/health/live` only checks the gateway process.
+- Gateway readiness: `curl http://127.0.0.1:3000/health/ready` (use your gateway port, see [URLs and ports](#urls-and-ports)). It checks the downstream services. `/health/live` only checks the gateway process.
 - Smoke test: `infra/scripts/smoke.sh`. It starts a fresh stack, buys by card and by QR through the gateway, checks the ledger balance and the web origin, and ends with `SMOKE OK`. **Warning: it runs `docker compose down -v` before and after, so it deletes all local database data.** Add `--keep` to leave the stack running afterwards.
 - Contract suites: `infra/scripts/contract.sh <ticket|payment|ledger|gateway>` runs black-box API tests against the running stack, using the keys in `infra/.env`. Run `ticket` before `payment`, because the ticket suite drains the VIP quota, so a later demo cannot buy VIP until you reset. It adds orders and payments but does not delete data.
 - Stop the stack and keep the data: `docker compose -f infra/docker-compose.yml down`.
