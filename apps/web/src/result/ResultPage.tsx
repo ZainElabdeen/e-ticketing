@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { Link, useParams } from 'react-router';
+import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useApi } from '../api/client';
 import { ApiError, call, messageFor } from '../api/errors';
 import type { Payment } from '../api/types';
@@ -61,6 +62,7 @@ function Receipt({ payment }: { payment: Payment }): ReactElement {
 }
 
 export function ResultPage(): ReactElement {
+  useDocumentTitle('Payment');
   const { paymentId = '' } = useParams();
   const api = useApi();
   const query = useQuery({

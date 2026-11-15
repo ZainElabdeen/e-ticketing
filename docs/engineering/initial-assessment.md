@@ -34,9 +34,9 @@ reviewer with file evidence, not re-checked.
 
 | # | Area | Location | Finding | Fix | Ver |
 |---|---|---|---|---|---|
-| M1 | web | `apps/web/src/app/router.tsx`, `main.tsx` | No `errorElement` or error boundary; a render error shows the router default page or a blank screen. | Root `errorElement` with a "Start over" link in the app's Banner style. | V |
-| M2 | web a11y | `apps/web/src/backoffice/BackofficePage.tsx:49-65` | `role="tab"` buttons without roving `tabIndex` or arrow-key handling (ARIA tabs pattern incomplete). | Roving tabindex + Left/Right/Home/End, or a `<nav>` with `aria-current`. | V |
-| M3 | web a11y | `apps/web/index.html:6`, `src/app/Layout.tsx` | Static `<title>E-Ticket</title>`; no focus move on route change. | Per-route title; focus `h1`/`main` after navigation. | V |
+| M1 | web | `apps/web/src/app/router.tsx`, `main.tsx` | No `errorElement` or error boundary; a render error shows the router default page or a blank screen. | Root `errorElement` with a "Start over" link in the app's Banner style. | V, fixed `b9f381c` |
+| M2 | web a11y | `apps/web/src/backoffice/BackofficePage.tsx:49-65` | `role="tab"` buttons without roving `tabIndex` or arrow-key handling (ARIA tabs pattern incomplete). | Roving tabindex + Left/Right/Home/End, or a `<nav>` with `aria-current`. | V, fixed `4b90792` |
+| M3 | web a11y | `apps/web/index.html:6`, `src/app/Layout.tsx` | Static `<title>E-Ticket</title>`; no focus move on route change. | Per-route title; focus `h1`/`main` after navigation. | V, fixed `22b4f46` |
 | M4 | gateway | `apps/gateway/src/throttling/rate-limit.ts:6`, `src/shop/payments.controller.ts:11,42` | Scopes are `orders` and `login` only; `POST /v1/payments` and cancel use the default bucket. | `payments` scope + env limit on create and cancel; polling stays default. | V |
 | M5 | infra | `infra/docker-compose.yml` | No `restart:` policy on long-running services. | `restart: unless-stopped` on postgres, services, gateway, web. | V |
 | M6 | infra | `infra/scripts/verify-db.sh:29` | Asserts exactly one finished migration per schema; fails on the first second migration. | Compare with the migration directory count, or `>= 1` and no unfinished rows. | V |
@@ -48,8 +48,8 @@ reviewer with file evidence, not re-checked.
 |---|---|---|---|---|
 | L1 | payment | `apps/payment-service/src/payments/domain/request-hash.ts:5-9` | Request hash uses card `last4`, so a different PAN with the same last4/expiry/holder replays instead of 422. Documented choice (spec §4.2); a keyed HMAC of the PAN would close it. | V |
 | L2 | ledger | ledger `migration.sql:97` | UPDATE/DELETE/TRUNCATE revoked on journal tables only; `ledger_app` can update `ledger.accounts` (incl. `currency`, trusted by the balance trigger). | V |
-| L3 | web a11y | `apps/web/src/styles/tokens.css` | `--stamp` #d7321b is 4.28:1 on `--paper` (AA small text needs 4.5); `--tier-gold` below 3:1 as a non-text band. | R |
-| L4 | web | `apps/web/src/qr/QrPage.tsx:108` | `qrPayload ?? ''` renders an empty QR when the payload is missing. | V |
+| L3 | web a11y | `apps/web/src/styles/tokens.css` | `--stamp` #d7321b is 4.28:1 on `--paper` (AA small text needs 4.5); `--tier-gold` below 3:1 as a non-text band. | R, fixed `f2918c8` |
+| L4 | web | `apps/web/src/qr/QrPage.tsx:108` | `qrPayload ?? ''` renders an empty QR when the payload is missing. | V, fixed `7d7dfef` |
 | L5 | web | `apps/web/src/backoffice/tabs/TransactionsTab.tsx` | IDs truncated to 8 chars; full value only in `title` (not reachable by touch/keyboard). | R |
 | L6 | web | `apps/web/src/backoffice/session.ts` | JWT mirrored to sessionStorage (readable by XSS; CSP mitigates). Deliberate; not in an ADR. | R |
 | L7 | payment | `payments.idempotency_keys` | No retention job or `created_at` index; stored responses grow forever. | R |
@@ -69,6 +69,10 @@ Already tracked elsewhere and not repeated: outbox crash window (ADR-0006
 amendment), ledger 4xx retried to FAILED, `Page` maximum in `common.yaml`,
 throttler storage cap and per-route key, .NET expiry-job shutdown tests,
 arm64 image, NuGet audit policy, deferred Phase 7 minors.
+
+Fixed on branch `fix/web-review` (2026-11-15): M1, M2, M3, L3, L4, plus
+web-review findings for root font size, route code splitting, QR live region,
+cancel error text and payment method in the URL.
 
 ## Checked and clean
 
