@@ -20,6 +20,7 @@
 }
 
 .ticket {
+  display: flow-root; /* keep the surface margin from collapsing through the ink layer */
   --r: 11px;
   --stub-w: 176px;
   --stub-h: 78px;
