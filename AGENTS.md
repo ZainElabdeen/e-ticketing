@@ -130,4 +130,5 @@ Run it locally (setup, login, seed data, test cards, demo script): `docs/local-d
 - Migrations are hand-written SQL (ADR-0015). Never run `prisma migrate dev`.
 - Web: `pnpm --filter @eticket/web dev` (Vite, proxies `/api` to the gateway; `cp apps/web/.env.example apps/web/.env` to change the target) | `pnpm --filter @eticket/web test` | `pnpm --filter @eticket/web build`
 - .NET: `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`
+- CI (ADR-0025): `.github/workflows/ci.yml` runs `verify`, `test`, `test-int`, `e2e` and `sonar` on PRs and pushes to `dev`/`main`. Coverage is opt-in: `CI_COVERAGE=1 pnpm test` / `pnpm test:int`. SonarCloud needs secret `SONAR_TOKEN`; optional repo variables `SONAR_ORGANIZATION`, `SONAR_PROJECT_KEY`, `SONAR_DOTNET_PROJECT_KEY` (defaults in the workflow). The `sonar` job skips when the secret is absent. Actions are pinned to full commit SHAs with a version comment. NuGet audit gate: `sh apps/ticket-service-dotnet/scripts/nuget-audit.sh`
 - Before saying a phase is done: lint, build, test and test:int must pass.

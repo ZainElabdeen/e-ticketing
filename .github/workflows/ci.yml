@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm --filter @eticket/contracts check:generated
+      - run: sh apps/ticket-service-dotnet/scripts/nuget-audit.sh
+
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: CI_COVERAGE=1 pnpm test
+      # upload-artifact strips the common parent of all files. The marker file sits at the
+      # workspace root, so the paths below keep their repo-relative layout on download.
+      - run: echo "coverage root marker" > coverage-root.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-unit
+          path: |
+            coverage-root.txt
+            apps/*/coverage/unit
+            packages/*/coverage/unit
+            apps/web/coverage
+            apps/ticket-service-dotnet/TestResults/unit
+          if-no-files-found: error
+          retention-days: 7
+
+  test-int:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # Testcontainers uses the Docker daemon preinstalled on the runner.
+      - run: CI_COVERAGE=1 pnpm test:int
+      - run: echo "coverage root marker" > coverage-root.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-int
+          path: |
+            coverage-root.txt
+            apps/*/coverage/int
+            apps/ticket-service-dotnet/TestResults/integration
+          if-no-files-found: error
+          retention-days: 7
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          dotnet: 'false'
+      # Writes infra/.env (git-ignored) with generated secrets. The admin login goes to a file
+      # because there is no TTY; it is never printed or uploaded.
+      - run: node infra/scripts/setup-local.mjs --no-ports --email ci@example.test --login-file "$RUNNER_TEMP/admin-login.txt"
+      - run: infra/scripts/smoke.sh
+      - run: docker compose -f infra/docker-compose.yml up -d --build --wait
+      - run: infra/scripts/verify-db.sh
+      - run: infra/scripts/contract.sh ticket
+      - run: infra/scripts/contract.sh payment
+      - run: infra/scripts/contract.sh ledger
+      - run: infra/scripts/contract.sh gateway
+      - if: failure()
+        run: docker compose -f infra/docker-compose.yml logs --no-color --tail=300
+      - if: always()
+        run: docker compose -f infra/docker-compose.yml down -v
+
+  sonar:
+    needs: [test, test-int]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION || 'zainelabdeen' }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || 'ZainElabdeen_e-ticketing' }}
+      SONAR_DOTNET_PROJECT_KEY: ${{ vars.SONAR_DOTNET_PROJECT_KEY || 'ZainElabdeen_e-ticketing-dotnet' }}
+    steps:
+      # Skipped (green) when the SONAR_TOKEN secret is absent, for example on fork PRs.
+      - if: env.SONAR_TOKEN != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - if: env.SONAR_TOKEN != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: .
+      # Jest and Vitest write SF: paths relative to their own package directory. Sonar resolves
+      # them from the repository root, so prefix each one with its package directory.
+      - if: env.SONAR_TOKEN != ''
+        run: |
+          find apps packages -name lcov.info -path '*/coverage/*' | while read -r f; do
+            prefix=${f%%/coverage/*}
+            sed -i "s|^SF:\([^/]\)|SF:${prefix}/\1|" "$f"
+          done
+          grep -h -m1 '^SF:' apps/*/coverage/*/lcov.info apps/web/coverage/lcov.info packages/*/coverage/*/lcov.info || true
+      - if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8.4.0
+        with:
+          args: >
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+      - if: env.SONAR_TOKEN != ''
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: apps/ticket-service-dotnet/global.json
+      - if: env.SONAR_TOKEN != ''
+        working-directory: apps/ticket-service-dotnet
+        run: dotnet tool restore
+      - if: env.SONAR_TOKEN != ''
+        working-directory: apps/ticket-service-dotnet
+        run: >
+          dotnet sonarscanner begin
+          /k:"$SONAR_DOTNET_PROJECT_KEY"
+          /o:"$SONAR_ORGANIZATION"
+          /d:sonar.token="$SONAR_TOKEN"
+          /d:sonar.host.url=https://sonarcloud.io
+          /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml"
+      - if: env.SONAR_TOKEN != ''
+        working-directory: apps/ticket-service-dotnet
+        run: dotnet build TicketService.sln -c Release
+      - if: env.SONAR_TOKEN != ''
+        working-directory: apps/ticket-service-dotnet
+        run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
