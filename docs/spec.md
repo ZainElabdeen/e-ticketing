@@ -677,7 +677,7 @@ payload.
 | Separation of tickets / orders-transactions / ledger, audit trail | §3, `orders.paid_transaction_id` | |
 | Pluggable payment methods | ADR-0008 | |
 | Deployed online, free domain | §9, ADR-0011 | |
-| CI: lint, build, test, Docker image; bonus Sonar, coverage | Phase 8 | |
+| CI: lint, build, test, Docker image; bonus Sonar, coverage | `.github/workflows/ci.yml`, `.github/workflows/images.yml`, ADR-0025 | |
 | README contents | §12 | |
 
 ## 12. Deliverable documentation

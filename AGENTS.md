@@ -26,6 +26,8 @@ Run it locally (setup, login, seed data, test cards, demo script): `docs/local-d
   (context, decision, alternatives, trade-off).
 - Tests first for payment logic, idempotency, quota reservation and ledger posting.
 - Small conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
+- Branch flow: phase or feature branch → PR to `dev` → release PR `dev` → `main`.
+  `main` is production and the GitHub default branch; only `main` publishes images (ADR-0025).
 - Never commit secrets. Only `.env.example` files. Never read or print `.env`.
 - Check current library docs before using an API you are not sure about.
 - Do not add a dependency, service or pattern that is not listed here without
