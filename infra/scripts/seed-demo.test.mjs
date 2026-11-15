@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatAed, purchasePlan, describePlan, planTotals } from './seed-demo.mjs';
+import { formatAed, purchasePlan, describePlan, planTotals, renderRow } from './seed-demo.mjs';
 
 test('plan totals', () => {
   const totals = planTotals(purchasePlan, { GOLD: 10000, PREMIUM: 20000, VIP: 50000 });
@@ -20,8 +20,13 @@ test('no card number in rendered lines', () => {
   for (const p of purchasePlan) {
     if (p.card) {
       assert.ok(!text.includes(p.card.number));
-      assert.ok(!text.replace(/\s/g, '').includes(p.card.number));
     }
   }
   assert.match(text, /card ending 4242/);
+  const rows = purchasePlan.map((p, i) =>
+    renderRow(`#${i + 1}`, p, 20000, 'PAY-20261115-8XBXWP', 'CONFIRMED'),
+  );
+  for (const line of [...describePlan(purchasePlan), ...rows]) {
+    assert.doesNotMatch(line.replace(/[\s-]/g, ''), /\d{12,19}/);
+  }
 });

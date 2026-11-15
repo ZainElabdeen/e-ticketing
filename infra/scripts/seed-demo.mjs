@@ -38,6 +38,10 @@ const methodLabel = (p) => (p.method === 'CARD' ? `card ending ${p.card.number.s
 export const describePlan = (plan) =>
   plan.map((p, i) => `#${i + 1} ${itemsLabel(p.items)} ${methodLabel(p)}`);
 
+export const renderRow = (step, p, totalMinor, ref, status) =>
+  `${step} ${itemsLabel(p.items)} ${p.method === 'CARD' ? 'card' : 'qr'} ` +
+  `${formatAed(totalMinor)} ${ref} ${status}`;
+
 export const planTotals = (plan, prices) => {
   let minor = 0;
   let tickets = 0;
@@ -63,8 +67,9 @@ async function main() {
     return;
   }
 
-  const GATEWAY =
-    process.env.SEED_GATEWAY_URL ?? `http://127.0.0.1:${process.env.GATEWAY_HOST_PORT ?? 3000}`;
+  const GATEWAY = (
+    process.env.SEED_GATEWAY_URL ?? `http://127.0.0.1:${process.env.GATEWAY_HOST_PORT ?? 3000}`
+  ).replace(/\/+$/, '');
   await assertGateway(GATEWAY);
 
   async function call(step, method, path, body, headers = {}) {
@@ -81,7 +86,7 @@ async function main() {
         fail(`${step}: ${method} ${path} failed: ${err.message}`);
       }
       if (res.status === 429 && attempt < 3) {
-        const wait = Number(res.headers.get('retry-after')) || 5;
+        const wait = Math.min(Number(res.headers.get('retry-after')) || 5, 120);
         console.log(`${step}: rate limited, waiting ${wait}s`);
         await sleep(wait * 1000);
         continue;
@@ -140,10 +145,7 @@ async function main() {
       'order',
     );
     const ref = payment.transaction?.paymentReference ?? 'no-reference';
-    console.log(
-      `${step} ${itemsLabel(p.items)} ${p.method === 'CARD' ? 'card' : 'qr'} ` +
-        `${formatAed(order.json.totalMinor)} ${ref} ${confirmed.status}`,
-    );
+    console.log(renderRow(step, p, order.json.totalMinor, ref, confirmed.status));
     rows.push({
       minor: order.json.totalMinor,
       tickets: p.items.reduce((n, it) => n + it.quantity, 0),
