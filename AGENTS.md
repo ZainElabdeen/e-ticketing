@@ -5,6 +5,7 @@ This file is the single source of rules for every AI coding tool
 
 Source of truth for requirements: `docs/challenge.md`.
 Design decisions: `docs/spec.md` and `docs/adr/`.
+Run it locally (setup, login, seed data, test cards, demo script): `docs/local-demo.md`.
 
 ## How to work
 
