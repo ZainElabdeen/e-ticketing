@@ -104,7 +104,9 @@ test('migrate prisma pin matches the apps and the lockfile', () => {
   assert.equal(lock.packages['node_modules/prisma'].version, pin);
   for (const app of ['ticket-service', 'payment-service', 'ledger-service']) {
     const pkg = read(`../../apps/${app}/package.json`);
-    assert.equal((pkg.dependencies?.prisma ?? pkg.devDependencies?.prisma).replace(/^[\^~]/, ''), pin, app);
+    const range = pkg.dependencies?.prisma ?? pkg.devDependencies?.prisma;
+    assert.ok(range, `${app} declares prisma`);
+    assert.equal(range.replace(/^[\^~]/, ''), pin, app);
   }
 });
 
