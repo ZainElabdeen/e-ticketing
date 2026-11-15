@@ -1,0 +1,88 @@
+name: Deploy
+
+# Opt-in CD to the K3s VM. Without the DEPLOY_* secrets every step is skipped and the job is green.
+on:
+  workflow_run:
+    workflows: [Images]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag to deploy (sha-<7 hex>); the checkout on the VM is the matching commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # workflow_run: only a successful push run of Images. Dispatch: any run (the tag is validated below).
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '~/e-ticketing' }}
+    steps:
+      - if: env.DEPLOY_HOST == ''
+        run: echo "::notice::Deploy is disabled (DEPLOY_HOST secret is not set); skipping."
+      - name: Resolve and validate tag
+        if: env.DEPLOY_HOST != ''
+        id: ref
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REF: ${{ github.ref }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = workflow_dispatch ]; then
+            tag="$INPUT_TAG"
+            [[ "$tag" =~ ^sha-[0-9a-f]{7}$ ]] || { echo "::error::tag must match sha-<7 lowercase hex>"; exit 1; }
+            [ "$REF" = refs/heads/main ] || { echo "::error::dispatch must run from main"; exit 1; }
+            # Resolve the 7-char tag to the full commit sha (git cannot fetch a short sha reliably).
+            sha=$(gh api "repos/$REPO/commits/${tag#sha-}" --jq .sha)
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::could not resolve $tag to a commit"; exit 1; }
+          else
+            [ "$RUN_BRANCH" = main ] || { echo "::error::workflow_run branch is not main"; exit 1; }
+            [[ "$RUN_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::head_sha is not a 40-char hex sha"; exit 1; }
+            sha="$RUN_SHA"
+            tag="sha-${RUN_SHA::7}"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Deploy over SSH
+        if: env.DEPLOY_HOST != ''
+        env:
+          SHA: ${{ steps.ref.outputs.sha }}
+          TAG: ${{ steps.ref.outputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_PATH" =~ ^[A-Za-z0-9_./~-]+$ ]] || { echo "::error::DEPLOY_PATH has unexpected characters"; exit 1; }
+          key="$RUNNER_TEMP/deploy_key"
+          hosts="$RUNNER_TEMP/deploy_known_hosts"
+          (umask 077; printf '%s\n' "$DEPLOY_SSH_KEY" > "$key"; printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$hosts")
+          chmod 600 "$key" "$hosts"
+          # SHA and TAG were validated as hex above; DEPLOY_PATH against a conservative charset.
+          remote="cd $DEPLOY_PATH && git fetch --depth 1 origin '$SHA' && git checkout --detach FETCH_HEAD && infra/k8s/scripts/deploy.sh '$TAG'"
+          ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts" -o BatchMode=yes \
+            -i "$key" "$DEPLOY_USER@$DEPLOY_HOST" "$remote" | tee "$RUNNER_TEMP/deploy.log"
+          grep -qxF "DEPLOY OK $TAG" "$RUNNER_TEMP/deploy.log"
+      - name: Remove SSH material
+        if: always() && env.DEPLOY_HOST != ''
+        run: rm -f "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/deploy.log"

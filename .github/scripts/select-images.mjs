@@ -8,6 +8,12 @@ export function selectImages(changed, all, images) {
   return images.filter((image) => wanted.has(image.name));
 }
 
+/** Names of images not rebuilt in this run; the retag job gives them the new sha tag. */
+export function unchangedImages(changed, all, images) {
+  const built = new Set(selectImages(changed, all, images).map((image) => image.name));
+  return images.filter((image) => !built.has(image.name)).map((image) => image.name);
+}
+
 /** docker/build-push-action `build-args` input: one KEY=VALUE per line. */
 export function buildArgsText(image) {
   return Object.entries(image.buildArgs ?? {})
@@ -23,9 +29,12 @@ function main() {
     ...image,
     buildArgsText: buildArgsText(image),
   }));
-  const line = `images=${JSON.stringify(selected)}`;
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${line}\n`);
-  else console.log(line);
+  const lines = [
+    `images=${JSON.stringify(selected)}`,
+    `unchanged=${JSON.stringify(unchangedImages(changed, all, images))}`,
+  ].join('\n');
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${lines}\n`);
+  else console.log(lines);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main();

@@ -15,11 +15,14 @@ on:
 permissions:
   contents: read
 
-# PR runs cancel each other. main/dev runs get a unique group so a newer run never replaces an
-# older pending one (paths-filter on push only diffs against the previous commit, so a dropped
-# run would silently skip images). Recover a failed main run by dispatching with all=true.
+# PR runs cancel each other. dev runs get a unique group. main runs share one group and QUEUE
+# (cancel-in-progress false) so they never overlap: the retag job reads `latest`, and a later
+# main run moving `latest` first would give an older sha tag the wrong content. GitHub keeps
+# only one pending run per group, so if three main pushes land while one run is in progress the
+# middle one is dropped (and paths-filter only diffs against the previous commit, so its images
+# would be skipped). Recover by dispatching this workflow on main with all=true.
 concurrency:
-  group: images-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.run_id }}
+  group: images-${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'main' || format('{0}-{1}', github.ref, github.event_name == 'pull_request' && 'pr' || github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -36,6 +39,7 @@ jobs:
       pull-requests: read
     outputs:
       images: ${{ steps.select.outputs.images }}
+      unchanged: ${{ steps.select.outputs.unchanged }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -165,3 +169,43 @@ jobs:
           echo "$out"
           echo "$out" | grep -q 'linux/amd64'
           echo "$out" | grep -q 'linux/arm64'
+
+  # main only: images not rebuilt in this run get the new sha tag by a registry-side retag of
+  # `latest`, so every image has sha-<7> and deploy.sh can pin one tag for all eight.
+  # Runs only when changes succeeded and build/merge each succeeded or were skipped (merge is
+  # skipped when nothing was built); a failed build or merge blocks it.
+  retag:
+    needs: [changes, build, merge]
+    if: >-
+      always()
+      && github.ref == 'refs/heads/main'
+      && github.event_name != 'pull_request'
+      && needs.changes.result == 'success'
+      && contains(fromJSON('["success","skipped"]'), needs.build.result)
+      && contains(fromJSON('["success","skipped"]'), needs.merge.result)
+      && needs.changes.outputs.unchanged != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag unchanged images
+        env:
+          UNCHANGED: ${{ needs.changes.outputs.unchanged }}
+        run: |
+          tag="sha-${GITHUB_SHA::7}"
+          for name in $(jq -r '.[]' <<<"$UNCHANGED"); do
+            ref="$REGISTRY_PREFIX/$name"
+            if ! docker buildx imagetools inspect "$ref:latest" >/dev/null 2>&1; then
+              echo "::error::$ref:latest does not exist. Dispatch the Images workflow on main with all=true to publish every image first."
+              exit 1
+            fi
+            docker buildx imagetools create -t "$ref:$tag" "$ref:latest"
+          done

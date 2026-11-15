@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { buildArgsText, selectImages } from './select-images.mjs';
+import { buildArgsText, selectImages, unchangedImages } from './select-images.mjs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const images = JSON.parse(read('../images.json'));
@@ -47,6 +47,17 @@ test('no changes selects nothing', () => {
 
 test('unknown names are ignored', () => {
   assert.deepEqual(selectImages(['node-shared', 'nope'], false, images), []);
+});
+
+test('unchanged is the complement of the selection, in images.json order', () => {
+  const unchanged = (changed, all) => unchangedImages(changed, all, images);
+  assert.deepEqual(
+    unchanged(['web'], false),
+    names.filter((n) => n !== 'web'),
+  );
+  assert.deepEqual(unchanged([], true), []);
+  assert.deepEqual(unchanged([], false), names);
+  assert.deepEqual(unchanged(['nope'], false), names);
 });
 
 test('buildArgsText is KEY=VALUE per line', () => {
