@@ -30,4 +30,4 @@ TestResults/
 apps/web/.vitest/
 
 # Local setup: one-time admin login written by infra/scripts/setup-local.mjs
-infra/.admin-login.txt
+infra/.admin-login.txt*
