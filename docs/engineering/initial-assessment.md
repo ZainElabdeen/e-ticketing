@@ -74,6 +74,8 @@ Fixed on branch `fix/web-review` (2026-11-15): M1, M2, M3, L3, L4, plus
 web-review findings for root font size, route code splitting, QR live region,
 cancel error text and payment method in the URL.
 
+Fixed on branch `phase-8-ci` (2026-11-15, Phase 8): M6, M7, L16.
+
 ## Checked and clean
 
 - **Payments**: idempotency claim, payment, transaction, outbox and stored
@@ -103,7 +105,7 @@ line-by-line .NET ↔ NestJS parity, test coverage numbers.
 |---|---|---|
 | 1 | M1, M2, M3, L3, L4 (SPA error and a11y pass) | Small fix branch before Phase 8 |
 | 2 | M4 (payments rate-limit scope), L2 (revoke on accounts) | Same branch, TDD |
-| 3 | M6, M7, L16 (gates and build cache) | Phase 8 CI plan |
+| 3 | M6, M7, L16 (gates and build cache) | Fixed in Phase 8 |
 | 4 | M5, L14, L15, L17, L18 (image and runtime hardening) | Phase 9 K3s plan |
 | 5 | L1, L6, L10 (record as ADR amendments or close) | Any docs pass |
 | 6 | L7–L9, L11–L13 (scale and refactor) | After the challenge, if kept |
