@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate } from 'react-router';
 import { z } from 'zod';
-import { ApiError } from '../api/errors';
+import { ApiError, messageFor } from '../api/errors';
 import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
 import { useAuth } from './AuthProvider';
@@ -21,14 +21,11 @@ const schema = z.object({
 });
 type Values = z.input<typeof schema>;
 
-const GENERIC = 'Something went wrong on our side. Try again.';
-
-function messageFor(e: unknown): string {
-  if (e instanceof ApiError) {
-    if (e.code === 'INVALID_CREDENTIALS') return 'Email or password is incorrect';
-    if (e.code === 'RATE_LIMITED') return 'Too many requests, try again shortly';
+function loginMessage(e: unknown): string {
+  if (e instanceof ApiError && e.code === 'INVALID_CREDENTIALS') {
+    return 'Email or password is incorrect';
   }
-  return GENERIC;
+  return messageFor(e);
 }
 
 export function LoginPage(): ReactElement {
@@ -39,6 +36,8 @@ export function LoginPage(): ReactElement {
     clearNotice();
   }, [clearNotice]);
   const [failure, setFailure] = useState<string | null>(null);
+  // A ref, not isSubmitting alone: a second submit can land before React re-renders.
+  const signingIn = useRef(false);
   const {
     register,
     handleSubmit,
@@ -83,11 +82,14 @@ export function LoginPage(): ReactElement {
         noValidate
         onSubmit={(e) => {
           void handleSubmit(async (v) => {
+            if (signingIn.current) return;
+            signingIn.current = true;
             setFailure(null);
             try {
               await login(v.email, v.password);
             } catch (err) {
-              setFailure(messageFor(err));
+              signingIn.current = false;
+              setFailure(loginMessage(err));
             }
           })(e);
         }}
