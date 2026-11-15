@@ -28,3 +28,6 @@ TestResults/
 
 # rtk vitest JSON output
 apps/web/.vitest/
+
+# Local setup: one-time admin login written by infra/scripts/setup-local.mjs
+infra/.admin-login.txt

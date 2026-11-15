@@ -96,6 +96,7 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 - Payment Service only: `pnpm --filter @eticket/payment-service test` (unit) and `pnpm --filter @eticket/payment-service test:int` (integration)
 - Ledger Service only: `pnpm --filter @eticket/ledger-service test` (unit) and `pnpm --filter @eticket/ledger-service test:int` (integration)
 - Gateway only: `pnpm --filter @eticket/gateway test` (unit) and `pnpm --filter @eticket/gateway test:int` (integration)
+- One-command local setup (after `pnpm install`): `node infra/scripts/setup-local.mjs` generates every secret in `infra/.env` and the backoffice admin login, never overwriting real values. Flags: `--email <addr>`, `--password-stdin`, `--reset-admin`, `--env <path>`, `--no-ports`. The login is printed once to a TTY; otherwise it goes to `infra/.admin-login.txt` (mode 600, git-ignored). Script tests: `node --test infra/scripts/` (also run by `pnpm test`)
 - Admin password hash for the Gateway: `node infra/scripts/admin-hash.mjs` (prompts, prints `ADMIN_PASSWORD_HASH_B64`). After `cp infra/.env.example infra/.env`, generate `ADMIN_EMAIL` and the hash with `--append infra/.env --email <addr>` (prints only key names); `ADMIN_PASSWORD_DEV` must be the same password that was hashed
 - Gateway contract suite via compose (suites run in order ticket → payment → ledger → gateway): `infra/scripts/contract.sh gateway`
 - .NET Ticket Service unit tests: `pnpm --filter @eticket/ticket-service-dotnet test`
