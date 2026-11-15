@@ -24,6 +24,15 @@ if [[ ! "$tag" =~ ^sha-[0-9a-f]{7}$ ]]; then
   echo "deploy: tag must look like sha-0123abc (sha- plus 7 lowercase hex digits)" >&2
   exit 2
 fi
+# A non-interactive SSH shell (CD) does not load nvm, so fail early and say what is missing.
+need=(node)
+[[ "$dry_run" -eq 1 ]] || need+=(kubectl)
+for cmd in "${need[@]}"; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "deploy: $cmd is not on PATH for this (possibly non-interactive) shell; install it system-wide (see infra/k8s/README.md)" >&2
+    exit 1
+  fi
+done
 if [[ ! -f "$env_file" ]]; then
   echo "deploy: $env_file not found (run: node infra/scripts/setup-local.mjs --env infra/k8s/.env, then add HOST and ACME_EMAIL)" >&2
   exit 1
@@ -60,6 +69,23 @@ kubectl apply -f "$rendered"
 
 if ! kubectl -n kube-system get helmchartconfig traefik >/dev/null 2>&1; then
   echo "deploy: hint: Traefik HelmChartConfig not applied yet (one-time VM step, see infra/k8s/README.md)" >&2
+fi
+
+# The HelmChartConfig is copied by hand (one-time step); remind the operator when the repo's version differs.
+vm_traefik=/var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+if [[ -r "$vm_traefik" ]]; then
+  acme_email="$(node --env-file="$env_file" -e 'process.stdout.write(process.env.ACME_EMAIL ?? "")')"
+  if [[ -n "$acme_email" ]]; then
+    traefik_tmp="$(mktemp)"
+    node "$here/render-prod.mjs" --host "$host" --tag "$tag" --out "$(mktemp -d)" \
+      --acme-email "$acme_email" --traefik-out "$traefik_tmp"
+    if ! cmp -s "$traefik_tmp" "$vm_traefik"; then
+      echo "deploy: hint: infra/k8s/traefik/helmchartconfig.yaml differs from $vm_traefik; re-render and copy it (infra/k8s/README.md, Upgrade)" >&2
+    fi
+    rm -f "$traefik_tmp"
+  fi
+else
+  echo "deploy: reminder: if infra/k8s/traefik/helmchartconfig.yaml changed, re-copy it to $vm_traefik (infra/k8s/README.md, Upgrade)" >&2
 fi
 
 for workload in $workloads; do

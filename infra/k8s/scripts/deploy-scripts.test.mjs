@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -71,6 +71,21 @@ test('deploy.sh fails clearly when HOST is not set', () => {
     assert.equal(r.status, 1);
     assert.match(r.stderr, /HOST is not set/);
   });
+});
+
+test('deploy.sh fails early when node is not on PATH', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'deploy-nopath-'));
+  try {
+    symlinkSync('/usr/bin/dirname', join(dir, 'dirname')); // the only tool deploy.sh needs before the guard
+    const r = spawnSync('/bin/bash', [deploy, 'sha-abc1234', '--dry-run'], {
+      encoding: 'utf8',
+      env: { PATH: dir },
+    });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /node is not on PATH/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('ghcr.mjs workloads fails on YAML without workloads', () => {
