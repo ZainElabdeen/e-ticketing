@@ -25,6 +25,7 @@ k3s_image="rancher/k3s:v1.37.2-k3s1"
 env_file=infra/k8s/.env
 
 keep=0
+created=0
 case "${1:-}" in
   "") ;;
   --keep) keep=1 ;;
@@ -66,13 +67,19 @@ dump() {
   done
   echo "---- kube-system pods ----" >&2
   kubectl get pods,jobs -n kube-system 2>&1 >&2 || true
+  for pod in $(kubectl get pods -n kube-system -o name 2>/dev/null | grep -E 'traefik' | grep -v svclb); do
+    echo "---- logs kube-system/$pod (last 100) ----" >&2
+    kubectl logs -n kube-system "$pod" --tail=100 2>&1 >&2 || true
+  done
 }
 
 cleanup() {
   local code=$?
   if [[ $code -ne 0 ]]; then dump || true; fi
   rm -rf "$tmp"
-  if [[ $keep -eq 1 ]]; then
+  if [[ $created -eq 0 ]]; then
+    :  # never delete a cluster this run did not create
+  elif [[ $keep -eq 1 ]]; then
     echo "k3d-e2e: --keep: cluster $cluster left running (delete: k3d cluster delete $cluster)"
   else
     k3d cluster delete "$cluster" >/dev/null 2>&1 || true
@@ -90,6 +97,7 @@ if k3d cluster list -o json | node -e 'const l=JSON.parse(require("fs").readFile
 fi
 k3d cluster create "$cluster" --image "$k3s_image" -p "${host_port}:80@loadbalancer" --wait --timeout 240s \
   --kubeconfig-update-default=false --kubeconfig-switch-context=false
+created=1
 k3d kubeconfig get "$cluster" >"$KUBECONFIG"
 chmod 600 "$KUBECONFIG"
 [[ "$(kubectl config current-context)" == "k3d-$cluster" ]] || fail "kubectl is not pointing at k3d-$cluster"
@@ -111,6 +119,8 @@ done < <(node -e '
 k3d image import "${images[@]}" -c "$cluster"
 
 step "generating secrets and applying the local overlay"
+# setup-local.mjs never overwrites real values, so an existing infra/k8s/.env is reused as is
+# for this throwaway cluster (its secrets only ever seed the cluster's own Secret).
 node infra/scripts/setup-local.mjs --env "$env_file" --no-ports --email ci@example.test --login-file "$tmp/admin-login.txt" >/dev/null
 "$scripts/apply-secrets.sh"
 rendered="$tmp/local.yaml"
@@ -167,13 +177,22 @@ for svc in ticket-service payment-service ledger-service; do
 done
 
 step "spoofed X-Forwarded-For must not dodge the login limit"
+# Every attempt carries a DIFFERENT spoofed X-Forwarded-For. If the gateway keyed its limit on
+# that header, each attempt would get a fresh bucket and none would ever be throttled, so any
+# gateway-sourced 429 proves the key is the real peer, not the header. The 429 must carry the
+# gateway's error envelope (code RATE_LIMITED), not Traefik's plain-text rate-limit reply.
 got429=0
 for n in $(seq 1 11); do
-  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$base_url/api/v1/auth/login" \
+  code="$(curl -s -o "$tmp/login.body" -w '%{http_code}' -X POST "$base_url/api/v1/auth/login" \
     -H 'content-type: application/json' -H "X-Forwarded-For: 203.0.113.$n" \
     -d '{"email":"nobody@example.test","password":"wrong-password-0"}')"
   echo "attempt $n: HTTP $code"
-  if [[ "$code" == 429 ]]; then got429=1; break; fi
+  if [[ "$code" == 429 ]]; then
+    got429=1
+    node -e 'const b=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.exit(b.code==="RATE_LIMITED"?0:1)' "$tmp/login.body" \
+      || fail "429 did not come from the gateway (body is not the RATE_LIMITED error envelope)"
+    break
+  fi
 done
 [[ $got429 -eq 1 ]] || fail "no 429 within 11 login attempts: a spoofed X-Forwarded-For escaped the limit"
 
