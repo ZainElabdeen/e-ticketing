@@ -107,13 +107,19 @@ export function QrPage(): ReactElement {
         tier="NEUTRAL"
         stub={<p className={styles.amount}>{formatMinor(payment.amountMinor, payment.currency)}</p>}
       >
-        <div className={styles.code}>
-          <QRCodeSVG value={payment.qrPayload ?? ''} size={224} level="M" title="Payment QR code" />
-        </div>
-        <p className={styles.hint}>
-          Scan the code with your banking app. In this simulation the server completes the payment
-          by itself after about 8 seconds.
-        </p>
+        {payment.qrPayload ? (
+          <>
+            <div className={styles.code}>
+              <QRCodeSVG value={payment.qrPayload} size={224} level="M" title="Payment QR code" />
+            </div>
+            <p className={styles.hint}>
+              Scan the code with your banking app. In this simulation the server completes the
+              payment by itself after about 8 seconds.
+            </p>
+          </>
+        ) : (
+          <Banner>{"We couldn't load this QR code"}</Banner>
+        )}
       </TicketStub>
 
       {live(timeout ? 'Still processing' : 'Waiting for payment…')}
@@ -135,6 +141,7 @@ export function QrPage(): ReactElement {
         >
           Use card instead
         </Button>
+        {payment.qrPayload ? null : back}
       </div>
     </section>
   );

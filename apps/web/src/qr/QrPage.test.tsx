@@ -227,6 +227,18 @@ describe('QrPage', () => {
     expect(screen.getByText('Waiting for payment…')).toBeInTheDocument();
   });
 
+  it('shows a banner instead of an empty QR when the payload is missing', async () => {
+    const noPayload = { ...pay('PENDING'), qrPayload: undefined };
+    const { container } = renderQr([getRoute(200, noPayload)]);
+    expect(await screen.findByText("We couldn't load this QR code")).toBeInTheDocument();
+    expect(container.querySelector('svg')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Use card instead' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to checkout' })).toHaveAttribute(
+      'href',
+      '/checkout/o-1',
+    );
+  });
+
   it('keeps the same live region node from loading to payment', async () => {
     const { container } = renderQr([getRoute(200, pay('PENDING'))]);
     const region = container.querySelector('[aria-live="polite"]');
