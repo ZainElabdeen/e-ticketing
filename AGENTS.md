@@ -107,6 +107,7 @@ Design decisions: `docs/spec.md` and `docs/adr/`.
 - Ticket contract suite against a running target: `CONTRACT_BASE_URL=… CONTRACT_API_KEY=… CONTRACT_INTERNAL_API_KEY=… pnpm --filter @eticket/contract-tests test:contract:ticket`
 - Payment contract suite against a running target: `CONTRACT_PAYMENT_BASE_URL=… CONTRACT_PAYMENT_API_KEY=… CONTRACT_TICKET_BASE_URL=… CONTRACT_TICKET_API_KEY=… CONTRACT_QR_DELAY_SECONDS=8 pnpm --filter @eticket/contract-tests test:contract:payment` (run the ticket suite first; it drains VIP)
 - Ledger contract suite against a running target: `CONTRACT_LEDGER_BASE_URL=… CONTRACT_LEDGER_API_KEY=… CONTRACT_LEDGER_INTERNAL_API_KEY=… pnpm --filter @eticket/contract-tests test:contract:ledger`
+- Demo data (stack up): `infra/scripts/seed-demo.sh` buys card and QR tickets through the gateway so the backoffice has data (adds to existing data, `--dry-run` prints the plan; ends with `SEED OK`)
 - Smoke test (Docker running): `infra/scripts/smoke.sh` (destroys the local compose volume with `down -v`; ends with `SMOKE OK`; `--keep` leaves the stack up)
 - Local env: `cp infra/.env.example infra/.env` and set passwords. If host port 5432 or 3000 is taken by another project, set `POSTGRES_HOST_PORT` / `GATEWAY_HOST_PORT` in `infra/.env` (both bind to 127.0.0.1; smoke and `contract.sh gateway` follow `GATEWAY_HOST_PORT` and abort if the port is not this Gateway)
 - Stack: `docker compose -f infra/docker-compose.yml up -d --build`
