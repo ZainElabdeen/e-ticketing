@@ -3,7 +3,7 @@
 # Pure JS build and a multi-arch runtime image (linux/amd64 and linux/arm64).
 FROM node:26-alpine AS build
 # Node 26 no longer ships corepack; pin pnpm to the packageManager version.
-RUN npm install -g pnpm@10.34.9
+RUN npm install -g --ignore-scripts pnpm@10.34.9
 WORKDIR /repo
 
 # Manifests first so the install layer is cached until a dependency changes.

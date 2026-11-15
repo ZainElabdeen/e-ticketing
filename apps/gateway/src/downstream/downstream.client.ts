@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { isAxiosError } from 'axios';
 import { PinoLogger } from 'nestjs-pino';
 import { firstValueFrom } from 'rxjs';
+import { trimTrailingSlashes } from '@eticket/nest-common';
 import type { EnvironmentVariables } from '../config/env';
 import { UpstreamTimeoutError, UpstreamUnavailableError } from './errors';
 
@@ -141,7 +142,7 @@ export class DownstreamClient {
 
   private baseFor(service: Service): string {
     const url = this.config.get(URL_VARS[service], { infer: true });
-    return url.replace(/\/+$/, '');
+    return trimTrailingSlashes(url);
   }
 
   private keyFor(service: Service): string {

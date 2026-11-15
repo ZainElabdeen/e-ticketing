@@ -16,4 +16,5 @@ COPY apps/${SERVICE}/prisma ./prisma
 
 USER node
 
-CMD ["npx", "prisma", "migrate", "deploy"]
+# The pinned local binary; npx could fetch a different release.
+CMD ["/app/node_modules/.bin/prisma", "migrate", "deploy"]

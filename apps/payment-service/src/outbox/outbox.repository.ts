@@ -60,7 +60,7 @@ export class OutboxRepository {
    */
   async processOne(
     handler: (event: ClaimedEvent) => Promise<EventUpdate>,
-    holder: ConfirmHolder = { confirmOutcome: null },
+    holder?: ConfirmHolder,
   ): Promise<boolean> {
     let claimedId: string | undefined;
     try {
@@ -70,7 +70,7 @@ export class OutboxRepository {
       // unchanged and would be re-claimed forever without ever reaching FAILED. Count the
       // attempt in a separate short statement. Nothing to do if the claim never happened.
       if (claimedId) {
-        await this.recordFailedAttempt(claimedId, err, holder.confirmOutcome);
+        await this.recordFailedAttempt(claimedId, err, holder?.confirmOutcome ?? null);
       }
       throw err;
     }
