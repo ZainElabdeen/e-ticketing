@@ -38,6 +38,8 @@ if [[ "$dry_run" -eq 1 ]]; then
 fi
 
 kubectl create namespace "$namespace" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+# Server-side apply keeps Secret data out of the last-applied-configuration annotation.
 kubectl create secret generic eticket-secrets -n "$namespace" \
-  --from-env-file="$tmp" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  --from-env-file="$tmp" --dry-run=client -o yaml \
+  | kubectl apply --server-side --force-conflicts --field-manager=eticket-deploy -f - >/dev/null
 echo "apply-secrets: eticket-secrets applied in namespace $namespace"

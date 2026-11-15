@@ -14,9 +14,9 @@ env_file="${K8S_ENV_FILE:-$here/../.env}"
 namespace=eticketing
 tag="${1:-}"
 dry_run=0
-[[ "${2:-}" == "--dry-run" ]] && dry_run=1
-
-if [[ -z "$tag" || ( $# -gt 1 && "$dry_run" -eq 0 ) || $# -gt 2 ]]; then
+if [[ $# -eq 2 && "$2" == "--dry-run" ]]; then
+  dry_run=1
+elif [[ $# -ne 1 ]]; then
   echo "usage: deploy.sh <sha-tag> [--dry-run]" >&2
   exit 2
 fi
@@ -47,6 +47,9 @@ fi
 node "$here/render-prod.mjs" --host "$host" --tag "$tag" --out "$here/../overlays/prod"
 "$here/render.sh" prod >"$rendered"
 
+# Expected workloads come from the rendered YAML; an empty list fails before any apply.
+workloads="$(node "$here/ghcr.mjs" workloads <"$rendered")"
+
 if [[ "$dry_run" -eq 1 ]]; then
   node "$here/ghcr.mjs" kinds <"$rendered"
   echo "DEPLOY DRY-RUN $tag"
@@ -59,8 +62,8 @@ if ! kubectl -n kube-system get helmchartconfig traefik >/dev/null 2>&1; then
   echo "deploy: hint: Traefik HelmChartConfig not applied yet (one-time VM step, see infra/k8s/README.md)" >&2
 fi
 
-while IFS= read -r workload; do
+for workload in $workloads; do
   kubectl -n "$namespace" rollout status "$workload" --timeout=300s
-done < <(kubectl -n "$namespace" get deployments,statefulsets -o name)
+done
 
 echo "DEPLOY OK $tag"

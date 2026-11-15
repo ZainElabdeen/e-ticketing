@@ -2,6 +2,7 @@
 // Pure parts of deploy.sh: tag validation, image list, GHCR URLs, tag-exists check.
 //
 //   node ghcr.mjs check <sha-tag>          exit 1 naming each image missing the tag
+//   node ghcr.mjs workloads                stdin: rendered YAML; prints Deployment/StatefulSet ids, exit 1 if none
 //   node ghcr.mjs kinds                    stdin: rendered YAML; prints Kind/name lines
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -35,32 +36,45 @@ export function validateTag(tag) {
 export const tokenUrl = (name) => `https://ghcr.io/token?scope=repository:${REPO}/${name}:pull`;
 export const manifestUrl = (name, tag) => `https://ghcr.io/v2/${REPO}/${name}/manifests/${tag}`;
 
-async function hasTag(name, tag, fetchImpl) {
-  const tokenResponse = await fetchImpl(tokenUrl(name));
-  if (!tokenResponse.ok) return false;
-  const { token } = await tokenResponse.json();
-  if (typeof token !== 'string' || token === '') return false;
-  const response = await fetchImpl(manifestUrl(name, tag), {
-    method: 'HEAD',
-    headers: { Authorization: `Bearer ${token}`, Accept: ACCEPT },
-  });
-  return response.status === 200;
+const TIMEOUT_MS = 10_000;
+
+/** Returns 'ok', 'missing' (404), or 'error: <reason>' for anything else. */
+async function checkTag(name, tag, fetchImpl) {
+  try {
+    const tokenResponse = await fetchImpl(tokenUrl(name), {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!tokenResponse.ok) return `error: token request returned ${tokenResponse.status}`;
+    const { token } = await tokenResponse.json();
+    if (typeof token !== 'string' || token === '') return 'error: no token in response';
+    const response = await fetchImpl(manifestUrl(name, tag), {
+      method: 'HEAD',
+      headers: { Authorization: `Bearer ${token}`, Accept: ACCEPT },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (response.status === 200) return 'ok';
+    if (response.status === 404) return 'missing';
+    return `error: manifest request returned ${response.status}`;
+  } catch (error) {
+    return `error: ${error?.name ?? 'Error'}`;
+  }
 }
 
-/** Names of the images that do not have `tag` on GHCR. */
+/** { missing: names whose tag is absent (404), failed: [{ name, reason }] for checks that errored }. */
 export async function findMissingImages({ tag, fetchImpl = fetch }) {
   validateTag(tag);
   const names = imageNames();
-  const results = await Promise.all(
-    names.map(async (name) => {
-      try {
-        return await hasTag(name, tag, fetchImpl);
-      } catch {
-        return false;
-      }
-    }),
-  );
-  return names.filter((_, i) => !results[i]);
+  const results = await Promise.all(names.map((name) => checkTag(name, tag, fetchImpl)));
+  const missing = names.filter((_, i) => results[i] === 'missing');
+  const failed = names
+    .map((name, i) => ({ name, reason: results[i].slice('error: '.length) }))
+    .filter((_, i) => results[i].startsWith('error: '));
+  return { missing, failed };
+}
+
+/** `Kind/name` of every Deployment and StatefulSet in rendered YAML. */
+export function describeWorkloads(yamlText) {
+  return describeKinds(yamlText).filter((id) => /^(Deployment|StatefulSet)\//.test(id));
 }
 
 /** `Kind/name` for each document of rendered YAML. */
@@ -73,17 +87,24 @@ export function describeKinds(yamlText) {
 async function main([command, ...args]) {
   if (command === 'check') {
     const tag = validateTag(args[0]);
-    const missing = await findMissingImages({ tag });
-    if (missing.length > 0) {
-      for (const name of missing) console.error(`deploy: image ${name}:${tag} not found on GHCR`);
-      process.exit(1);
+    const { missing, failed } = await findMissingImages({ tag });
+    for (const name of missing) console.error(`deploy: image ${name}:${tag} not found on GHCR`);
+    for (const { name, reason } of failed) {
+      console.error(`deploy: could not check ${name}: ${reason}`);
     }
+    if (missing.length > 0 || failed.length > 0) process.exit(1);
   } else if (command === 'kinds') {
     const chunks = [];
     for await (const chunk of process.stdin) chunks.push(chunk);
     for (const line of describeKinds(Buffer.concat(chunks).toString('utf8'))) console.log(line);
+  } else if (command === 'workloads') {
+    const chunks = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    const workloads = describeWorkloads(Buffer.concat(chunks).toString('utf8'));
+    if (workloads.length === 0) throw new Error('rendered YAML has no Deployment or StatefulSet');
+    for (const id of workloads) console.log(id);
   } else {
-    throw new Error('usage: ghcr.mjs <check <tag> | kinds>');
+    throw new Error('usage: ghcr.mjs <check <tag> | kinds | workloads>');
   }
 }
 

@@ -49,7 +49,14 @@ test('apply-secrets fails naming the key, never the value', () => {
 });
 
 test('deploy.sh rejects a bad or missing tag before touching anything', () => {
-  for (const args of [[], ['latest'], ['sha-ABC1234']]) {
+  for (const args of [
+    [],
+    ['latest'],
+    ['sha-ABC1234'],
+    ['sha-abc1234', 'extra'],
+    ['sha-abc1234', '--dry-run', 'x'],
+    ['sha-abc1234', '--apply'],
+  ]) {
     const r = spawnSync('bash', [deploy, ...args], { encoding: 'utf8' });
     assert.equal(r.status, 2, `${args}`);
   }
@@ -64,4 +71,20 @@ test('deploy.sh fails clearly when HOST is not set', () => {
     assert.equal(r.status, 1);
     assert.match(r.stderr, /HOST is not set/);
   });
+});
+
+test('ghcr.mjs workloads fails on YAML without workloads', () => {
+  const ghcr = fileURLToPath(new URL('./ghcr.mjs', import.meta.url));
+  const r = spawnSync('node', [ghcr, 'workloads'], {
+    encoding: 'utf8',
+    input: 'kind: Service\nmetadata:\n  name: a\n',
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /no Deployment or StatefulSet/);
+  const ok = spawnSync('node', [ghcr, 'workloads'], {
+    encoding: 'utf8',
+    input: 'kind: Deployment\nmetadata:\n  name: g\n',
+  });
+  assert.equal(ok.status, 0);
+  assert.equal(ok.stdout.trim(), 'Deployment/g');
 });

@@ -27,6 +27,8 @@ export const ALLOW_LIST = [
 ];
 
 const PASSWORD_CHARS = /^[A-Za-z0-9._~-]+$/;
+// Inline `# comments` are NOT stripped (kubectl --from-env-file keeps them too), so a
+// value containing ' #' is rejected instead of being applied with the comment inside.
 const PLACEHOLDER = /^(replace-with|change-me)/i;
 
 function unquote(value) {
@@ -59,6 +61,8 @@ export function filterSecrets(envText) {
       errors.push(`${key} is missing or empty`);
     } else if (PLACEHOLDER.test(value)) {
       errors.push(`${key} still holds a placeholder`);
+    } else if (value.includes(' #')) {
+      errors.push(`${key} contains ' #' (inline comments are not supported)`);
     } else if (key.endsWith('_PASSWORD') && !PASSWORD_CHARS.test(value)) {
       errors.push(`${key} has a character outside [A-Za-z0-9._~-]`);
     } else {

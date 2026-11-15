@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   ACCEPT,
   describeKinds,
+  describeWorkloads,
   findMissingImages,
   imageNames,
   manifestUrl,
@@ -57,27 +58,74 @@ function fakeFetch(missing, calls = []) {
   };
 }
 
-test('findMissingImages returns the images without the tag', async () => {
+test('findMissingImages separates 404 from other failures', async () => {
   const calls = [];
-  const missing = await findMissingImages({
+  const { missing, failed } = await findMissingImages({
     tag: 'sha-abc1234',
     fetchImpl: fakeFetch(['web', 'migrate-ledger'], calls),
   });
   assert.deepEqual(missing.sort(), ['migrate-ledger', 'web']);
+  assert.deepEqual(failed, []);
   const heads = calls.filter((c) => c.init.method === 'HEAD');
   assert.equal(heads.length, 8);
   assert.equal(heads[0].init.headers.Authorization, 'Bearer fake-token');
   assert.equal(heads[0].init.headers.Accept, ACCEPT);
+  assert.ok(heads[0].init.signal instanceof AbortSignal);
 });
 
-test('findMissingImages returns [] when all exist', async () => {
-  assert.deepEqual(await findMissingImages({ tag: 'sha-abc1234', fetchImpl: fakeFetch([]) }), []);
+test('all present gives no missing and no failed', async () => {
+  const r = await findMissingImages({ tag: 'sha-abc1234', fetchImpl: fakeFetch([]) });
+  assert.deepEqual(r, { missing: [], failed: [] });
 });
 
-test('a token failure counts as missing and does not leak the token', async () => {
-  const fetchImpl = async () => ({ ok: false, status: 500, json: async () => ({}) });
-  const missing = await findMissingImages({ tag: 'sha-abc1234', fetchImpl });
-  assert.equal(missing.length, 8);
+test('a 500 on the manifest is a failure, not missing', async () => {
+  const fetchImpl = async (url) =>
+    String(url).includes('/token')
+      ? { ok: true, status: 200, json: async () => ({ token: 't' }) }
+      : { ok: false, status: 500 };
+  const r = await findMissingImages({ tag: 'sha-abc1234', fetchImpl });
+  assert.equal(r.missing.length, 0);
+  assert.equal(r.failed.length, 8);
+  assert.match(r.failed[0].reason, /500/);
+});
+
+test('a token 401 or a thrown fetch is a failure', async () => {
+  const r1 = await findMissingImages({
+    tag: 'sha-abc1234',
+    fetchImpl: async () => ({ ok: false, status: 401 }),
+  });
+  assert.equal(r1.failed.length, 8);
+  assert.match(r1.failed[0].reason, /401/);
+  const r2 = await findMissingImages({
+    tag: 'sha-abc1234',
+    fetchImpl: async () => {
+      throw new TypeError('network down');
+    },
+  });
+  assert.equal(r2.failed.length, 8);
+  assert.equal(r2.failed[0].reason, 'TypeError');
+  assert.equal(r2.missing.length, 0);
+});
+
+test('describeWorkloads keeps only Deployments and StatefulSets', () => {
+  const yaml = [
+    'kind: Service',
+    'metadata:',
+    '  name: a',
+    '---',
+    'kind: Deployment',
+    'metadata:',
+    '  name: gateway',
+    '---',
+    'kind: StatefulSet',
+    'metadata:',
+    '  name: postgres',
+    '---',
+    'kind: CronJob',
+    'metadata:',
+    '  name: backup',
+  ].join('\n');
+  assert.deepEqual(describeWorkloads(yaml), ['Deployment/gateway', 'StatefulSet/postgres']);
 });
 
 test('describeKinds lists kind/name of each document', () => {

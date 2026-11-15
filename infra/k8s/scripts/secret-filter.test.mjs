@@ -89,6 +89,13 @@ test('no error message ever contains a value', () => {
   }
 });
 
+test('inline comments are not stripped: a value with " #" fails closed, naming the key only', () => {
+  const { errors } = filterSecrets(fakeEnv({ ADMIN_EMAIL: 'a@example.org # SECRETNOTE' }));
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /ADMIN_EMAIL/);
+  assert.ok(!errors[0].includes('SECRETNOTE'));
+});
+
 test('strips surrounding quotes and tolerates CRLF', () => {
   const { lines, errors } = filterSecrets(
     fakeEnv({ ADMIN_EMAIL: '"a@example.org"' }).replaceAll('\n', '\r\n'),
