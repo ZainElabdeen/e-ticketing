@@ -17,7 +17,8 @@ const MAX_PER_TYPE = 10;
 const maxFor = (t: TicketType): number => Math.min(MAX_PER_TYPE, Math.max(0, t.available));
 
 function orderMessage(error: unknown): string {
-  if (error instanceof ApiError && error.code === 'QUOTA_EXCEEDED') return 'Not enough tickets left';
+  if (error instanceof ApiError && error.code === 'QUOTA_EXCEEDED')
+    return 'Not enough tickets left';
   return messageFor(error);
 }
 

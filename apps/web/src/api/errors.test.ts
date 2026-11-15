@@ -71,9 +71,7 @@ describe('messageFor', () => {
   const apiError = (status: number, code: string) => new ApiError({ status, code, message: 'm' });
 
   it('maps RATE_LIMITED to the rate limit text', () => {
-    expect(messageFor(apiError(429, 'RATE_LIMITED'))).toBe(
-      'Too many requests, try again shortly',
-    );
+    expect(messageFor(apiError(429, 'RATE_LIMITED'))).toBe('Too many requests, try again shortly');
   });
 
   it('maps anything else to the generic text', () => {
