@@ -14,6 +14,7 @@ import { createInterface } from 'node:readline';
 import { Writable } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { generatePassword, hashAdminPassword, MAX_BYTES } from './lib/admin-hash-lib.mjs';
+import { isEmail } from './lib/strings.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const EXAMPLE_PATH = join(here, '..', '.env.example');
@@ -22,7 +23,6 @@ const DEFAULT_LOGIN_FILE = join(here, '..', '.admin-login.txt');
 const MIN_BYTES = 8;
 // Characters an env file and compose pass through unchanged.
 const SAFE_PASSWORD = /^[A-Za-z0-9._~!@%^&*+=-]+$/;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEFAULT_EMAIL = 'admin@eticket.local';
 const SECRET_KEY = /(_PASSWORD|_API_KEY_[A-Z]+|^JWT_SECRET)$/;
 const PORTS = [
@@ -151,7 +151,7 @@ function parseArgs(argv) {
   args.env = resolve(args.env);
   args.loginFile = resolve(args.loginFile);
   // A newline in the email would let it inject extra lines into the env file.
-  if (args.email !== undefined && !EMAIL.test(args.email))
+  if (args.email !== undefined && !isEmail(args.email))
     fail('--email must be a plain email address', 2);
   return args;
 }

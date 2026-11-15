@@ -9,6 +9,7 @@ import {
   type HealthIndicatorResult,
 } from '@nestjs/terminus';
 import { firstValueFrom } from 'rxjs';
+import { trimTrailingSlashes } from '@eticket/nest-common';
 import type { EnvironmentVariables } from '../config/env';
 
 const PROBE_TIMEOUT_MS = 2000;
@@ -45,7 +46,7 @@ export class HealthController {
     const check = this.indicator.check(name);
     try {
       const res = await firstValueFrom(
-        this.http.get<unknown>(`${base.replace(/\/+$/, '')}/health/live`, {
+        this.http.get<unknown>(`${trimTrailingSlashes(base)}/health/live`, {
           timeout: PROBE_TIMEOUT_MS,
           signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
           validateStatus: () => true,

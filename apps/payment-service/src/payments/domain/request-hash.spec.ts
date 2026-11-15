@@ -34,6 +34,11 @@ describe('request hash', () => {
     expect(requestHash(cardInput)).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('orders keys by UTF-16 code unit, not by locale', () => {
+    // Stored hashes depend on this order: uppercase sorts before lowercase.
+    expect(canonicalJson({ b: 1, a: 2, B: 3, A: 4 })).toBe('{"A":4,"B":3,"a":2,"b":1}');
+  });
+
   it('different card last4 gives a different hash', () => {
     const other = { ...cardInput, card: { ...cardInput.card!, number: '5555555555554444' } };
     expect(requestHash(other)).not.toBe(requestHash(cardInput));

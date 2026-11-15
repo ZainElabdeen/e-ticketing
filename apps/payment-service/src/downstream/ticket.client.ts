@@ -1,6 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { trimTrailingSlashes } from '@eticket/nest-common';
 import type { EnvironmentVariables } from '../config/env';
 import {
   callDownstream,
@@ -61,7 +62,7 @@ export class TicketClient {
     private readonly http: HttpService,
     config: ConfigService<EnvironmentVariables, true>,
   ) {
-    this.baseUrl = config.get<string>('TICKET_SERVICE_URL').replace(/\/+$/, '');
+    this.baseUrl = trimTrailingSlashes(config.get<string>('TICKET_SERVICE_URL'));
     this.apiKey = config.get<string>('INTERNAL_API_KEY_TICKET');
     this.timeoutMs = downstreamTimeoutMs(config);
   }

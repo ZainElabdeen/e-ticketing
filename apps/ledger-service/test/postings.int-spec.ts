@@ -209,7 +209,7 @@ describe('POST /v1/internal/postings', () => {
     it('8 identical concurrent postings -> one 201, seven 200, one entry', async () => {
       const p = posting();
       const results = await Promise.all(Array.from({ length: 8 }, () => send(p)));
-      const statuses = results.map((r) => r.status).sort();
+      const statuses = results.map((r) => r.status).sort((a, b) => a - b);
       expect(statuses).toEqual([200, 200, 200, 200, 200, 200, 200, 201]);
       for (const r of results) expect(r.body).toEqual(results[0]?.body);
       expect(await counts(p.transactionId)).toEqual({ entries: 1, lines: 2 });

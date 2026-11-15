@@ -18,17 +18,17 @@ case "${1:-}" in
     exit 2
     ;;
 esac
-if [ "$#" -gt 1 ]; then
+if [[ "$#" -gt 1 ]]; then
   echo "usage: infra/scripts/smoke.sh [--keep]" >&2
   exit 2
 fi
 
 cleanup() {
   status=$?
-  if [ "$status" -ne 0 ] && [ "$keep" = false ]; then
+  if [[ "$status" -ne 0 && "$keep" = false ]]; then
     "${compose[@]}" logs --no-color --tail=200 || true
   fi
-  if [ "$keep" = false ]; then
+  if [[ "$keep" = false ]]; then
     "${compose[@]}" down -v >/dev/null 2>&1 || true
   fi
 }

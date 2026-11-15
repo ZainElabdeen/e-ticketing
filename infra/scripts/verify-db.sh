@@ -16,7 +16,7 @@ done
 check() {
   local description="$1" sql="$2" expected="$3" actual
   actual=$(docker compose exec -T postgres psql -U postgres -d eticketing -tAc "$sql")
-  if [ "$actual" != "$expected" ]; then
+  if [[ "$actual" != "$expected" ]]; then
     echo "FAIL: $description: expected '$expected', got '$actual'" >&2
     exit 1
   fi

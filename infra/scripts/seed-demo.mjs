@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { assertGateway } from './gateway-target.mjs';
+import { trimTrailingSlashes } from './lib/strings.mjs';
 
 // Real demo purchases through the public Gateway API. Node global fetch only.
 // Never prints a card number or a secret.
@@ -67,9 +68,9 @@ async function main() {
     return;
   }
 
-  const GATEWAY = (
-    process.env.SEED_GATEWAY_URL ?? `http://127.0.0.1:${process.env.GATEWAY_HOST_PORT ?? 3000}`
-  ).replace(/\/+$/, '');
+  const GATEWAY = trimTrailingSlashes(
+    process.env.SEED_GATEWAY_URL ?? `http://127.0.0.1:${process.env.GATEWAY_HOST_PORT ?? 3000}`,
+  );
   await assertGateway(GATEWAY);
 
   async function call(step, method, path, body, headers = {}) {

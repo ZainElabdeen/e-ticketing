@@ -6,7 +6,7 @@
 # checkout builds without a prior `pnpm --filter @eticket/contracts build`.
 FROM node:26-alpine AS contract
 # Node 26 no longer ships corepack; pin pnpm to the packageManager version.
-RUN npm install -g pnpm@10.34.9
+RUN npm install -g --ignore-scripts pnpm@10.34.9
 WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/ticket-service/package.json apps/ticket-service/package.json
