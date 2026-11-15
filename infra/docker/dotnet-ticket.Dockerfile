@@ -4,7 +4,7 @@
 
 # Stage 1: bundle the OpenAPI contract the service serves at /docs, so a clean
 # checkout builds without a prior `pnpm --filter @eticket/contracts build`.
-FROM node:26-alpine AS contract
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS contract
 # Node 26 no longer ships corepack; pin pnpm to the packageManager version.
 RUN npm install -g --ignore-scripts pnpm@10.34.9
 WORKDIR /repo
@@ -23,7 +23,7 @@ COPY packages/contracts packages/contracts
 RUN pnpm --filter @eticket/contracts bundle
 
 # Stage 2: publish.
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb AS build
 WORKDIR /repo
 COPY apps/ticket-service-dotnet/global.json apps/ticket-service-dotnet/Directory.Build.props apps/ticket-service-dotnet/Directory.Packages.props apps/ticket-service-dotnet/.editorconfig apps/ticket-service-dotnet/
 COPY apps/ticket-service-dotnet/src/TicketService.Api/TicketService.Api.csproj apps/ticket-service-dotnet/src/TicketService.Api/
@@ -33,7 +33,7 @@ COPY apps/ticket-service-dotnet/src apps/ticket-service-dotnet/src
 COPY --from=contract /repo/packages/contracts/dist/ticket-service.json packages/contracts/dist/ticket-service.json
 RUN cd apps/ticket-service-dotnet && dotnet publish src/TicketService.Api/TicketService.Api.csproj -c Release --no-restore -o /out
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:21c3f9798416cba4c0576a947c286231cb71ea2884896cb968253f5c9668f930
 ENV PORT=3001
 WORKDIR /app
 COPY --from=build /out ./

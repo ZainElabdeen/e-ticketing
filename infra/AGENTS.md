@@ -32,8 +32,9 @@ Local run guide: `docs/local-demo.md`. Commands: root `AGENTS.md`.
 - One owner role (migrations) and one app role (runtime) per schema; PUBLIC is
   revoked. Default privileges cover tables only, so a migration adding a
   sequence must grant it.
-- Migrations run in the `migrate` image; `PRISMA_VERSION` there is a manual copy
-  of the apps' Prisma pin.
+- Migrations run in the `migrate` image, which installs from
+  `infra/migrate/package-lock.json`; its `prisma` pin is a manual copy of the
+  apps' Prisma pin.
 
 ## Images
 

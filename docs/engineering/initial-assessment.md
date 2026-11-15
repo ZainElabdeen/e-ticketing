@@ -38,7 +38,7 @@ reviewer with file evidence, not re-checked.
 | M2 | web a11y | `apps/web/src/backoffice/BackofficePage.tsx:49-65` | `role="tab"` buttons without roving `tabIndex` or arrow-key handling (ARIA tabs pattern incomplete). | Roving tabindex + Left/Right/Home/End, or a `<nav>` with `aria-current`. | V, fixed `4b90792` |
 | M3 | web a11y | `apps/web/index.html:6`, `src/app/Layout.tsx` | Static `<title>E-Ticket</title>`; no focus move on route change. | Per-route title; focus `h1`/`main` after navigation. | V, fixed `22b4f46` |
 | M4 | gateway | `apps/gateway/src/throttling/rate-limit.ts:6`, `src/shop/payments.controller.ts:11,42` | Scopes are `orders` and `login` only; `POST /v1/payments` and cancel use the default bucket. | `payments` scope + env limit on create and cancel; polling stays default. | V |
-| M5 | infra | `infra/docker-compose.yml` | No `restart:` policy on long-running services. | `restart: unless-stopped` on postgres, services, gateway, web. | V |
+| M5 | infra | `infra/docker-compose.yml` | No `restart:` policy on long-running services. | `restart: unless-stopped` on postgres, services, gateway, web. | V, fixed |
 | M6 | infra | `infra/scripts/verify-db.sh:29` | Asserts exactly one finished migration per schema; fails on the first second migration. | Compare with the migration directory count, or `>= 1` and no unfinished rows. | V |
 | M7 | contracts | `packages/contracts/package.json` (`check:generated`) | Drift check is manual; not in the root gate. `git diff` misses new untracked files. No drift today. | Add to the Phase 8 CI and `phase-gate`; also check `git status --short`. | V |
 
@@ -59,11 +59,11 @@ reviewer with file evidence, not re-checked.
 | L11 | nest | health controller, `prisma.service.ts`, `main.ts`, job scaffolding, axios timeout handling | Byte-identical or near-identical across services; `nest-common` candidates. | R |
 | L12 | .NET | `Infrastructure/OrderExpiryJob.cs:269` | `CancellationToken.None` with no DB timeout; shutdown can wait the full 15 s. | R |
 | L13 | .NET | `Infrastructure/OrdersRepository.cs` | Infrastructure returns API DTOs; Application is a pass-through (accepted for a thin port). | R |
-| L14 | infra | Dockerfiles | Floating base tags (`node:26-alpine`, `postgres:18-alpine`, `dotnet 10.0`); no digests. | R |
-| L15 | infra | `infra/migrate/Dockerfile:12` | `npm install prisma@ver` without a lockfile; version copied by hand. | R |
+| L14 | infra | Dockerfiles | Floating base tags (`node:26-alpine`, `postgres:18-alpine`, `dotnet 10.0`); no digests. | R, fixed |
+| L15 | infra | `infra/migrate/Dockerfile:12` | `npm install prisma@ver` without a lockfile; version copied by hand. | R, fixed |
 | L16 | infra | `.dockerignore` | Misses `docs/`, `*.md`, `.superpowers/`, `apps/web/.vitest`; doc edits bust `COPY . .` layers. | R |
-| L17 | infra | `infra/docker-compose.yml:25-30` | Postgres healthcheck has no `timeout` / `start_period`. | R |
-| L18 | infra | `infra/docker/nginx.conf` | No `Permissions-Policy`; `gzip_types` lacks `application/json`. | R |
+| L17 | infra | `infra/docker-compose.yml:25-30` | Postgres healthcheck has no `timeout` / `start_period`. | R, fixed |
+| L18 | infra | `infra/docker/nginx.conf` | No `Permissions-Policy`; `gzip_types` lacks `application/json`. | R, fixed |
 
 Already tracked elsewhere and not repeated: outbox crash window (ADR-0006
 amendment), ledger 4xx retried to FAILED, `Page` maximum in `common.yaml`,

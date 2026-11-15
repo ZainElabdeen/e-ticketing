@@ -97,13 +97,14 @@ test('every filter watches the workflow and images.json', () => {
   }
 });
 
-test('PRISMA_VERSION matches the docker-compose anchor', () => {
-  const compose = readFileSync(new URL('../../infra/docker-compose.yml', import.meta.url), 'utf8');
-  const anchor = /^x-prisma-version: &prisma-version (\S+)/m.exec(compose)[1];
-  const migrates = images.filter((i) => i.name.startsWith('migrate-'));
-  assert.equal(migrates.length, 3);
-  for (const m of migrates) {
-    assert.equal(m.buildArgs.PRISMA_VERSION, anchor, m.name);
+test('migrate prisma pin matches the apps and the lockfile', () => {
+  const read = (rel) => JSON.parse(readFileSync(new URL(rel, import.meta.url), 'utf8'));
+  const pin = read('../../infra/migrate/package.json').dependencies.prisma;
+  const lock = read('../../infra/migrate/package-lock.json');
+  assert.equal(lock.packages['node_modules/prisma'].version, pin);
+  for (const app of ['ticket-service', 'payment-service', 'ledger-service']) {
+    const pkg = read(`../../apps/${app}/package.json`);
+    assert.equal((pkg.dependencies?.prisma ?? pkg.devDependencies?.prisma).replace(/^[\^~]/, ''), pin, app);
   }
 });
 

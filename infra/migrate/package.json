@@ -1,5 +1,8 @@
 {
   "name": "eticketing-migrate",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "prisma": "7.10.1"
+  }
 }

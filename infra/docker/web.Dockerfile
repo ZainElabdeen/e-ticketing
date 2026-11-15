@@ -1,7 +1,7 @@
 # Static SPA served by nginx. Build context is the repo root:
 #   docker build -f infra/docker/web.Dockerfile -t eticket/web:dev .
 # Pure JS build and a multi-arch runtime image (linux/amd64 and linux/arm64).
-FROM node:26-alpine AS build
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS build
 # Node 26 no longer ships corepack; pin pnpm to the packageManager version.
 RUN npm install -g --ignore-scripts pnpm@10.34.9
 WORKDIR /repo
@@ -23,7 +23,7 @@ RUN pnpm install --frozen-lockfile --filter "@eticket/web..."
 COPY . .
 RUN pnpm --filter @eticket/web build
 
-FROM nginxinc/nginx-unprivileged:1.31.7-alpine
+FROM nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 COPY infra/docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY infra/docker/nginx-security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
