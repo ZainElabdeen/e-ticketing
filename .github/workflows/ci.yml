@@ -28,6 +28,11 @@ jobs:
       - run: pnpm build
       - run: pnpm --filter @eticket/contracts check:generated
       - run: sh apps/ticket-service-dotnet/scripts/nuget-audit.sh
+      # Pinned kubectl + kubeconform (sha256-verified); manifest tests skip without kubectl.
+      - run: infra/k8s/scripts/install-ci-tools.sh "$RUNNER_TEMP/bin" kubectl kubeconform
+      - run: echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - run: infra/k8s/scripts/validate.sh
+      - run: node --test infra/k8s/scripts/
 
   test:
     runs-on: ubuntu-24.04
@@ -124,6 +129,28 @@ jobs:
         run: docker compose -f infra/docker-compose.yml logs --no-color --tail=300
       - if: always()
         run: docker compose -f infra/docker-compose.yml down -v
+
+  # Real K3s (k3d): deploys the `local` overlay with locally built images, then runs the smoke
+  # test and the gateway contract suite through the Traefik ingress. Always runs, like e2e.
+  k3d:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The .NET image builds inside Docker, so the SDK is not needed on the runner.
+      - uses: ./.github/actions/setup
+        with:
+          dotnet: 'false'
+      - run: infra/k8s/scripts/install-ci-tools.sh "$RUNNER_TEMP/bin" kubectl k3d
+      - run: echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # On failure the script itself dumps `kubectl get all,events`, pod descriptions and the
+      # last 100 log lines of every container (no env values), then deletes the cluster.
+      - run: infra/k8s/scripts/k3d-e2e.sh
 
   sonar:
     needs: [test, test-int]
