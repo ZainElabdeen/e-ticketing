@@ -129,11 +129,18 @@ class Reader {
 export function parseYaml(text) {
   const reader = new Reader(text);
   const first = reader.peek();
-  return first === null ? null : reader.node(indentOf(first));
+  if (first === null) return null;
+  const value = reader.node(indentOf(first));
+  if (reader.peek() !== null) {
+    throw new Error(`yaml-lite: unsupported or inconsistent YAML at line ${reader.i + 1}`);
+  }
+  return value;
 }
 
 /** Parses a multi-document stream separated by `---` lines. */
 export function parseAllYaml(text) {
+  // Splits on every `---` line at column 0. A literal block always indents its
+  // content, so a column-0 `---` cannot occur inside one.
   return text
     .split(/^---\s*$/m)
     .filter((doc) => doc.trim() !== '')

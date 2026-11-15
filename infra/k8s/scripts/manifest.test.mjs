@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseAllYaml } from './lib/yaml-lite.mjs';
+import { parseAllYaml, parseYaml } from './lib/yaml-lite.mjs';
 import { renderHelmChartConfig, renderProd } from './render-prod.mjs';
 
 const k8sDir = fileURLToPath(new URL('..', import.meta.url));
@@ -377,10 +377,38 @@ test('Traefik HelmChartConfig keeps the client IP and issues certificates', () =
   assert.equal(doc.kind, 'HelmChartConfig');
   assert.equal(doc.metadata.name, 'traefik');
   assert.equal(doc.metadata.namespace, 'kube-system');
-  assert.match(doc.spec.valuesContent, /externalTrafficPolicy: Local/);
-  assert.match(doc.spec.valuesContent, /le:\n\s+acme:\n\s+email: ops@example\.org/);
-  assert.match(doc.spec.valuesContent, /to: websecure/);
+  const values = parseYaml(doc.spec.valuesContent);
+  assert.equal(values.service.spec.externalTrafficPolicy, 'Local');
+  assert.deepEqual(values.ports.web.http.redirections.entryPoint, {
+    to: 'websecure',
+    scheme: 'https',
+    permanent: true,
+  });
+  assert.equal(values.ports.web.redirections, undefined, 'old key is ignored by chart 41.x');
+  assert.equal(values.persistence.enabled, true);
+  assert.equal(values.persistence.path, '/data');
+  assert.equal(values.podSecurityContext.fsGroup, 65532);
+  const acme = values.certificatesResolvers.le.acme;
+  assert.equal(acme.email, 'ops@example.org');
+  assert.ok(
+    acme.storage.startsWith(`${values.persistence.path}/`),
+    'acme.json lives on the persistent path',
+  );
+  assert.equal(acme.httpChallenge.entryPoint, 'web');
 });
+
+test(
+  'rendered ConfigMap keeps 00-roles.sh intact through the parser',
+  { skip: !hasKubectl && SKIP },
+  () => {
+    const { docs } = render('local');
+    const cm = named(docs, 'ConfigMap', 'postgres-initdb');
+    assert.equal(
+      cm.data['00-roles.sh'],
+      readFileSync(join(k8sDir, '../postgres/init/00-roles.sh'), 'utf8'),
+    );
+  },
+);
 
 test('renderProd output matches what the CLI writes (sanity)', () => {
   assert.match(renderProd({ host: 'demo.example.org', tag: 'sha-abc1234' }), /sha-abc1234/);

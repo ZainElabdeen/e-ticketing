@@ -6,6 +6,7 @@
 #   (Traefik middleware and the gateway) do not collapse into one node-IP bucket.
 # - Resolver `le`: Let's Encrypt HTTP-01 on the `web` entrypoint (port 80).
 # - persistence keeps acme.json across Traefik restarts (no re-issue, no rate limit hit).
+# - Keys follow Traefik chart 41.6.1 (bundled by K3s v1.37.2+k3s1).
 # - Port 80 redirects to 443; the HTTP-01 challenge is answered before the redirect.
 apiVersion: helm.cattle.io/v1
 kind: HelmChartConfig
@@ -19,15 +20,21 @@ spec:
         externalTrafficPolicy: Local
     ports:
       web:
-        redirections:
-          entryPoint:
-            to: websecure
-            scheme: https
-            permanent: true
+        http:
+          redirections:
+            entryPoint:
+              to: websecure
+              scheme: https
+              permanent: true
     persistence:
       enabled: true
       path: /data
       size: 128Mi
+    # The chart runs Traefik as uid/gid 65532; fsGroup (merged with the chart's
+    # podSecurityContext defaults) makes the PVC group-writable for acme.json where the
+    # provisioner honours it. K3s local-path creates world-writable directories anyway.
+    podSecurityContext:
+      fsGroup: 65532
     certificatesResolvers:
       le:
         acme:

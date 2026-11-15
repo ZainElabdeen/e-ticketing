@@ -63,6 +63,16 @@ test('literal block as a sequence item, and whole-line comments', () => {
   assert.deepEqual(doc, { cmd: ['sh', 'set -eu\n# kept\necho $x\n'], next: 1 });
 });
 
+test('throws instead of truncating on unsupported input', () => {
+  assert.throws(() => parseYaml('a: 1\n  b: 2\nc: 3'), /line 2/);
+  assert.throws(() => parseYaml('a: 1\n- x'), /line 2/);
+});
+
+test('a literal block with --- indented inside survives document splitting', () => {
+  const docs = parseAllYaml('a: |\n  x\n  ---\n  y\n---\nb: 1\n');
+  assert.deepEqual(docs, [{ a: 'x\n---\ny\n' }, { b: 1 }]);
+});
+
 test('splits documents on ---', () => {
   assert.deepEqual(parseAllYaml('a: 1\n---\nb: 2\n'), [{ a: 1 }, { b: 2 }]);
 });
