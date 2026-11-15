@@ -6,9 +6,9 @@
     "node": ">=26"
   },
   "scripts": {
-    "lint": "turbo run lint && eslint infra/scripts .github/scripts",
+    "lint": "turbo run lint && eslint infra/scripts .github/scripts infra/k8s/scripts",
     "build": "turbo run build",
-    "test": "turbo run test && node --test infra/scripts/ .github/scripts/",
+    "test": "turbo run test && node --test infra/scripts/ .github/scripts/ infra/k8s/scripts/",
     "test:int": "turbo run test:int",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

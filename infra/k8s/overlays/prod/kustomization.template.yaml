@@ -1,0 +1,108 @@
+# Rendered by scripts/render-prod.mjs (fills the host and image tag placeholders)
+# into a directory two levels below infra/k8s, so ../../base resolves: the
+# git-ignored overlays/prod/kustomization.yaml, or .rendered/<name>/kustomization.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: ghcr.io/zainelabdeen/e-ticketing/ticket-service
+    newTag: '${TAG}'
+  - name: ghcr.io/zainelabdeen/e-ticketing/payment-service
+    newTag: '${TAG}'
+  - name: ghcr.io/zainelabdeen/e-ticketing/ledger-service
+    newTag: '${TAG}'
+  - name: ghcr.io/zainelabdeen/e-ticketing/gateway
+    newTag: '${TAG}'
+  - name: ghcr.io/zainelabdeen/e-ticketing/web
+    newTag: '${TAG}'
+  - name: ghcr.io/zainelabdeen/e-ticketing/migrate-tickets
+    newTag: '${TAG}'
+  - name: ghcr.io/zainelabdeen/e-ticketing/migrate-payments
+    newTag: '${TAG}'
+  - name: ghcr.io/zainelabdeen/e-ticketing/migrate-ledger
+    newTag: '${TAG}'
+patches:
+  - target:
+      kind: Deployment
+      name: ticket-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ticket-service
+      spec:
+        template:
+          spec:
+            containers:
+              - name: ticket-service
+                env:
+                  - name: SWAGGER_ENABLED
+                    value: 'false'
+  - target:
+      kind: Deployment
+      name: payment-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: payment-service
+      spec:
+        template:
+          spec:
+            containers:
+              - name: payment-service
+                env:
+                  - name: SWAGGER_ENABLED
+                    value: 'false'
+  - target:
+      kind: Deployment
+      name: ledger-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ledger-service
+      spec:
+        template:
+          spec:
+            containers:
+              - name: ledger-service
+                env:
+                  - name: SWAGGER_ENABLED
+                    value: 'false'
+  - target:
+      kind: Deployment
+      name: gateway
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: gateway
+      spec:
+        template:
+          spec:
+            containers:
+              - name: gateway
+                env:
+                  - name: SWAGGER_ENABLED
+                    value: 'false'
+                  - name: WEB_ORIGIN
+                    value: 'https://${HOST}'
+  - target:
+      kind: Ingress
+    patch: |-
+      - op: add
+        path: /spec/rules/0/host
+        value: '${HOST}'
+      - op: add
+        path: /spec/tls
+        value:
+          - hosts:
+              - '${HOST}'
+      - op: add
+        path: /metadata/annotations/traefik.ingress.kubernetes.io~1router.entrypoints
+        value: websecure
+      - op: add
+        path: /metadata/annotations/traefik.ingress.kubernetes.io~1router.tls.certresolver
+        value: le

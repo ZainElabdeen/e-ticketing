@@ -1,0 +1,73 @@
+# Daily logical backup of the whole database into its own volume. Keeps the 7
+# newest dumps. Restore: pg_restore -h postgres -U postgres -d eticketing <file>.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backups
+  labels:
+    app.kubernetes.io/name: postgres-backup
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  labels:
+    app.kubernetes.io/name: postgres-backup
+spec:
+  schedule: '0 3 * * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: postgres-backup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+            runAsGroup: 70
+            fsGroup: 70
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: pg-dump
+              image: postgres:18-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  f="/backups/eticketing-$(date -u +%Y%m%dT%H%M%SZ).dump"
+                  pg_dump -h postgres -U postgres -d eticketing -Fc -f "$f.tmp"
+                  mv "$f.tmp" "$f"
+                  ls -1t /backups/eticketing-*.dump | tail -n +8 | xargs -r rm -f --
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef: { name: eticket-secrets, key: POSTGRES_PASSWORD }
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests: { cpu: 50m, memory: 64Mi }
+                limits: { cpu: 500m, memory: 256Mi }
+              securityContext:
+                runAsNonRoot: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: backups

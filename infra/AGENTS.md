@@ -51,3 +51,14 @@ Local run guide: `docs/local-demo.md`. Commands: root `AGENTS.md`.
 - `add_header` inside a `location` drops server-level headers, so every location
   includes `docker/nginx-security-headers.conf`.
 - nginx sets `X-Forwarded-For: $remote_addr`; locally `TRUST_PROXY` is 0.
+
+## K3s manifests (`infra/k8s`, ADR-0026)
+
+- Kustomize `base` + overlays `local` (k3d) and `prod` (template filled by
+  `scripts/render-prod.mjs`). Render with `scripts/render.sh <local|dir>`; it
+  needs `--load-restrictor LoadRestrictionsNone` (the initdb ConfigMap reads
+  `infra/postgres/init/00-roles.sh`).
+- Generated, git-ignored: `infra/k8s/.env`, `overlays/prod/kustomization.yaml`,
+  `.rendered/`. The Secret `eticket-secrets` is never in git or in the render.
+- Checks: `node --test infra/k8s/scripts/` (needs `kubectl`, else skips) and
+  `infra/k8s/scripts/validate.sh` (needs `kubectl` + `kubeconform`).

@@ -45,7 +45,7 @@ export default tseslint.config(
   },
   {
     // Plain Node ESM scripts (infra/scripts, .github/scripts) use Node globals without importing them.
-    files: ['infra/scripts/**/*.mjs', '.github/scripts/**/*.mjs'],
+    files: ['infra/scripts/**/*.mjs', '.github/scripts/**/*.mjs', 'infra/k8s/scripts/**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
       globals: {

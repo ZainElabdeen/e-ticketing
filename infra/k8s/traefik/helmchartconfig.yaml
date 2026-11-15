@@ -1,0 +1,37 @@
+# K3s deploys Traefik through its Helm controller; this file tunes the bundled
+# chart. On the VM, render ${ACME_EMAIL} (scripts/render-prod.mjs
+# --acme-email) and copy the result to /var/lib/rancher/k3s/server/manifests/.
+#
+# - externalTrafficPolicy Local keeps the client IP, so the per-IP rate limits
+#   (Traefik middleware and the gateway) do not collapse into one node-IP bucket.
+# - Resolver `le`: Let's Encrypt HTTP-01 on the `web` entrypoint (port 80).
+# - persistence keeps acme.json across Traefik restarts (no re-issue, no rate limit hit).
+# - Port 80 redirects to 443; the HTTP-01 challenge is answered before the redirect.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        externalTrafficPolicy: Local
+    ports:
+      web:
+        redirections:
+          entryPoint:
+            to: websecure
+            scheme: https
+            permanent: true
+    persistence:
+      enabled: true
+      path: /data
+      size: 128Mi
+    certificatesResolvers:
+      le:
+        acme:
+          email: ${ACME_EMAIL}
+          storage: /data/acme.json
+          httpChallenge:
+            entryPoint: web
