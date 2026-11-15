@@ -29,8 +29,11 @@ const PORTS = [
   { key: 'WEB_HOST_PORT', port: 8080, label: 'web' },
 ];
 
+// KEY=value, optionally prefixed with `export` and padded with whitespace.
+const ENV_LINE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/;
+
 export const USAGE =
-  'usage: setup-local.mjs [--email <addr>] [--password-stdin] [--reset-admin] [--env <path>] [--no-ports] [--login-file <path>]';
+  'usage: setup-local.mjs [--email <addr>] [--password-stdin] [--reset-admin] [--env <path>] [--no-ports] [--login-file <path>]\n  (--password-stdin with empty input is rejected; it does not generate a password)';
 
 export function isPlaceholder(value) {
   return value === '' || /^(replace-with|change-me)/i.test(value);
@@ -39,8 +42,8 @@ export function isPlaceholder(value) {
 export function parseEnv(text) {
   const map = new Map();
   for (const line of text.split(/\r?\n/)) {
-    const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
-    if (m) map.set(m[1], m[2]);
+    const m = ENV_LINE.exec(line);
+    if (m) map.set(m[1], m[2].trim());
   }
   return map;
 }
@@ -50,7 +53,7 @@ export function unmatchedLines(text) {
   const out = [];
   text.split(/\r?\n/).forEach((line, i) => {
     if (line.trim() === '' || /^\s*#/.test(line)) return;
-    if (!/^[A-Za-z_][A-Za-z0-9_]*=/.test(line)) out.push({ number: i + 1, text: line });
+    if (!ENV_LINE.test(line)) out.push({ number: i + 1, text: line });
   });
   return out;
 }

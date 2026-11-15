@@ -180,7 +180,11 @@ test('an existing env with no port keys is left alone while the default port is 
   const before = readFileSync(env, 'utf8');
   const server = createServer();
   server.on('error', () => {});
-  await new Promise((resolve) => server.listen(3000, '127.0.0.1', resolve));
+  // Busy either way: our listener, or whatever already holds 3000 (a running stack).
+  await new Promise((resolve) => {
+    server.once('error', resolve);
+    server.listen(3000, '127.0.0.1', resolve);
+  });
   try {
     const r = run(env, [], '', { ports: true });
     assert.equal(r.status, 0, r.stderr);
@@ -229,6 +233,15 @@ test('a placeholder ADMIN_EMAIL counts as missing', () => {
   assert.equal(parseEnv(readFileSync(env, 'utf8')).get('ADMIN_EMAIL'), 'admin@eticket.local');
 });
 
+test('an `export KEY=value` line counts as the real value', () => {
+  const env = tempEnv();
+  writeFileSync(env, '  export POSTGRES_PASSWORD = real-value\n');
+  assert.equal(run(env).status, 0);
+  const out = readFileSync(env, 'utf8');
+  assert.equal(parseEnv(out).get('POSTGRES_PASSWORD'), 'real-value');
+  assert.doesNotMatch(out, /Lines kept as written/);
+});
+
 test('an existing env with mode 0644 ends at 0600', () => {
   const env = tempEnv();
   writeFileSync(env, 'POSTGRES_PASSWORD=real-value\n', { mode: 0o644 });
@@ -240,11 +253,11 @@ test('an existing env with mode 0644 ends at 0600', () => {
 
 test('unparseable lines are kept verbatim and reported by line number only', () => {
   const env = tempEnv();
-  writeFileSync(env, '# note\nexport FOO=bar-secret\nPOSTGRES_PASSWORD=real-value\n');
+  writeFileSync(env, '# note\nnot a valid line bar-secret\nPOSTGRES_PASSWORD=real-value\n');
   const r = run(env);
   assert.equal(r.status, 0, r.stderr);
   const out = readFileSync(env, 'utf8');
-  assert.match(out, /# Lines kept as written\nexport FOO=bar-secret\n/);
+  assert.match(out, /# Lines kept as written\nnot a valid line bar-secret\n/);
   assert.match(r.stdout, /line 2/);
   assert.ok(!r.stdout.includes('bar-secret'));
   const before = out;
