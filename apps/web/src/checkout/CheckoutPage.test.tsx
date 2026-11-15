@@ -276,6 +276,27 @@ describe('CheckoutPage', () => {
     const [a, b] = posts(fetch.calls).map((c) => c.headers.get('idempotency-key'));
     expect(a).not.toBe(b);
   });
+  it('keeps the payment method in the URL', async () => {
+    function Search(): React.ReactElement {
+      return <p data-testid="search">{useLocation().search}</p>;
+    }
+    const { user } = renderWithApp(
+      <>
+        <Search />
+        <Routes>
+          <Route path="/checkout/:orderId" element={<CheckoutPage />} />
+        </Routes>
+      </>,
+      { fetch: stubFetch([orderRoute()]), route: '/checkout/o-1?foo=1' },
+    );
+    await user.click(await screen.findByLabelText('QR scan'));
+    expect(screen.getByTestId('search')).toHaveTextContent('foo=1');
+    expect(screen.getByTestId('search')).toHaveTextContent('method=qr');
+    expect(screen.getByLabelText('QR scan')).toBeChecked();
+    await user.click(screen.getByLabelText('Credit card'));
+    expect(screen.getByTestId('search')).toHaveTextContent('method=card');
+    expect(screen.getByLabelText('Credit card')).toBeChecked();
+  });
 });
 
 describe('CheckoutPage under fake timers', () => {
@@ -394,8 +415,13 @@ describe('CheckoutPage under fake timers', () => {
     );
     await startQr();
     // Switch method and back while the first POST is still pending: the key is reset.
+    // Each click is its own act: the URL owns the method, so the radio only flips after the
+    // navigation renders.
     await act(async () => {
       fireEvent.click(screen.getByLabelText('Credit card'));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
       fireEvent.click(screen.getByLabelText('QR scan'));
       await vi.advanceTimersByTimeAsync(0);
     });
