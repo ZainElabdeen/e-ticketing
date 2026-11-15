@@ -55,3 +55,4 @@ command.
 | Date | Change |
 |---|---|
 | 2026-11-15 | Layered system introduced (ADR-0024): nine area files, five skills, engineering docs. |
+| 2026-11-15 | Added `web-review`, `repo-review`, `project-audit` skills and React standards in `apps/web/AGENTS.md`; Nest app shims import `nest-common/AGENTS.md`. |

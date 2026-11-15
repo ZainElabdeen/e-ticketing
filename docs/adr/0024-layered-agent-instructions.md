@@ -19,14 +19,23 @@ it. Two tools work in this repo: Claude Code and OpenCode.
   facts an agent cannot cheaply look up and that the root does not state.
 - **A one-line `CLAUDE.md` (`@AGENTS.md`)** next to each nested `AGENTS.md`.
   Claude Code loads a subdirectory `CLAUDE.md` when it first reads a file there;
-  the import resolves relative to that file. This mirrors the root pattern.
+  the import resolves relative to that file. This mirrors the root pattern. The
+  four NestJS apps' shims also import `../../packages/nest-common/AGENTS.md`,
+  so the shared Nest rules load without relying on a pointer.
 - **OpenCode** loads the nested files through globs in `opencode.json`
   `instructions`.
-- **Five workflow skills** in `.claude/skills/` (`contract-change`,
-  `sql-migration`, `add-payment-method`, `phase-gate`, `ui-walkthrough`). Both
-  Claude Code and OpenCode discover skills there.
-- **No generic skills** (React, NestJS, code review, security): the user's
-  global skills cover them, and copies would drift from the spec and ADRs.
+- **Eight workflow skills** in `.claude/skills/`, all specific to this repo:
+  `contract-change`, `sql-migration`, `add-payment-method`, `phase-gate`,
+  `ui-walkthrough`, `web-review` (React, UI/UX, tokens, accessibility,
+  responsive, performance), `repo-review` (diff review against the payment,
+  ledger, contract and security invariants) and `project-audit` (read-only
+  parallel audit). Both Claude Code and OpenCode discover skills there.
+- **React standards** live in `apps/web/AGENTS.md`, written for this app's
+  stack (TanStack Query, React Hook Form + Zod, CSS Modules under a strict CSP).
+- **No generic, stack-agnostic skills**: review and React guidance is written
+  against this repo's rules so it is visible to every tool and reviewer, not
+  only to one developer's global setup. `repo-review` is not named
+  `code-review` to avoid shadowing the built-in skill of that name.
 - **`docs/engineering/`** holds the audit, inventory, validation report and
   maintenance guide. Architecture and decisions stay in `docs/spec.md` and
   `docs/adr/`.

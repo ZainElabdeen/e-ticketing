@@ -50,5 +50,5 @@ manifests.
 | `AGENTS.md` (+ `CLAUDE.md` import) | repo-wide rules, stack, commands |
 | `CLAUDE.md` | Claude Code-only workflow and model routing |
 | `<area>/AGENTS.md` (+ `CLAUDE.md` shim) | area conventions, nine areas (ADR-0024) |
-| `.claude/skills/*/SKILL.md` | five repo workflows |
+| `.claude/skills/*/SKILL.md` | eight repo workflows |
 | `opencode.json` | OpenCode instruction globs and MCP servers |

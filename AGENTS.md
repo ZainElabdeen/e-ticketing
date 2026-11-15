@@ -8,10 +8,11 @@ This file is the single source of repo-wide rules for every AI coding tool
 - **Area rules**: each app and package with local conventions has its own
   `AGENTS.md` (`apps/*`, `packages/nest-common`, `packages/contracts`, `infra`).
   Read it before editing files there. All four NestJS apps also follow
-  `packages/nest-common/AGENTS.md`.
+  `packages/nest-common/AGENTS.md` (their `CLAUDE.md` imports both).
 - **Workflows** live in `.claude/skills/` (Claude Code and OpenCode load them):
   `contract-change`, `sql-migration`, `add-payment-method`, `phase-gate`,
-  `ui-walkthrough`. Other agents: open the `SKILL.md` that matches the task.
+  `ui-walkthrough`, `web-review`, `repo-review`, `project-audit`. Other agents:
+  open the `SKILL.md` that matches the task.
 - **Upkeep**: `docs/engineering/maintenance-guide.md`.
 
 Source of truth for requirements: `docs/challenge.md`.
