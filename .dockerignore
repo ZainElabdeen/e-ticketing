@@ -9,3 +9,10 @@ infra/.env
 !**/.env.example
 **/bin
 **/obj
+docs/
+**/*.md
+.superpowers/
+apps/web/.vitest
+**/coverage
+**/TestResults
+.github/

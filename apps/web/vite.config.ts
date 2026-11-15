@@ -17,5 +17,13 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     css: { modules: { classNameStrategy: 'non-scoped' } },
+    coverage: {
+      enabled: process.env.CI_COVERAGE === '1',
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary'],
+      reportsDirectory: 'coverage',
+      include: ['src/**'],
+      exclude: ['src/**/*.test.*', 'src/**/*.d.ts'],
+    },
   },
 });

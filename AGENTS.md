@@ -26,6 +26,8 @@ Run it locally (setup, login, seed data, test cards, demo script): `docs/local-d
   (context, decision, alternatives, trade-off).
 - Tests first for payment logic, idempotency, quota reservation and ledger posting.
 - Small conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
+- Branch flow: phase or feature branch → PR to `dev` → release PR `dev` → `main`.
+  `main` is production and the GitHub default branch; only `main` publishes images (ADR-0025).
 - Never commit secrets. Only `.env.example` files. Never read or print `.env`.
 - Check current library docs before using an API you are not sure about.
 - Do not add a dependency, service or pattern that is not listed here without
@@ -90,13 +92,14 @@ Run it locally (setup, login, seed data, test cards, demo script): `docs/local-d
   @nestjs/terminus, @nestjs/schedule, @nestjs/axios + axios (service-to-service
   HTTP, ADR-0019), @nestjs/jwt + bcryptjs (gateway auth, ADR-0022), Jest, Supertest, Testcontainers.
 - .NET: ASP.NET Core Web API, EF Core + Npgsql, FluentValidation, Swagger UI,
-  Serilog, xUnit, Testcontainers, dotnet format.
+  Serilog, xUnit, Testcontainers, dotnet format. Test-only (ADR-0025): `coverlet.collector`.
 - Web: React Router 8 (`react-router`), TanStack Query, React Hook Form + Zod,
   openapi-typescript + openapi-fetch, CSS Modules (no UI framework),
   qrcode.react, Vitest + Testing Library. No mock data. Companions (ADR-0023):
   @vitejs/plugin-react, @hookform/resolvers, jsdom, @testing-library/user-event,
   @testing-library/jest-dom, @testing-library/dom, eslint-plugin-react-hooks, globals,
-  @fontsource-variable/archivo (self-hosted font).
+  @fontsource-variable/archivo (self-hosted font). Test-only (ADR-0025):
+  @vitest/coverage-v8 (pinned to the vitest version); `dotnet-sonarscanner` joins the .NET side in the CI task.
 
 ## Commands
 
@@ -129,4 +132,6 @@ Run it locally (setup, login, seed data, test cards, demo script): `docs/local-d
 - Migrations are hand-written SQL (ADR-0015). Never run `prisma migrate dev`.
 - Web: `pnpm --filter @eticket/web dev` (Vite, proxies `/api` to the gateway; `cp apps/web/.env.example apps/web/.env` to change the target) | `pnpm --filter @eticket/web test` | `pnpm --filter @eticket/web build`
 - .NET: `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`
+- CI (ADR-0025): `.github/workflows/ci.yml` runs `verify`, `test`, `test-int`, `e2e` and `sonar` on PRs and pushes to `dev`/`main`. Coverage is opt-in: `CI_COVERAGE=1 pnpm test` / `pnpm test:int`. SonarCloud needs secret `SONAR_TOKEN`; optional repo variables `SONAR_ORGANIZATION`, `SONAR_PROJECT_KEY`, `SONAR_DOTNET_PROJECT_KEY` (defaults in the workflow). The `sonar` job skips when the secret is absent. Actions are pinned to full commit SHAs with a version comment. NuGet audit gate: `sh apps/ticket-service-dotnet/scripts/nuget-audit.sh`
+- Images (ADR-0025): `.github/workflows/images.yml` builds changed images on both arches (path filters in `.github/filters.yml`, list in `.github/images.json`) and pushes to GHCR only from `main`. A failed `main` image run is recovered by dispatching `images.yml` on `main` with `all=true`.
 - Before saying a phase is done: lint, build, test and test:int must pass.

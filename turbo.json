@@ -9,7 +9,9 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": ["CI_COVERAGE"],
+      "outputs": ["coverage/**", "TestResults/**"]
     },
     "test:contract": {
       "cache": false,
@@ -17,7 +19,9 @@
     },
     "test:int": {
       "dependsOn": ["^build"],
-      "cache": false
+      "cache": false,
+      "env": ["CI_COVERAGE"],
+      "outputs": ["coverage/**", "TestResults/**"]
     }
   }
 }
