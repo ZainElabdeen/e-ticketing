@@ -32,8 +32,10 @@ evidence (quoted code or a measured value) and a fix.
    written to storage beyond payment id/method and the session; `style=` or
    `dangerouslySetInnerHTML`; a token sent outside `/v1/backoffice/`.
 3. **UI/UX** — each journey (shop, checkout card/QR, result, backoffice) has a
-   clear primary action, visible progress (`Stepper`), feedback within 100 ms
-   of a click, and a way forward from every error. Copy is consistent (AED
+   clear primary action, a page heading that says where the user is in the
+   flow, feedback within 100 ms of a click (disabled or busy state), and a way
+   forward from every error. (`ui/Stepper` is the quantity picker, not a
+   progress indicator.) Copy is consistent (AED
    amounts via `lib/money.ts`, dates via `lib/time.ts`).
 4. **Design tokens** — colours, sizes and spacing come from
    `src/styles/tokens.css`; no raw hex or px values outside it except borders
