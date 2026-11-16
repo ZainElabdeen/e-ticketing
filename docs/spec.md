@@ -569,7 +569,10 @@ The total on `/` is a preview from listed prices; the server total from
 ## 7. Cross-cutting
 
 - **Health**: `/health/live` (process up) and `/health/ready` (DB reachable;
-  gateway: downstream `/health/live` reachable). K8s probes use them.
+  gateway: downstream `/health/live` reachable). K8s probes use them. One shared
+  `HealthModule` in `@eticket/nest-common` serves all four Nest apps. On
+  shutdown, readiness returns 503 (`shutdown: shutting_down`) and the process
+  waits `SHUTDOWN_DRAIN_MS` before closing the HTTP server (ADR-0030).
 - **Logging**: JSON (nestjs-pino / Serilog): `timestamp`, `level`, `service`,
   `correlationId`, `method`, `route`, `statusCode`, `durationMs`. Redacted:
   `card.number`, `card.cvc`, `authorization`, `x-api-key`, password fields.
@@ -597,6 +600,7 @@ The total on `/` is a preview from listed prices; the server total from
 | `TRUST_PROXY` (0) | gateway | Proxy hops trusted for the client IP (0–5) |
 | `RATE_LIMIT_DEFAULT_PER_MIN` (100), `RATE_LIMIT_ORDERS_PER_MIN` (5), `RATE_LIMIT_LOGIN_PER_MIN` (10) | gateway | Per-IP rate limits (§7) |
 | `RATE_LIMIT_WINDOW_MS` (60000) | gateway | Test-only: shortens the rate-limit window; never set in compose or K3s |
+| `SHUTDOWN_DRAIN_MS` (5000) | gateway, ticket, payment, ledger | Readiness-fail wait before the HTTP server closes (0-30000; tests 0); keep below the compose `stop_grace_period` (20s) and the pod grace period (ADR-0030) |
 | `WEB_ORIGIN` | gateway | CORS allowed origin |
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
@@ -742,3 +746,4 @@ QR → result → backoffice → balances) ships with it.
 | [0027](./adr/0027-web-visual-system-and-responsive-layout.md) | Per-area semantic tokens, 4/6/12/20px radii, 640/1024 breakpoints, container query for TicketStub, sidebar console, DESIGN.md | Two style kits, Tailwind |
 | [0028](./adr/0028-web-feature-boundaries.md) | Layers app -> features -> shared (ui, lib, api, styles, payment), shared `payment/` module, import direction enforced by core `no-restricted-imports` | `eslint-plugin-boundaries`, per-feature `index.ts`, Feature-Sliced Design |
 | [0029](./adr/0029-backoffice-summary-endpoint.md) | Gateway aggregates the tiles into `GET /v1/backoffice/summary`, all-or-nothing | Client-side fan-out; per-service summary endpoints; caching layer |
+| [0030](./adr/0030-shared-health-and-graceful-shutdown.md) | Shared Terminus `HealthModule` and bootstrap helpers in nest-common, readiness-fail drain before server close, gateway readiness keeps downstream checks (deviation) | Per-service controllers; `/health/deep`; K8s preStop sleep |

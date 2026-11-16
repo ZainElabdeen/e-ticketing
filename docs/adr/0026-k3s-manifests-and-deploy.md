@@ -3,6 +3,9 @@
 Amends ADR-0011 (host choice, "bootstrap and migrations as K8s Jobs") and
 spec section 9 ("Job before services").
 
+Amendment: `render-prod.mjs` accepts no output paths on the command line (fixed
+targets, SonarCloud jssecurity:S8707; see `docs/deployment-gcp.md`).
+
 ## Context
 
 Phase 9 deploys the stack on one K3s node behind the bundled Traefik v3. The
