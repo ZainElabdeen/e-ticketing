@@ -139,7 +139,7 @@ K3s, with `kubectl` usable without sudo (the scripts call plain `kubectl`):
 curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='v1.37.2+k3s1' sh -
 mkdir -p ~/.kube && sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
 sudo chown "$USER" ~/.kube/config && chmod 600 ~/.kube/config
-echo 'export KUBECONFIG=$HOME/.kube/config' >> ~/.bashrc && export KUBECONFIG=$HOME/.kube/config
+echo "KUBECONFIG=$HOME/.kube/config" | sudo tee -a /etc/environment && export KUBECONFIG=$HOME/.kube/config
 kubectl get nodes                                    # Ready
 ```
 
@@ -232,6 +232,63 @@ Cost, approximate list prices for `europe-west1` (check the pricing calculator):
 running; the 20 GB disk about USD 0.07 a day and the static IP a few cents a day, both also while stopped. About USD 7
 for a week running continuously; stop the VM between demos and delete it afterwards.
 
+## 11. Hardening, continuous deployment and backups (after the first deploy)
+
+SSH on the VM [VM]: key-only authentication is the Google Cloud default; root login and keyboard-interactive login
+were switched off with a drop-in, and fail2ban bans repeated failed SSH logins (its default `sshd` jail).
+
+```bash
+printf "PermitRootLogin no\nPasswordAuthentication no\nKbdInteractiveAuthentication no\n" \
+  | sudo tee /etc/ssh/sshd_config.d/60-eticket-hardening.conf
+sudo sshd -t && sudo systemctl reload ssh
+sudo apt-get install -y fail2ban && sudo systemctl enable --now fail2ban
+sudo fail2ban-client status sshd
+```
+
+Port 22 stays reachable from the internet on purpose: GitHub-hosted runners connect from many changing address
+ranges, so continuous deployment over SSH cannot use an IP allow-list. Keys are the protection.
+
+Continuous deployment [laptop, GitHub]: a dedicated deploy key, separate from the personal SSH key and revocable on
+its own, installed with forwarding and terminal allocation disabled:
+
+```bash
+ssh-keygen -t ed25519 -N '' -f ~/.ssh/eticket_deploy -C eticket-deploy
+# [VM] append to ~/.ssh/authorized_keys:
+#   no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty <contents of eticket_deploy.pub>
+ssh -o BatchMode=yes -o IdentitiesOnly=yes -i ~/.ssh/eticket_deploy <user>@<VM_IP> 'node --version && kubectl get nodes'
+```
+
+The GitHub environment `production` is limited to the `main` branch (deployment branch policy), so no other branch's
+workflow can read its secrets:
+
+```bash
+gh api -X PUT repos/<owner>/<repo>/environments/production \
+  -F 'deployment_branch_policy[protected_branches]=false' -F 'deployment_branch_policy[custom_branch_policies]=true'
+gh api -X POST repos/<owner>/<repo>/environments/production/deployment-branch-policies -f name=main -f type=branch
+gh secret set DEPLOY_HOST --env production --body <VM_IP>
+gh secret set DEPLOY_USER --env production --body <user>
+gh secret set DEPLOY_SSH_KEY --env production < ~/.ssh/eticket_deploy
+ssh-keyscan -t ed25519 <VM_IP> | gh secret set DEPLOY_KNOWN_HOSTS --env production
+```
+
+Proof: dispatching the `Deploy` workflow for the running tag (`gh workflow run deploy.yml --ref main -f tag=sha-<7>`)
+ended with `DEPLOY OK sha-<7>`. From then on every push to `main` builds the images and deploys.
+
+Backups [VM]: a manual run of the daily CronJob, then an integrity check of the newest dump with `pg_restore --list`:
+
+```bash
+kubectl -n eticketing create job --from=cronjob/postgres-backup backup-test
+kubectl -n eticketing wait --for=condition=complete job/backup-test --timeout=180s
+F=$(sudo sh -c 'ls -1t /var/lib/rancher/k3s/storage/*_eticketing_backups/eticketing-*.dump | head -1')
+sudo cat "$F" | kubectl -n eticketing exec -i postgres-0 -- pg_restore --list | grep -c 'TABLE DATA'
+kubectl -n eticketing delete job backup-test
+```
+
+The dump was written and lists every table's data. Restore steps: [infra/k8s/README.md](../infra/k8s/README.md).
+
+Repository: `main` and `dev` are protected (pull request required; required checks `verify`, `test`, `test-int`,
+`e2e`, `k3d`). SonarCloud analyses `main`, `dev` and pull requests for the TypeScript and the .NET projects.
+
 ## Problems hit and how they were solved
 
 | Problem                                                                                     | Cause                                                                                              | Fix                                                                                                |
@@ -243,6 +300,8 @@ for a week running continuously; stop the VM between demos and delete it afterwa
 | Existing VM unsuitable                                                                      | Port 80 taken by another stack; disk 97 % full                                                     | Dedicated `e2-medium` VM                                                                           |
 | `node: … libatomic.so.1: cannot open shared object file`                                     | Minimal Ubuntu image lacks `libatomic1`                                                            | `apt-get install libatomic1` (now in the guide)                                                    |
 | `-bash: HOST: No such file or directory`                                                    | A `<HOST>` placeholder typed literally; bash read it as input redirection                          | Export real values once (`export HOST=…`) and use `"$HOST"`                                        |
+| CD over SSH: `kubectl` "permission denied" on `/etc/rancher/k3s/k3s.yaml`                 | `KUBECONFIG` was exported in `~/.bashrc`, which non-interactive SSH skips; K3s' kubectl fell back to the root-only file | `KUBECONFIG` set system-wide in `/etc/environment` (now in both guides) |
+| SonarCloud gate on `main`: path traversal in `render-prod.mjs`, `[` in `render.sh`        | Output paths came straight from CLI arguments                                                      | Output paths constrained to `infra/k8s` and the temp directory; `[[ ]]` in shell                   |
 
 ## What is deliberately not in the repository
 

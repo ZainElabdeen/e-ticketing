@@ -80,7 +80,10 @@ Check: `dig +short <host>` returns the VM IP. This value is `HOST` below.
 ```bash
 curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='v1.37.2+k3s1' sh -
 sudo k3s kubectl get nodes          # Ready after about a minute
-mkdir -p ~/.kube && sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config && sudo chown "$USER" ~/.kube/config
+mkdir -p ~/.kube && sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config && sudo chown "$USER" ~/.kube/config && chmod 600 ~/.kube/config
+# System-wide, so non-interactive SSH (CD) sees it too: ~/.bashrc is skipped there, and K3s' kubectl then
+# falls back to the root-only /etc/rancher/k3s/k3s.yaml ("permission denied").
+echo "KUBECONFIG=$HOME/.kube/config" | sudo tee -a /etc/environment && export KUBECONFIG=$HOME/.kube/config
 kubectl get nodes                   # the scripts call plain `kubectl`; it must work without sudo
 ```
 
