@@ -22,8 +22,8 @@ like a payments console.
 - Responsive at 320–1920px with no horizontal page scroll anywhere.
 - Shop, checkout, QR and result in a refined **paper-ticket** style (direction A,
   informed by the Mastercard DESIGN.md from getdesign.md).
-- Backoffice in a **Stripe-style console** look (direction B tables): sidebar,
-  summary tiles, clean tabular money columns.
+- Backoffice as a **console layout** in the same shop palette and type (amended
+  2026-11-16): sidebar, summary tiles, clean tabular money columns.
 - A written design system, `apps/web/DESIGN.md`, so later agents build to it.
 - Port the useful saftaja-admin skill content into this repo's web skills.
 
@@ -137,8 +137,8 @@ Keep the existing palette values where they exist and add semantic layers.
 
 ### Shared components (`src/ui/`)
 
-- **Button:** pill radius. Primary is ink fill with card text in the shop and
-  indigo fill in the console (via `--accent`). Quiet stays outlined. Stamp red
+- **Button:** pill radius. Primary is ink fill with card text in both the shop and
+  the console (`--accent` is ink everywhere). Quiet stays outlined. Stamp red
   is **no longer the primary button colour**. It is reserved for the PAID stamp,
   errors and the brand mark. Disabled and busy states unchanged.
 - **TicketStub:** keep the notched mask. **Replace the 6px left tier band**
@@ -218,7 +218,8 @@ A new file in the getdesign.md / Google Stitch format: YAML front matter with
 the tokens (colours, type, radii, spacing, breakpoints) for both areas, then
 prose sections (theme, colour roles, type, components, layout, responsive
 rules, do's and don'ts, and an agent prompt guide). It states that it adapts the
-Mastercard (shop) and Stripe (console) analyses from getdesign.md. Tokens in
+Mastercard analysis from getdesign.md for both areas (the console reuses it;
+it differs in layout and density only). Tokens in
 `DESIGN.md` must match `tokens.css` and `apps/web/AGENTS.md` links to it.
 
 ### Rule changes and records

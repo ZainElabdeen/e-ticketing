@@ -43,4 +43,7 @@ describe('colour tokens meet WCAG AA (4.5:1)', () => {
   it('--card on --ink (primary button text)', () => {
     expect(contrast(token('card'), token('ink'))).toBeGreaterThanOrEqual(4.5);
   });
+  it('--ink on --card (form-control borders, non-text 3:1)', () => {
+    expect(contrast(token('ink'), token('card'))).toBeGreaterThanOrEqual(3);
+  });
 });
