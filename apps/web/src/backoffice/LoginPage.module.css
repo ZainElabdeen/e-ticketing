@@ -50,3 +50,10 @@
 .submit {
   justify-self: start;
 }
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: var(--space-3);
+}

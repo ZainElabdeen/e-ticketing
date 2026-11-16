@@ -48,6 +48,11 @@ describe('LoginPage', () => {
     );
   });
 
+  it('links back to the shop', () => {
+    renderLogin([]);
+    expect(screen.getByRole('link', { name: 'Back to shop' })).toHaveAttribute('href', '/');
+  });
+
   it('wrong password shows a clear error', async () => {
     const { user } = renderLogin([
       login(401, { code: 'INVALID_CREDENTIALS', message: 'nope', correlationId: 'c' }),

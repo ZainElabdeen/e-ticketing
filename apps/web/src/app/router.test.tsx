@@ -21,6 +21,13 @@ describe('route errors', () => {
     await waitFor(() => expect(document.title).toBe('Page not found · E-Ticket'));
   });
 
+  it('keeps the shop header on a not-found page under /backoffice', async () => {
+    const router = createMemoryRouter(routes, { initialEntries: ['/backoffice/nope'] });
+    render(<RouterProvider router={router} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'E-Ticket' })).toHaveAttribute('href', '/');
+  });
+
   it('renders a generic error page when a route element throws', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     function Boom(): never {

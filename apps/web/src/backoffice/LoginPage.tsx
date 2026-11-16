@@ -2,7 +2,7 @@ import { useDocumentTitle } from '../app/useDocumentTitle';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
-import { Navigate } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { z } from 'zod';
 import { ApiError, messageFor } from '../api/errors';
 import { Banner } from '../ui/Banner';
@@ -102,6 +102,9 @@ export function LoginPage(): ReactElement {
           Sign in
         </Button>
       </form>
+      <Link to="/" className={styles.back}>
+        Back to shop
+      </Link>
     </section>
   );
 }
