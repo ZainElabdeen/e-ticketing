@@ -8,7 +8,11 @@ Shared by `apps/gateway`, `apps/ticket-service`, `apps/payment-service`,
 `src/index.ts` exports: `ApiKeyGuard`, `API_KEYS`, `@Public()`, `@Internal()`,
 `configureApp`, `pinoHttpOptions`, `correlationIdOf`, `ErrorEnvelopeFilter`,
 `DomainError`, `FallbackModule`, `isUniqueViolation(err, constraint)`, `toMinor`,
-`schemaOf`, `createValidationPipe`, `trimTrailingSlashes`. A helper needed by two services belongs here
+`schemaOf`, `createValidationPipe`, `trimTrailingSlashes`,
+`HealthModule.forRoot({ checks, imports, timeoutMs, drainMs })` (check
+dependencies must come from an imported module that exports them), `ReadinessCheck`,
+`prismaReadinessCheck(token)`, `ShutdownState`,
+`resolveContractFile(distDir, service)`, `bootstrapService(createApp)`, `runIfMain(module, fn)`. A helper needed by two services belongs here
 (ADR-0020).
 
 ## App wiring

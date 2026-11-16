@@ -81,6 +81,7 @@ services:
       migrate-tickets:
         condition: service_completed_successfully
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3001
       DATABASE_URL: postgresql://tickets_app:${TICKETS_APP_PASSWORD:?set TICKETS_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
       PUBLIC_API_KEY_TICKET: ${PUBLIC_API_KEY_TICKET:?set PUBLIC_API_KEY_TICKET in infra/.env}
@@ -117,6 +118,7 @@ services:
       migrate-tickets:
         condition: service_completed_successfully
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3001
       DATABASE_URL: postgresql://tickets_app:${TICKETS_APP_PASSWORD:?set TICKETS_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
       PUBLIC_API_KEY_TICKET: ${PUBLIC_API_KEY_TICKET:?set PUBLIC_API_KEY_TICKET in infra/.env}
@@ -133,6 +135,8 @@ services:
       retries: 20
       start_period: 5s
     restart: unless-stopped
+    # Above the 5 s shutdown drain (SHUTDOWN_DRAIN_MS) plus in-flight requests and job drain.
+    stop_grace_period: 20s
 
   payment-service:
     build:
@@ -152,6 +156,7 @@ services:
       ledger-service:
         condition: service_started
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3002
       DATABASE_URL: postgresql://payments_app:${PAYMENTS_APP_PASSWORD:?set PAYMENTS_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=payments
       PUBLIC_API_KEY_PAYMENT: ${PUBLIC_API_KEY_PAYMENT:?set PUBLIC_API_KEY_PAYMENT in infra/.env}
@@ -173,6 +178,8 @@ services:
       retries: 20
       start_period: 5s
     restart: unless-stopped
+    # Above the 5 s shutdown drain (SHUTDOWN_DRAIN_MS) plus in-flight requests and job drain.
+    stop_grace_period: 20s
 
   ledger-service:
     build:
@@ -187,6 +194,7 @@ services:
       migrate-ledger:
         condition: service_completed_successfully
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3003
       DATABASE_URL: postgresql://ledger_app:${LEDGER_APP_PASSWORD:?set LEDGER_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=ledger
       PUBLIC_API_KEY_LEDGER: ${PUBLIC_API_KEY_LEDGER:?set PUBLIC_API_KEY_LEDGER in infra/.env}
@@ -202,6 +210,8 @@ services:
       retries: 20
       start_period: 5s
     restart: unless-stopped
+    # Above the 5 s shutdown drain (SHUTDOWN_DRAIN_MS) plus in-flight requests and job drain.
+    stop_grace_period: 20s
 
   # Public edge (spec section 6): the only service the browser talks to. It holds the three
   # public keys and the admin credentials, never an internal key.
@@ -221,6 +231,7 @@ services:
       ledger-service:
         condition: service_healthy
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3000
       TICKET_SERVICE_URL: http://ticket-service:3001
       PAYMENT_SERVICE_URL: http://payment-service:3002
@@ -246,6 +257,8 @@ services:
       retries: 20
       start_period: 5s
     restart: unless-stopped
+    # Above the 5 s shutdown drain (SHUTDOWN_DRAIN_MS) plus in-flight requests and job drain.
+    stop_grace_period: 20s
 
   # The SPA (spec section 5): nginx serves the Vite build and proxies /api/ to the gateway,
   # so the browser has one origin and the gateway needs no CORS in this setup.

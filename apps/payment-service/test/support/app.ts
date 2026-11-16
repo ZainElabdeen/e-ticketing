@@ -33,6 +33,7 @@ export async function startPaymentService(
       QR_JOB_ENABLED: 'false',
       OUTBOX_ENABLED: 'false',
       LOG_LEVEL: 'silent',
+      SHUTDOWN_DRAIN_MS: '0',
       ...overrides,
     },
     options,

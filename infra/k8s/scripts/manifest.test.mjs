@@ -2,7 +2,7 @@
 // kubectl is not on PATH; CI installs it (Task 4 of the Phase 9 plan).
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -33,17 +33,16 @@ function render(overlay) {
 }
 
 function renderProdSample() {
-  const dir = join(k8sDir, '.rendered', `test-${process.pid}`);
-  mkdirSync(dir, { recursive: true });
+  const dir = join(k8sDir, '.rendered', 'validate');
   try {
     execFileSync('node', [
       join(k8sDir, 'scripts/render-prod.mjs'),
+      '--target',
+      'validate',
       '--host',
       'demo.example.org',
       '--tag',
       'sha-abc1234',
-      '--out',
-      dir,
     ]);
     return render(dir);
   } finally {
@@ -170,6 +169,11 @@ test(
     const limit = named(docs, 'Middleware', 'api-ratelimit').spec.rateLimit;
     assert.deepEqual([limit.average, limit.burst, limit.period], [20, 50, '1s']);
     assert.equal(limit.sourceCriterion.ipStrategy.depth, 0);
+    assert.equal(
+      docs.some((d) => d.kind === 'Middleware' && d.metadata.name === 'security-headers'),
+      false,
+      'HSTS must not reach the plain-HTTP local overlay',
+    );
   },
 );
 
@@ -366,7 +370,21 @@ test(
       named(docs, 'Ingress', 'web').metadata.annotations[
         'traefik.ingress.kubernetes.io/router.middlewares'
       ],
-      undefined,
+      'eticketing-security-headers@kubernetescrd',
+    );
+    const hsts = named(docs, 'Middleware', 'security-headers');
+    assert.equal(hsts.metadata.namespace, 'eticketing');
+    assert.deepEqual(hsts.spec.headers, {
+      stsSeconds: 15552000,
+      stsIncludeSubdomains: false,
+      stsPreload: false,
+      forceSTSHeader: false,
+    });
+    assert.doesNotMatch(
+      named(docs, 'Ingress', 'api').metadata.annotations[
+        'traefik.ingress.kubernetes.io/router.middlewares'
+      ],
+      /security-headers/,
     );
   },
 );

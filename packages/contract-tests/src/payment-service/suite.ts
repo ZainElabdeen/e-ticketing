@@ -7,7 +7,7 @@
  */
 import { ContractValidator } from '../validator';
 import { register as registerAuth } from './auth.contract';
-import { register as registerHealth } from './health.contract';
+import { registerHealthContract } from '../health';
 import { register as registerPayments } from './payments.contract';
 import { register as registerTransactions } from './transactions.contract';
 import type { PaymentContractTarget } from './target';
@@ -15,7 +15,7 @@ import type { PaymentContractTarget } from './target';
 export function runPaymentServiceContract(getTarget: () => PaymentContractTarget): void {
   describe('payment-service contract', () => {
     const validator = ContractValidator.load('payment-service');
-    registerHealth(getTarget, validator);
+    registerHealthContract(() => getTarget().baseUrl, validator);
     registerAuth(getTarget, validator);
     registerPayments(getTarget, validator);
     registerTransactions(getTarget, validator);

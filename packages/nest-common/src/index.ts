@@ -1,4 +1,5 @@
 export * from './api-key.guard';
+export * from './bootstrap';
 export * from './configure-app';
 export * from './correlation-id';
 export * from './db-errors';
@@ -11,3 +12,4 @@ export * from './money';
 export * from './schema';
 export * from './validation';
 export * from './url';
+export * from './health';

@@ -21,7 +21,8 @@ cluster=eticketing
 ns=eticketing
 host_port=8081
 base_url="http://localhost:${host_port}"
-k3s_image="rancher/k3s:v1.37.2-k3s1"
+# Pinned by the multi-arch index digest. Refresh: docker buildx imagetools inspect rancher/k3s:<tag> (top-level Digest).
+k3s_image="rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332"
 env_file=infra/k8s/.env
 
 keep=0
@@ -200,12 +201,8 @@ done
 [[ $got429 -eq 1 ]] || fail "no 429 within 11 login attempts: a spoofed X-Forwarded-For escaped the limit"
 
 step "Traefik HelmChartConfig (redirect, client IP, ACME volume)"
-traefik_yaml="$tmp/traefik.yaml"
-overlay_dir="infra/k8s/.rendered/k3d-e2e-$$"
-mkdir -p "$overlay_dir"
-node "$scripts/render-prod.mjs" --host demo.example.org --tag sha-abc1234 --out "$overlay_dir" \
-  --acme-email ci@example.test --traefik-out "$traefik_yaml" >/dev/null
-rm -rf "$overlay_dir"
+node "$scripts/render-prod.mjs" --traefik --acme-email ci@example.test >/dev/null
+traefik_yaml="infra/k8s/.rendered/traefik-config.yaml"
 job_uid_before="$(kubectl -n kube-system get job helm-install-traefik -o jsonpath='{.metadata.uid}' 2>/dev/null || true)"
 kubectl apply -f "$traefik_yaml"
 # The Helm controller upgrades the chart in a fresh helm-install-traefik job.

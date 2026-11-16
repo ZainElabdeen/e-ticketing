@@ -11,7 +11,7 @@ import { register as registerAllowList } from './allow-list.contract';
 import { register as registerAuth } from './auth.contract';
 import { register as registerBackoffice } from './backoffice.contract';
 import { createContext } from './context';
-import { register as registerHealth } from './health.contract';
+import { registerHealthContract } from '../health';
 import { register as registerShop } from './shop.contract';
 import type { GatewayContractTarget } from './target';
 
@@ -19,7 +19,7 @@ export function runGatewayContract(getTarget: () => GatewayContractTarget): void
   describe('gateway contract', () => {
     const validator = ContractValidator.load('gateway');
     const ctx = createContext(getTarget);
-    registerHealth(getTarget, validator);
+    registerHealthContract(() => getTarget().baseUrl, validator);
     registerShop(getTarget, validator);
     registerAuth(getTarget, validator, ctx);
     registerBackoffice(getTarget, validator, ctx);

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Fills the placeholders of the prod overlay and the Traefik HelmChartConfig.
 //
-//   node infra/k8s/scripts/render-prod.mjs --host <dns> --tag <sha-xxxxxxx> --out <dir>
-//        [--acme-email <addr> --traefik-out <file>]
+//   node infra/k8s/scripts/render-prod.mjs --target <prod|validate> --host <dns> --tag <sha-xxxxxxx>
+//   node infra/k8s/scripts/render-prod.mjs --traefik --acme-email <addr>
 //
-// --out receives kustomization.yaml and must sit two levels below infra/k8s
-// (overlays/prod, or .rendered/<name>) so its `../../base` resolves; the
-// generated files are git-ignored. Then: scripts/render.sh <dir>.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+// No path is taken from the command line. --target picks one of two fixed
+// directories (prod -> overlays/prod, validate -> .rendered/validate)
+// that receive kustomization.yaml; --traefik writes .rendered/traefik-config.yaml and
+// prints its path. The generated files are git-ignored. Then: scripts/render.sh <dir>.
+import { lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -39,6 +40,23 @@ export function isDnsName(value) {
   );
 }
 
+function lstatOrNull(path) {
+  try {
+    return lstatSync(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+/** Writes a fresh file: never follows a link planted at the path (`wx` fails on any existing entry). */
+function writeFresh(file, text) {
+  const existing = lstatOrNull(file);
+  if (existing?.isSymbolicLink()) throw new Error(`${file} is a symbolic link`);
+  if (existing?.isFile()) unlinkSync(file);
+  writeFileSync(file, text, { flag: 'wx' });
+}
+
 function fill(template, values) {
   return template.replace(/\$\{([A-Z_]+)\}/g, (whole, name) => values[name] ?? whole);
 }
@@ -60,28 +78,61 @@ export function renderHelmChartConfig({ acmeEmail }) {
   return fill(readFileSync(helmChartConfig, 'utf8'), { ACME_EMAIL: acmeEmail });
 }
 
+/** Fixed output directory under `root` (the infra/k8s directory) for a literal target name. */
+function overlayDir(root, target) {
+  switch (target) {
+    case 'prod':
+      return join(root, 'overlays', 'prod');
+    case 'validate':
+      return join(root, '.rendered', 'validate');
+    default:
+      return null;
+  }
+}
+
+/** Writes <root>/<fixed dir for target>/kustomization.yaml. Returns the file, or null for an unknown target. */
+export function writeOverlay(root, target, { host, tag }) {
+  const dir = overlayDir(root, target);
+  if (dir === null) return null;
+  const text = renderProd({ host, tag });
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, 'kustomization.yaml');
+  writeFresh(file, text);
+  return file;
+}
+
+/** Writes <root>/.rendered/traefik-config.yaml and returns its path. */
+export function writeTraefikConfig(root, { acmeEmail }) {
+  const text = renderHelmChartConfig({ acmeEmail });
+  const dir = join(root, '.rendered');
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, 'traefik-config.yaml');
+  writeFresh(file, text);
+  return file;
+}
+
 function main(argv) {
   const { values } = parseArgs({
     args: argv,
     options: {
+      target: { type: 'string' },
       host: { type: 'string' },
       tag: { type: 'string' },
-      out: { type: 'string' },
+      traefik: { type: 'boolean' },
       'acme-email': { type: 'string' },
-      'traefik-out': { type: 'string' },
     },
   });
-  if (values.out === undefined) throw new Error('--out <dir> is required');
-  const kustomization = renderProd({ host: values.host, tag: values.tag });
-  mkdirSync(values.out, { recursive: true });
-  writeFileSync(join(values.out, 'kustomization.yaml'), kustomization);
-  if (values['traefik-out'] !== undefined) {
-    writeFileSync(
-      values['traefik-out'],
-      renderHelmChartConfig({ acmeEmail: values['acme-email'] }),
-    );
-  } else if (values['acme-email'] !== undefined) {
-    throw new Error('--acme-email needs --traefik-out <file>');
+  if (values.traefik) {
+    if (values.target !== undefined || values.host !== undefined || values.tag !== undefined) {
+      throw new Error('--traefik cannot be combined with --target, --host or --tag');
+    }
+    console.log(writeTraefikConfig(k8sDir, { acmeEmail: values['acme-email'] }));
+    return;
+  }
+  if (values['acme-email'] !== undefined) throw new Error('--acme-email needs --traefik');
+  if (writeOverlay(k8sDir, values.target, { host: values.host, tag: values.tag }) === null) {
+    console.error('render-prod: --target must be one of prod, validate');
+    process.exit(2);
   }
 }
 

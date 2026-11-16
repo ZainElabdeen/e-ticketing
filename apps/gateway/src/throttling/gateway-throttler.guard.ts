@@ -11,6 +11,16 @@ import { ThrottlerGuard } from '@nestjs/throttler';
  */
 @Injectable()
 export class GatewayThrottlerGuard extends ThrottlerGuard {
+  /**
+   * Health probes are never rate limited. The shared health controller carries
+   * no throttle metadata, so the exemption lives here (the match is exact-case on purpose: case variants
+   * are throttled, the safe direction).
+   */
+  protected override shouldSkip(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest<{ path?: string }>();
+    return Promise.resolve(req.path === '/health/live' || req.path === '/health/ready');
+  }
+
   protected override generateKey(context: ExecutionContext, tracker: string, name: string): string {
     if (name === 'default') {
       return createHash('sha256').update(`${tracker}:default`).digest('hex');

@@ -11,7 +11,7 @@
 # infra/postgres/init/00-roles.sh, the single source shared with compose.
 set -euo pipefail
 
-if [ "$#" -ne 1 ]; then
+if [[ "$#" -ne 1 ]]; then
   echo "usage: render.sh <local|prod|directory>" >&2
   exit 2
 fi
@@ -22,7 +22,7 @@ case "$1" in
   *) dir="$1" ;;
 esac
 
-if [ ! -f "$dir/kustomization.yaml" ]; then
+if [[ ! -f "$dir/kustomization.yaml" ]]; then
   echo "render.sh: no kustomization.yaml in $dir" >&2
   exit 1
 fi

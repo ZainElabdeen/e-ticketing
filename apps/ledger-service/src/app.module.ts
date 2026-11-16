@@ -1,19 +1,20 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TerminusModule } from '@nestjs/terminus';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 import {
   API_KEYS,
   ApiKeyGuard,
   FallbackModule,
+  HealthModule,
   pinoHttpOptions,
+  prismaReadinessCheck,
   type ApiKeys,
 } from '@eticket/nest-common';
+import { PrismaModule } from './common/prisma.module';
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
-import { HealthController } from './health/health.controller';
 import { AccountsController } from './ledger/accounts.controller';
 import { JournalEntriesController } from './ledger/journal-entries.controller';
 import { LedgerRepository } from './ledger/ledger.repository';
@@ -51,18 +52,17 @@ export function createAppModule(
           }),
         }),
       }),
-      TerminusModule,
+      PrismaModule,
+      HealthModule.forRoot({
+        imports: [PrismaModule],
+        checks: [prismaReadinessCheck(PrismaService)],
+        drainMs: env.SHUTDOWN_DRAIN_MS,
+      }),
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [
-      HealthController,
-      PostingsController,
-      JournalEntriesController,
-      AccountsController,
-    ],
+    controllers: [PostingsController, JournalEntriesController, AccountsController],
     providers: [
-      PrismaService,
       LedgerRepository,
       PostingsService,
       {
@@ -75,7 +75,6 @@ export function createAppModule(
       },
       { provide: APP_GUARD, useClass: ApiKeyGuard },
     ],
-    exports: [PrismaService],
   })
   class AppModule {}
 

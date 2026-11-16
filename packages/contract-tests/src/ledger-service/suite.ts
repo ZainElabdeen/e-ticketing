@@ -7,7 +7,7 @@
  */
 import { ContractValidator } from '../validator';
 import { register as registerAuth } from './auth.contract';
-import { register as registerHealth } from './health.contract';
+import { registerHealthContract } from '../health';
 import { register as registerPostings } from './postings.contract';
 import { register as registerReads } from './reads.contract';
 import type { LedgerContractTarget } from './target';
@@ -15,7 +15,7 @@ import type { LedgerContractTarget } from './target';
 export function runLedgerServiceContract(getTarget: () => LedgerContractTarget): void {
   describe('ledger-service contract', () => {
     const validator = ContractValidator.load('ledger-service');
-    registerHealth(getTarget, validator);
+    registerHealthContract(() => getTarget().baseUrl, validator);
     registerAuth(getTarget, validator);
     registerPostings(getTarget, validator);
     registerReads(getTarget, validator);
