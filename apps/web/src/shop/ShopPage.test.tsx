@@ -103,6 +103,18 @@ describe('ShopPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the ticket count next to the total', async () => {
+    const { user } = renderShop();
+    await screen.findByText('Sold out');
+    expect(screen.queryByText(/^\d+ tickets?$/u)).not.toBeInTheDocument();
+    const gold = within(stubOf('Gold'));
+    await user.click(gold.getByRole('button', { name: /increase/iu }));
+    expect(screen.getByText('1 ticket')).toBeInTheDocument();
+    await user.click(gold.getByRole('button', { name: /increase/iu }));
+    await user.click(within(stubOf('Premium')).getByRole('button', { name: /increase/iu }));
+    expect(screen.getByText('3 tickets')).toBeInTheDocument();
+  });
+
   it('checkout posts only selected lines and navigates', async () => {
     const { user, fetch } = renderShop([
       typesRoute,

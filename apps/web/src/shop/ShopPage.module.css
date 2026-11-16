@@ -8,7 +8,23 @@
 
 .list {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .list > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1024px) {
+  .list {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .name {
@@ -28,15 +44,10 @@
   font-size: var(--text-sm);
 }
 
-.footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 32px;
-  padding-top: 16px;
-  border-top: 1px solid var(--rule);
+.count {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
 }
 
 .total {

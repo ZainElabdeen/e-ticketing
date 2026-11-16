@@ -8,6 +8,7 @@ import type { TicketType } from '../api/types';
 import { formatMinor, sumMinor } from '../lib/money';
 import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
+import { StickyBar } from '../ui/StickyBar';
 import { Stepper } from '../ui/Stepper';
 import { TicketStub } from '../ui/TicketStub';
 import styles from './ShopPage.module.css';
@@ -38,6 +39,7 @@ export function ShopPage(): ReactElement {
   const quantityOf = (t: TicketType): number => Math.min(selected[t.code] ?? 0, maxFor(t));
   const lines = list.map((t) => ({ ...t, quantity: quantityOf(t) }));
   const total = sumMinor(lines);
+  const count = lines.reduce((n, l) => n + l.quantity, 0);
   const currency = list[0]?.currency ?? 'AED';
 
   const order = useMutation({
@@ -112,14 +114,17 @@ export function ShopPage(): ReactElement {
               </TicketStub>
             ))}
           </div>
-          <div className={styles.footer}>
+          <StickyBar>
+            {count > 0 ? (
+              <p className={styles.count}>{count === 1 ? '1 ticket' : `${count} tickets`}</p>
+            ) : null}
             <p className={styles.total}>
               Total <strong>{formatMinor(total, currency)}</strong>
             </p>
             <Button disabled={total === 0 || order.isPending || order.isSuccess} onClick={checkout}>
               Checkout
             </Button>
-          </div>
+          </StickyBar>
         </>
       ) : null}
     </section>
