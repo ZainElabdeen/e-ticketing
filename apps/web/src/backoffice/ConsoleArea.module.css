@@ -1,5 +1,7 @@
 /* The body reads :root tokens, so the area paints its own background and text colour. */
 .area {
+  /* flow-root stops a child margin (the login card's top margin) collapsing out and exposing the body colour above the area. */
+  display: flow-root;
   min-height: 100dvh;
   background: var(--surface);
   color: var(--text);
