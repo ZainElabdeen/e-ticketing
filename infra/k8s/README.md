@@ -94,6 +94,7 @@ V=$(curl -fsSL https://nodejs.org/dist/latest-v26.x/SHASUMS256.txt | grep -o 'no
 F=node-$V-linux-x64.tar.xz
 cd "$(mktemp -d)" && curl -fsSLO https://nodejs.org/dist/$V/$F && curl -fsSL https://nodejs.org/dist/$V/SHASUMS256.txt | grep " $F\$" | sha256sum -c -
 sudo tar -xJf "$F" -C /usr/local --strip-components=1 --no-same-owner
+sudo apt-get install -y libatomic1   # minimal cloud Ubuntu images lack it; node fails with "libatomic.so.1" without it
 sudo npm i -g pnpm@10.34.9
 node --version        # v26.x
 ```
