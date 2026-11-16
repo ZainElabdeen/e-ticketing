@@ -1,8 +1,7 @@
 .banner {
   margin: 0 0 var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
-  border-left-width: 6px;
+  border: 1.5px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface-raised);
   color: var(--text);
