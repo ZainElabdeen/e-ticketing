@@ -9,11 +9,22 @@ import { recallPayment, rememberPayment } from './paymentMemory';
 
 export type BannerState = { tone: 'error' | 'info'; text: string };
 
+export interface CheckoutPayment {
+  busy: boolean;
+  banner: BannerState | null;
+  setBanner: (b: BannerState | null) => void;
+  notPayable: boolean;
+  paid: boolean;
+  recalled: boolean;
+  newKey: () => void;
+  pay: (method: Method, card?: CardDetails, setNumberError?: (m: string) => void) => Promise<void>;
+}
+
 export function useCheckoutPayment(props: {
   api: Api;
   order: Order;
   setOtherWindow: (v: boolean) => void;
-}) {
+}): CheckoutPayment {
   const { api, order, setOtherWindow } = props;
   const orderId = order.id;
   const navigate = useNavigate();
@@ -42,7 +53,7 @@ export function useCheckoutPayment(props: {
     else setPaidElsewhere(true);
   };
 
-  // Maps a failed submit to the spec §5 table. Returns true when it handled the error.
+  // Maps a failed submit to the spec §5 table: sets banner or page state, or navigates.
   const handleError = (e: unknown, setNumberError?: (m: string) => void): void => {
     if (!(e instanceof ApiError)) {
       setBanner({ tone: 'error', text: GENERIC_MESSAGE });

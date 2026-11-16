@@ -33,7 +33,7 @@ export function CheckoutClosed(props: Props): ReactElement {
   }
   const { gone, method, total } = props;
   return (
-    <div className={styles.pane}>
+    <div className={`${styles.pane} ${styles.closed}`}>
       <p className={styles.notice}>This order has expired</p>
       <div className={styles.actions}>
         {gone ? null : (

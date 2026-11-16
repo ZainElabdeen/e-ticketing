@@ -13,20 +13,21 @@ export function OrderSummary(props: {
 }): ReactElement {
   const { order, total, countdown } = props;
   return (
-    <>
-      {countdown}
-      <TicketStub tier="NEUTRAL" stub={<p className={styles.amount}>{total}</p>}>
-        <ul className={styles.lines}>
-          {order.items.map((item) => (
-            <li key={item.ticketTypeCode} className={styles.line}>
-              <span className={styles.lineName}>
-                {TIER_NAMES[item.ticketTypeCode] ?? item.ticketTypeCode} × {item.quantity}
-              </span>
-              <span>{formatMinor(item.lineTotalMinor, order.currency)}</span>
-            </li>
-          ))}
-        </ul>
-      </TicketStub>
-    </>
+    <TicketStub
+      tier="NEUTRAL"
+      eyebrow={<>Your order{countdown ? <> · {countdown}</> : null}</>}
+      stub={<p className={styles.amount}>{total}</p>}
+    >
+      <ul className={styles.lines}>
+        {order.items.map((item) => (
+          <li key={item.ticketTypeCode} className={styles.line}>
+            <span className={styles.lineName}>
+              {TIER_NAMES[item.ticketTypeCode] ?? item.ticketTypeCode} × {item.quantity}
+            </span>
+            <span>{formatMinor(item.lineTotalMinor, order.currency)}</span>
+          </li>
+        ))}
+      </ul>
+    </TicketStub>
   );
 }

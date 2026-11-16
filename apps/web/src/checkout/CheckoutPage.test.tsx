@@ -321,6 +321,19 @@ describe('CheckoutPage under fake timers', () => {
   };
   const qrRoute = '/checkout/o-1?method=qr';
 
+  it('removes the Pay button when the order expires', async () => {
+    renderCheckout([orderRoute(order({ expiresAt: new Date(Date.now() + 2000).toISOString() }))]);
+    await tick(50);
+    expect(screen.getByRole('button', { name: /^Pay / })).toBeEnabled();
+    await tick(3000);
+    expect(screen.getByText('This order has expired')).toBeInTheDocument();
+    expect(
+      screen
+        .queryAllByRole('button', { name: /^Pay / })
+        .every((b) => (b as HTMLButtonElement).disabled),
+    ).toBe(true);
+  });
+
   it.each([
     ['UPSTREAM_UNAVAILABLE', 502],
     ['INTERNAL_ERROR', 500],

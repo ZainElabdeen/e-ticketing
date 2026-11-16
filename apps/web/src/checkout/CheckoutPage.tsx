@@ -1,21 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactElement } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { useParams } from 'react-router';
 import { useDocumentTitle } from '../app/useDocumentTitle';
-import { useApi, type Api } from '../api/client';
+import { useApi } from '../api/client';
 import { ApiError, call, isRetryable, messageFor } from '../api/errors';
-import type { Order } from '../api/types';
-import { formatMinor } from '../lib/money';
-import { formatRemaining } from '../lib/time';
 import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
-import { CardForm } from './CardForm';
-import { CheckoutClosed, StartOver } from './CheckoutClosed';
+import { CheckoutBody } from './CheckoutBody';
+import { StartOver } from './CheckoutClosed';
 import styles from './CheckoutPage.module.css';
-import { MethodPicker, type Method } from './MethodPicker';
-import { OrderSummary } from './OrderSummary';
-import { useCheckoutPayment } from './useCheckoutPayment';
-import { useCountdown } from './useCountdown';
 
 const orderKey = (orderId: string) => ['order', orderId] as const;
 
@@ -62,98 +55,5 @@ export function CheckoutPage(): ReactElement {
       reconnecting={otherWindow && order.isRefetchError}
       refetch={() => void order.refetch()}
     />
-  );
-}
-
-function CheckoutBody(props: {
-  api: Api;
-  order: Order;
-  otherWindow: boolean;
-  setOtherWindow: (v: boolean) => void;
-  reconnecting: boolean;
-  refetch: () => void;
-}): ReactElement {
-  const { api, order, otherWindow, setOtherWindow, reconnecting, refetch } = props;
-  const [search, setSearch] = useSearchParams();
-  // The URL owns the method, so a refresh keeps the choice.
-  const method: Method = search.get('method') === 'qr' ? 'QR' : 'CARD';
-  const { remainingMs, expired } = useCountdown(order.expiresAt);
-  const { busy, banner, setBanner, notPayable, paid, recalled, newKey, pay } = useCheckoutPayment({
-    api,
-    order,
-    setOtherWindow,
-  });
-
-  const total = formatMinor(order.totalMinor, order.currency);
-  const gone = order.status === 'EXPIRED' || notPayable;
-  const payDisabled = busy || expired || otherWindow;
-
-  if (paid) return <CheckoutClosed kind="paid" recalled={recalled} />;
-
-  const changeMethod = (m: Method): void => {
-    setSearch(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('method', m === 'QR' ? 'qr' : 'card');
-        return next;
-      },
-      { replace: true },
-    );
-    newKey();
-  };
-
-  return (
-    <section>
-      <div className={styles.head}>
-        <h1>Your order</h1>
-        {gone ? null : (
-          <p className={styles.countdown} role="timer">
-            Valid for {formatRemaining(remainingMs)}
-          </p>
-        )}
-      </div>
-      {reconnecting ? <p className={styles.quiet}>Reconnecting…</p> : null}
-
-      <OrderSummary order={order} total={total} />
-
-      {gone || expired ? (
-        <CheckoutClosed kind="expired" gone={gone} method={method} total={total} />
-      ) : (
-        <>
-          <MethodPicker method={method} onChange={changeMethod} />
-
-          <div className={styles.pane}>
-            {banner ? <Banner tone={banner.tone}>{banner.text}</Banner> : null}
-            {otherWindow ? (
-              <div className={styles.actions}>
-                <Button
-                  variant="quiet"
-                  onClick={() => {
-                    setOtherWindow(false);
-                    setBanner(null);
-                    refetch();
-                  }}
-                >
-                  Check again
-                </Button>
-                <StartOver />
-              </div>
-            ) : null}
-            {method === 'CARD' ? (
-              <CardForm
-                payLabel={`Pay ${total}`}
-                disabled={payDisabled}
-                onEdit={newKey}
-                onSubmit={(card, setNumberError) => pay('CARD', card, setNumberError)}
-              />
-            ) : (
-              <Button disabled={payDisabled} onClick={() => void pay('QR')}>
-                Show QR code
-              </Button>
-            )}
-          </div>
-        </>
-      )}
-    </section>
   );
 }

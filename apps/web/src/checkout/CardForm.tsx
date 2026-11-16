@@ -3,6 +3,7 @@ import { useMemo, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 import type { CardDetails } from '../api/types';
 import { Button } from '../ui/Button';
+import { StickyBar } from '../ui/StickyBar';
 import { makeCardSchema, type CardFormValues } from './cardSchema';
 import styles from './CardForm.module.css';
 
@@ -87,9 +88,11 @@ export function CardForm({ payLabel, disabled, onSubmit, onEdit }: CardFormProps
         inputMode: 'numeric',
         maxLength: 4,
       })}
-      <Button type="submit" disabled={disabled} className={styles.pay}>
-        {payLabel}
-      </Button>
+      <StickyBar>
+        <Button type="submit" disabled={disabled}>
+          {payLabel}
+        </Button>
+      </StickyBar>
     </form>
   );
 }
