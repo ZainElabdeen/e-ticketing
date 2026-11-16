@@ -21,7 +21,8 @@ cluster=eticketing
 ns=eticketing
 host_port=8081
 base_url="http://localhost:${host_port}"
-k3s_image="rancher/k3s:v1.37.2-k3s1"
+# Pinned by the multi-arch index digest. Refresh: docker buildx imagetools inspect rancher/k3s:<tag> (top-level Digest).
+k3s_image="rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332"
 env_file=infra/k8s/.env
 
 keep=0
