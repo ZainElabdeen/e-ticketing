@@ -6,6 +6,7 @@ import { formatMinor } from '../../lib/money';
 import { formatDateTime } from '../../lib/time';
 import { Pagination } from '../../ui/Pagination';
 import { Loading, QueryFailure } from '../QueryFailure';
+import { LabeledCell } from '../LabeledCell';
 import styles from '../tables.module.css';
 import { PAGE_SIZE, useClampPage, type TabProps } from '../usePage';
 
@@ -55,7 +56,7 @@ export function LedgerEntriesTab({ page, onPage }: TabProps): ReactElement {
               else credit += line.amountMinor;
             }
             return (
-              <tbody key={entry.id}>
+              <tbody key={entry.id} className={styles.entry}>
                 <tr className={styles.group}>
                   <th scope="colgroup" colSpan={3}>
                     <span className={styles.hidden}>Posted </span>
@@ -68,23 +69,27 @@ export function LedgerEntriesTab({ page, onPage }: TabProps): ReactElement {
                 </tr>
                 {entry.lines.map((line) => (
                   <tr key={line.id}>
-                    <td>{`${line.accountCode} ${line.accountName}`}</td>
-                    <td className={styles.num}>
+                    <LabeledCell label="Account">{`${line.accountCode} ${line.accountName}`}</LabeledCell>
+                    <LabeledCell label="Debit" className={styles.num}>
                       {line.direction === 'DEBIT'
                         ? formatMinor(line.amountMinor, entry.currency)
                         : ''}
-                    </td>
-                    <td className={styles.num}>
+                    </LabeledCell>
+                    <LabeledCell label="Credit" className={styles.num}>
                       {line.direction === 'CREDIT'
                         ? formatMinor(line.amountMinor, entry.currency)
                         : ''}
-                    </td>
+                    </LabeledCell>
                   </tr>
                 ))}
                 <tr className={`${styles.total} ${debit === credit ? '' : styles.bad}`}>
                   <td>Totals</td>
-                  <td className={styles.num}>{formatMinor(debit, entry.currency)}</td>
-                  <td className={styles.num}>{formatMinor(credit, entry.currency)}</td>
+                  <LabeledCell label="Debit" className={styles.num}>
+                    {formatMinor(debit, entry.currency)}
+                  </LabeledCell>
+                  <LabeledCell label="Credit" className={styles.num}>
+                    {formatMinor(credit, entry.currency)}
+                  </LabeledCell>
                 </tr>
               </tbody>
             );

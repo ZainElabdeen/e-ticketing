@@ -4,6 +4,7 @@ import { formatDateTime } from '../../lib/time';
 import { Pagination } from '../../ui/Pagination';
 import { useTransactions } from '../queries';
 import { Loading, QueryFailure } from '../QueryFailure';
+import { LabeledCell } from '../LabeledCell';
 import styles from '../tables.module.css';
 import { PAGE_SIZE, useClampPage, type TabProps } from '../usePage';
 
@@ -38,17 +39,19 @@ export function TransactionsTab({ page, onPage }: TabProps): ReactElement {
           </thead>
           <tbody>
             {q.data.data.map((t) => (
-              <tr key={t.transactionId}>
-                <td>{formatDateTime(t.createdAt)}</td>
-                <td>{t.paymentReference}</td>
-                <td>
+              <tr key={t.transactionId} className={styles.row}>
+                <LabeledCell label="Time">{formatDateTime(t.createdAt)}</LabeledCell>
+                <LabeledCell label="Payment reference">{t.paymentReference}</LabeledCell>
+                <LabeledCell label="Transaction ID">
                   <span title={t.transactionId}>{t.transactionId.slice(0, 8)}</span>
-                </td>
-                <td>
+                </LabeledCell>
+                <LabeledCell label="Order">
                   <span title={t.orderId}>{t.orderId.slice(0, 8)}</span>
-                </td>
-                <td>{METHODS[t.method] ?? t.method}</td>
-                <td className={styles.num}>{formatMinor(t.amountMinor, t.currency)}</td>
+                </LabeledCell>
+                <LabeledCell label="Method">{METHODS[t.method] ?? t.method}</LabeledCell>
+                <LabeledCell label="Amount" className={`${styles.num} ${styles.lead}`}>
+                  {formatMinor(t.amountMinor, t.currency)}
+                </LabeledCell>
               </tr>
             ))}
           </tbody>

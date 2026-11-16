@@ -262,7 +262,9 @@ describe('BackofficePage', () => {
     );
     const row = (await screen.findByText('Gold')).closest('tr')!;
     const cells = within(row).getAllByRole('cell');
-    expect(cells.map((c) => c.textContent)).toEqual(['Gold', 'AED 100.00', '100', '12', '3', '85']);
+    ['Gold', 'AED 100.00', '100', '12', '3', '85'].forEach((value, i) => {
+      expect(cells[i]).toHaveTextContent(value);
+    });
   });
 
   it('a transient error shows a banner with Try again and keeps the session', async () => {
