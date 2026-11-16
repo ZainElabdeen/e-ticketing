@@ -34,4 +34,28 @@ describe('colour tokens meet WCAG AA (4.5:1)', () => {
   it('--card text on --stamp', () => {
     expect(contrast(token('card'), token('stamp'))).toBeGreaterThanOrEqual(4.5);
   });
+
+  for (const fg of ['tier-gold-text', 'tier-premium-text', 'tier-vip-text']) {
+    it(`--${fg} on --card`, () => {
+      expect(contrast(token(fg), token('card'))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+  for (const fg of ['c-ink', 'c-muted']) {
+    for (const bg of ['c-canvas', 'c-surface']) {
+      it(`--${fg} on --${bg}`, () => {
+        expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+  const pairs: [string, string][] = [
+    ['c-on-accent', 'c-accent'],
+    ['c-accent', 'c-accent-soft'],
+    ['c-ok-fg', 'c-ok-bg'],
+    ['card', 'ink'],
+  ];
+  for (const [fg, bg] of pairs) {
+    it(`--${fg} on --${bg}`, () => {
+      expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
 });
