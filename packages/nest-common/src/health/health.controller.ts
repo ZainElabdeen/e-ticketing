@@ -15,6 +15,13 @@ export const HEALTH_TIMEOUT_MS = Symbol('HEALTH_TIMEOUT_MS');
 
 class CheckTimeoutError extends Error {}
 
+/** Health is public: only a timeout or a bare `status NNN` is exposed, never raw error text. */
+function messageOf(err: unknown): string {
+  if (err instanceof CheckTimeoutError) return 'timeout';
+  if (err instanceof Error && /^status \d{3}$/.test(err.message)) return err.message;
+  return 'unavailable';
+}
+
 @Public()
 // Throttling exemption is the app's concern (its throttler guard skips /health/*).
 @ApiTags('health')
@@ -60,7 +67,7 @@ export class HealthController {
       await Promise.race([check.check(), timeout]);
       return result.up();
     } catch (err) {
-      return result.down({ message: err instanceof CheckTimeoutError ? 'timeout' : 'unavailable' });
+      return result.down({ message: messageOf(err) });
     } finally {
       clearTimeout(timer);
     }

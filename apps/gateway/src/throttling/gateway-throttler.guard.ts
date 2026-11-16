@@ -13,7 +13,8 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 export class GatewayThrottlerGuard extends ThrottlerGuard {
   /**
    * Health probes are never rate limited. The shared health controller carries
-   * no throttle metadata, so the exemption lives here (exact-case, like routing).
+   * no throttle metadata, so the exemption lives here (the match is exact-case on purpose: case variants
+   * are throttled, the safe direction).
    */
   protected override shouldSkip(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<{ path?: string }>();

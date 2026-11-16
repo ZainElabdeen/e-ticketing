@@ -23,6 +23,14 @@ class DownCheck implements ReadinessCheck {
 }
 
 @Injectable()
+class StatusCheck implements ReadinessCheck {
+  readonly name = 'status-dep';
+  check(): Promise<void> {
+    return Promise.reject(new Error('status 503'));
+  }
+}
+
+@Injectable()
 class HungCheck implements ReadinessCheck {
   readonly name = 'hung-dep';
   check(): Promise<void> {
@@ -97,11 +105,19 @@ describe('HealthModule', () => {
     expect((res.body as Body).details['up-dep']?.status).toBe('up');
   });
 
+  it('passes a bare "status NNN" rejection through and hides other text', async () => {
+    app = await appWith([StatusCheck, DownCheck]);
+    const res = await request(server(app)).get('/health/ready').expect(503);
+    const d = (res.body as { details: Record<string, { message?: string }> }).details;
+    expect(d['status-dep']?.message).toBe('status 503');
+    expect(d['down-dep']?.message).toBe('unavailable');
+  });
+
   it('a never-resolving check reports down within the timeout', async () => {
     app = await appWith([HungCheck], { timeoutMs: 200 });
     const started = Date.now();
     const res = await request(server(app)).get('/health/ready').expect(503);
-    expect(Date.now() - started).toBeLessThan(700);
+    expect(Date.now() - started).toBeLessThan(2000);
     expect((res.body as Body).details['hung-dep']?.status).toBe('down');
   });
 

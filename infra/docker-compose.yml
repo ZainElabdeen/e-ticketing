@@ -81,6 +81,7 @@ services:
       migrate-tickets:
         condition: service_completed_successfully
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3001
       DATABASE_URL: postgresql://tickets_app:${TICKETS_APP_PASSWORD:?set TICKETS_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
       PUBLIC_API_KEY_TICKET: ${PUBLIC_API_KEY_TICKET:?set PUBLIC_API_KEY_TICKET in infra/.env}
@@ -117,6 +118,7 @@ services:
       migrate-tickets:
         condition: service_completed_successfully
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3001
       DATABASE_URL: postgresql://tickets_app:${TICKETS_APP_PASSWORD:?set TICKETS_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
       PUBLIC_API_KEY_TICKET: ${PUBLIC_API_KEY_TICKET:?set PUBLIC_API_KEY_TICKET in infra/.env}
@@ -154,6 +156,7 @@ services:
       ledger-service:
         condition: service_started
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3002
       DATABASE_URL: postgresql://payments_app:${PAYMENTS_APP_PASSWORD:?set PAYMENTS_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=payments
       PUBLIC_API_KEY_PAYMENT: ${PUBLIC_API_KEY_PAYMENT:?set PUBLIC_API_KEY_PAYMENT in infra/.env}
@@ -191,6 +194,7 @@ services:
       migrate-ledger:
         condition: service_completed_successfully
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3003
       DATABASE_URL: postgresql://ledger_app:${LEDGER_APP_PASSWORD:?set LEDGER_APP_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=ledger
       PUBLIC_API_KEY_LEDGER: ${PUBLIC_API_KEY_LEDGER:?set PUBLIC_API_KEY_LEDGER in infra/.env}
@@ -227,6 +231,7 @@ services:
       ledger-service:
         condition: service_healthy
     environment:
+      SHUTDOWN_DRAIN_MS: 5000
       PORT: 3000
       TICKET_SERVICE_URL: http://ticket-service:3001
       PAYMENT_SERVICE_URL: http://payment-service:3002
