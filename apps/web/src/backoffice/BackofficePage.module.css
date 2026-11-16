@@ -20,6 +20,10 @@
   cursor: pointer;
 }
 
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
 .tab[aria-selected='true'] {
   border-bottom-color: var(--accent);
   color: var(--accent);

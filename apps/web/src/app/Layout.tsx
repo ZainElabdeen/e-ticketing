@@ -17,7 +17,7 @@ export function Layout(): ReactElement {
   }, [pathname]);
 
   // The console draws its own shell, so the shop header and main padding step aside.
-  const inConsole = pathname.startsWith('/backoffice');
+  const inConsole = pathname === '/backoffice' || pathname.startsWith('/backoffice/');
 
   return (
     <>

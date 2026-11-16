@@ -56,6 +56,9 @@ describe('colour tokens meet WCAG AA (4.5:1)', () => {
     ['c-ok-fg', 'c-ok-bg'],
     ['card', 'ink'],
   ];
+  it('--c-input-border on --c-surface meets 3:1 for form-control boundaries', () => {
+    expect(contrast(token('c-input-border'), token('c-surface'))).toBeGreaterThanOrEqual(3);
+  });
   for (const [fg, bg] of pairs) {
     it(`--${fg} on --${bg}`, () => {
       expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
