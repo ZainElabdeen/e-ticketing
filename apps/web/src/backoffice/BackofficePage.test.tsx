@@ -286,9 +286,9 @@ describe('BackofficePage', () => {
         ],
       },
     ]);
-    expect(
-      await screen.findByText('Something went wrong on our side. Try again.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong on our side. Try again.',
+    );
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('PAY-20261114-ABC1')).toBeInTheDocument();
   });
