@@ -11,3 +11,4 @@ export * from './money';
 export * from './schema';
 export * from './validation';
 export * from './url';
+export * from './health';
