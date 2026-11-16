@@ -50,7 +50,6 @@ export function CardForm({ payLabel, disabled, onSubmit, onEdit }: CardFormProps
       autoComplete: string;
       inputMode?: 'numeric';
       placeholder?: string;
-      maxLength?: number;
     },
   ): ReactElement => {
     const message = errors[name]?.message;
@@ -95,18 +94,15 @@ export function CardForm({ payLabel, disabled, onSubmit, onEdit }: CardFormProps
         autoComplete: 'cc-number',
         inputMode: 'numeric',
         placeholder: '4242 4242 4242 4242',
-        maxLength: 19,
       })}
       {field('expiry', 'Expiry (MM/YY)', {
         autoComplete: 'cc-exp',
         inputMode: 'numeric',
         placeholder: 'MM/YY',
-        maxLength: 5,
       })}
       {field('cvc', 'Security code', {
         autoComplete: 'cc-csc',
         inputMode: 'numeric',
-        maxLength: 4,
       })}
       <StickyBar>
         <Button type="submit" disabled={disabled}>

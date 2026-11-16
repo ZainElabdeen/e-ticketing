@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../api/client';
 import { call } from '../api/errors';
 import { renderWithApp, stubFetch, type StubRoute } from '../test/render';
@@ -15,6 +15,16 @@ function Where(): React.ReactElement {
   return <p data-testid="where">{l.pathname + l.search}</p>;
 }
 
+/** Stands in for the 15 s interval: a refetch the user did not start. */
+function BackgroundRefetch(): React.ReactElement {
+  const client = useQueryClient();
+  return (
+    <button type="button" onClick={() => void client.refetchQueries({ queryKey: ['backoffice'] })}>
+      background refetch
+    </button>
+  );
+}
+
 function renderBackoffice(
   routes: StubRoute[],
   route = '/backoffice',
@@ -25,6 +35,7 @@ function renderBackoffice(
   const view = renderWithApp(
     <>
       <Where />
+      <BackgroundRefetch />
       <Routes>
         <Route path="/backoffice/login" element={<LoginPage />} />
         <Route
@@ -116,6 +127,29 @@ describe('BackofficePage', () => {
     expect(screen.getAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
     release();
     await waitFor(() => expect(screen.queryByText('Updating…')).not.toBeInTheDocument());
+  });
+
+  it('does not announce Updating for a background refetch', async () => {
+    saveSession('jwt-1', 3600);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let accountCalls = 0;
+    const { user } = renderBackoffice(
+      [txPage(2), accounts(40000, 40000)],
+      '/backoffice?tab=accounts',
+      (inner) => async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes('/v1/backoffice/accounts') && ++accountCalls >= 2) await gate;
+        return inner(input, init);
+      },
+    );
+    expect(await screen.findAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'background refetch' }));
+    await waitFor(() => expect(accountCalls).toBe(2));
+    expect(screen.queryByText('Updating…')).not.toBeInTheDocument();
+    release();
   });
 
   it('refetches the section when switching tabs', async () => {

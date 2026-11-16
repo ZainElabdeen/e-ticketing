@@ -38,6 +38,20 @@ describe('CardForm input helpers', () => {
     expect(input).toHaveValue('1');
   });
 
+  it('formats a pasted card number that has separators', async () => {
+    const { user } = setup();
+    await user.click(screen.getByLabelText('Card number'));
+    await user.paste('4242 - 4242 - 4242 - 4242');
+    expect(screen.getByLabelText('Card number')).toHaveValue('4242 4242 4242 4242');
+  });
+
+  it('formats a pasted expiry that has spaces around the slash', async () => {
+    const { user } = setup();
+    await user.click(screen.getByLabelText('Expiry (MM/YY)'));
+    await user.paste('12 / 25');
+    expect(screen.getByLabelText('Expiry (MM/YY)')).toHaveValue('12/25');
+  });
+
   it('ignores letters in the security code', async () => {
     const { user } = setup();
     await user.type(screen.getByLabelText('Security code'), 'abc');
