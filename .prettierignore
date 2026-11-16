@@ -15,3 +15,6 @@ apps/ticket-service-dotnet/**/obj/
 
 # rtk vitest JSON output
 apps/web/.vitest/
+
+# Impeccable design-hook config (tool-managed)
+.impeccable/
