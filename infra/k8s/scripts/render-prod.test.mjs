@@ -1,14 +1,20 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { isDnsName, renderHelmChartConfig, renderProd } from './render-prod.mjs';
+import {
+  isDnsName,
+  renderHelmChartConfig,
+  renderProd,
+  writeOverlay,
+  writeTraefikConfig,
+} from './render-prod.mjs';
 
 const script = fileURLToPath(new URL('./render-prod.mjs', import.meta.url));
-const k8sDir = fileURLToPath(new URL('..', import.meta.url));
 
 test('renderProd fills every host and tag placeholder', () => {
   const out = renderProd({ host: 'demo.example.org', tag: 'sha-abc1234' });
@@ -75,85 +81,106 @@ test('renderHelmChartConfig rejects invalid emails', () => {
   }
 });
 
-const run = (...args) => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
-const overlayArgs = ['--host', 'demo.example.org', '--tag', 'sha-abc1234'];
-const traefikFile = join(k8sDir, '.rendered/traefik-config.yaml');
+const overlayArgs = { host: 'demo.example.org', tag: 'sha-abc1234' };
 
-test('each --target writes kustomization.yaml to its fixed directory', () => {
-  const fixed = {
-    prod: join(k8sDir, 'overlays/prod'),
-    k3d: join(k8sDir, '.rendered/k3d'),
-    validate: join(k8sDir, '.rendered/validate'),
-  };
-  for (const [target, dir] of Object.entries(fixed)) {
-    const file = join(dir, 'kustomization.yaml');
-    const existed = existsSync(file);
-    try {
-      execFileSync(process.execPath, [script, '--target', target, ...overlayArgs], {
-        stdio: 'pipe',
-      });
+/** Runs fn with a fresh temp root standing in for infra/k8s; the repo is never written. */
+function withRoot(fn) {
+  const root = mkdtempSync(join(tmpdir(), 'render-prod-root-'));
+  try {
+    fn(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const cli = (...args) => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
+
+test('each target writes kustomization.yaml to its fixed relative directory', () => {
+  const fixed = { prod: 'overlays/prod', validate: '.rendered/validate' };
+  for (const [target, rel] of Object.entries(fixed)) {
+    withRoot((root) => {
+      const file = writeOverlay(root, target, overlayArgs);
+      assert.equal(file, join(root, rel, 'kustomization.yaml'), target);
       assert.match(readFileSync(file, 'utf8'), /sha-abc1234/, target);
-    } finally {
-      if (target !== 'prod') rmSync(dir, { recursive: true, force: true });
-      else if (!existed) rmSync(file, { force: true });
-    }
+    });
   }
 });
 
-test('an unknown --target exits 2 and writes nothing', () => {
-  for (const target of ['staging', '../x', '/tmp/render-prod-x', '', 'Prod']) {
-    const r = run('--target', target, ...overlayArgs);
-    assert.equal(r.status, 2, target);
-    assert.match(r.stderr, /--target must be one of prod, k3d, validate/);
+test('an unknown target returns null and writes nothing', () => {
+  for (const target of ['k3d', 'staging', '../x', '/tmp/render-prod-x', '', 'Prod', undefined]) {
+    withRoot((root) => {
+      assert.equal(writeOverlay(root, target, overlayArgs), null, String(target));
+      assert.equal(existsSync(join(root, '.rendered')), false);
+      assert.equal(existsSync(join(root, 'overlays')), false);
+    });
+  }
+});
+
+test('the CLI exits 2 on an unknown or missing target without writing', () => {
+  for (const args of [['--target', 'k3d'], ['--target', '/tmp/render-prod-x'], []]) {
+    const r = cli(...args, '--host', 'demo.example.org', '--tag', 'sha-abc1234');
+    assert.equal(r.status, 2, args.join(' '));
+    assert.match(r.stderr, /--target must be one of prod, validate/);
   }
   assert.equal(existsSync('/tmp/render-prod-x'), false);
-  const none = run(...overlayArgs);
-  assert.equal(none.status, 2);
 });
 
-test('--traefik writes the fixed file and prints its path', () => {
-  try {
-    const r = run('--traefik', '--acme-email', 'ops@example.org');
-    assert.equal(r.status, 0, r.stderr);
-    assert.equal(r.stdout.trim(), traefikFile);
-    assert.match(readFileSync(traefikFile, 'utf8'), /email: ops@example\.org/);
-  } finally {
-    rmSync(traefikFile, { force: true });
-  }
+test('writeTraefikConfig writes the fixed file under .rendered', () => {
+  withRoot((root) => {
+    const file = writeTraefikConfig(root, { acmeEmail: 'ops@example.org' });
+    assert.equal(file, join(root, '.rendered/traefik-config.yaml'));
+    assert.match(readFileSync(file, 'utf8'), /email: ops@example\.org/);
+  });
 });
 
-test('--traefik rejects a bad email and mixing with overlay options', () => {
-  assert.equal(run('--traefik', '--acme-email', 'nope').status, 1);
-  assert.equal(run('--traefik').status, 1);
-  assert.equal(run('--traefik', '--target', 'prod', '--acme-email', 'ops@example.org').status, 1);
-  assert.equal(run('--target', 'k3d', '--acme-email', 'ops@example.org').status, 1);
+test('writeTraefikConfig and writeOverlay reject bad input and write nothing', () => {
+  withRoot((root) => {
+    assert.throws(() => writeTraefikConfig(root, { acmeEmail: 'nope' }), /ACME_EMAIL must be/);
+    assert.throws(() => writeOverlay(root, 'prod', { host: 'nope', tag: 'sha-abc1234' }), /HOST/);
+    assert.equal(existsSync(join(root, '.rendered')), false);
+    assert.equal(existsSync(join(root, 'overlays')), false);
+  });
+});
+
+test('CLI argument validation fails with exit 1 (no file is written)', () => {
+  assert.equal(cli('--traefik').status, 1);
+  assert.equal(cli('--traefik', '--acme-email', 'ops@example.org', '--target', 'prod').status, 1);
+  assert.equal(cli('--target', 'validate', '--acme-email', 'ops@example.org').status, 1);
+  const bad = cli('--target', 'validate', '--host', 'nope', '--tag', 'sha-abc1234');
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /render-prod: HOST must be/);
 });
 
 test('--out and --traefik-out are rejected as unknown options', () => {
   for (const flag of ['--out', '--traefik-out']) {
-    const r = run('--target', 'k3d', ...overlayArgs, flag, '/tmp/render-prod-x');
+    const r = cli(
+      '--target',
+      'validate',
+      '--host',
+      'demo.example.org',
+      '--tag',
+      'sha-abc1234',
+      flag,
+      '/tmp/render-prod-x',
+    );
     assert.equal(r.status, 1, flag);
-    assert.match(r.stderr, /Unknown option/);
+    assert.match(r.stderr, /nknown option/);
   }
   assert.equal(existsSync('/tmp/render-prod-x'), false);
 });
 
-test('a bad host fails with exit 1', () => {
-  const r = run('--target', 'k3d', '--host', 'nope', '--tag', 'sha-abc1234');
-  assert.equal(r.status, 1);
-  assert.match(r.stderr, /render-prod: HOST must be/);
-});
-
-test('a symlink planted at the fixed file is rejected and not written through', () => {
-  const victim = join(k8sDir, '.rendered', `victim-${process.pid}.txt`);
-  try {
-    mkdirSync(join(k8sDir, '.rendered'), { recursive: true });
-    symlinkSync(victim, traefikFile);
-    const r = run('--traefik', '--acme-email', 'ops@example.org');
-    assert.equal(r.status, 1);
-    assert.match(r.stderr, /symbolic link/);
+test('a symlink planted at a fixed file is rejected and not written through', () => {
+  withRoot((root) => {
+    const victim = join(root, 'victim.txt');
+    mkdirSync(join(root, '.rendered'), { recursive: true });
+    symlinkSync(victim, join(root, '.rendered/traefik-config.yaml'));
+    assert.throws(
+      () => writeTraefikConfig(root, { acmeEmail: 'ops@example.org' }),
+      /symbolic link/,
+    );
+    mkdirSync(join(root, '.rendered/validate'), { recursive: true });
+    symlinkSync(victim, join(root, '.rendered/validate/kustomization.yaml'));
+    assert.throws(() => writeOverlay(root, 'validate', overlayArgs), /symbolic link/);
     assert.equal(existsSync(victim), false);
-  } finally {
-    rmSync(traefikFile, { force: true });
-  }
+  });
 });

@@ -300,7 +300,7 @@ Repository: `main` and `dev` are protected (pull request required; required chec
 | `node: … libatomic.so.1: cannot open shared object file`                                     | Minimal Ubuntu image lacks `libatomic1`                                                            | `apt-get install libatomic1` (now in the guide)                                                    |
 | `-bash: HOST: No such file or directory`                                                    | A `<HOST>` placeholder typed literally; bash read it as input redirection                          | Export real values once (`export HOST=…`) and use `"$HOST"`                                        |
 | CD over SSH: `kubectl` "permission denied" on `/etc/rancher/k3s/k3s.yaml`                 | `KUBECONFIG` was exported in `~/.bashrc`, which non-interactive SSH skips; K3s' kubectl fell back to the root-only file | `KUBECONFIG` set system-wide in `/etc/environment` (now in both guides) |
-| SonarCloud gate on `main`: path traversal in `render-prod.mjs`, `[` in `render.sh`        | Output paths came straight from CLI arguments                                                      | Output paths constrained to `infra/k8s` and the temp directory; `[[ ]]` in shell                   |
+| SonarCloud gate on `main`: path traversal in `render-prod.mjs`, `[` in `render.sh`        | Output paths came straight from CLI arguments                                                      | No paths accepted on the command line; fixed targets chosen by a `switch`; `[[ ]]` in shell                   |
 
 ## What is deliberately not in the repository
 

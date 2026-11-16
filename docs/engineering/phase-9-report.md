@@ -18,7 +18,7 @@ responsibilities, local run, deploy, environment variables, API examples, assump
   `acme.json`, and `externalTrafficPolicy: Local` so per-IP rate limits see real clients.
 - **Operator scripts** (`infra/k8s/scripts`): `apply-secrets.sh` (15-key allow-list, values never printed,
   server-side apply), `deploy.sh <sha-tag>` (GHCR tag gate for all eight images, render, apply, rollout gate,
-  `DEPLOY OK`), `render-prod.mjs` (validated host, tag and email; output paths confined), `validate.sh`
+  `DEPLOY OK`), `render-prod.mjs` (validated host, tag and email; no paths accepted on the command line), `validate.sh`
   (kubeconform), `k3d-e2e.sh` (real K3s in Docker), `install-ci-tools.sh` (pinned, checksum-verified kubectl,
   kubeconform, k3d on amd64 and arm64).
 - **CI/CD**: `verify` validates the manifests; a `k3d` job deploys the stack into a real K3s cluster and runs the
