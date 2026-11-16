@@ -19,7 +19,8 @@
   color: var(--text);
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled='true'] {
   background: var(--border);
   border-color: var(--border);
   color: var(--text-muted);

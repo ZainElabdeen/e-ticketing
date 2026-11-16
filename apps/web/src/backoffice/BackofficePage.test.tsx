@@ -191,7 +191,7 @@ describe('BackofficePage', () => {
     saveSession('jwt', 3600);
     const { user, fetch } = renderBackoffice([txPage(45)]);
     expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Prev' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Prev' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('00000001-aaaa-bbbb-cccc-ddddeeeeffff')).toBeInTheDocument();
     expect(screen.getByText('00000101-1111-2222-3333-444455556666')).toBeInTheDocument();
     expect(screen.getAllByText('AED 200.00')).toHaveLength(2);
