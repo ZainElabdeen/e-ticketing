@@ -1,4 +1,5 @@
-import { Controller, Get, Inject, SetMetadata } from '@nestjs/common';
+import { Controller, Get, Inject } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import {
   HealthCheck,
   HealthCheckService,
@@ -12,17 +13,11 @@ import { ShutdownState } from './shutdown-state';
 export const READINESS_CHECKS = Symbol('READINESS_CHECKS');
 export const HEALTH_TIMEOUT_MS = Symbol('HEALTH_TIMEOUT_MS');
 
-/**
- * Same metadata `@SkipThrottle()` writes for the default throttler (key
- * `THROTTLER:SKIP` + name). Set directly so nest-common needs no dependency on
- * `@nestjs/throttler`; without a ThrottlerGuard it is inert.
- */
-const SkipDefaultThrottle = () => SetMetadata('THROTTLER:SKIPdefault', true);
-
 class CheckTimeoutError extends Error {}
 
 @Public()
-@SkipDefaultThrottle()
+// Throttling exemption is the app's concern (its throttler guard skips /health/*).
+@ApiTags('health')
 @Controller('health')
 export class HealthController {
   constructor(

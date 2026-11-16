@@ -1,10 +1,12 @@
-import { type DynamicModule, Module, type Type } from '@nestjs/common';
+import { type DynamicModule, Module, type ModuleMetadata, type Type } from '@nestjs/common';
 import { TerminusModule } from '@nestjs/terminus';
 import { HEALTH_TIMEOUT_MS, HealthController, READINESS_CHECKS } from './health.controller';
 import type { ReadinessCheck } from './readiness-check';
 import { SHUTDOWN_DRAIN_MS, ShutdownState } from './shutdown-state';
 
 export interface HealthModuleOptions {
+  /** Modules that export what the checks inject (e.g. the DB module, HttpModule). */
+  imports?: ModuleMetadata['imports'];
   /** Provider classes, instantiated by Nest, one per hard dependency. */
   checks: Type<ReadinessCheck>[];
   /** Per-check timeout; a hung check reports down. Default 2000. */
@@ -18,7 +20,7 @@ export class HealthModule {
   static forRoot(opts: HealthModuleOptions): DynamicModule {
     return {
       module: HealthModule,
-      imports: [TerminusModule],
+      imports: [TerminusModule, ...(opts.imports ?? [])],
       controllers: [HealthController],
       providers: [
         ...opts.checks,

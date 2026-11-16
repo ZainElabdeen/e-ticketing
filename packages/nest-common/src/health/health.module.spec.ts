@@ -1,8 +1,9 @@
 import type { Server } from 'node:http';
-import { Injectable, type INestApplication } from '@nestjs/common';
+import { Inject, Injectable, type INestApplication, Module, type Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { HealthModule } from './health.module';
+import { prismaReadinessCheck } from './prisma-readiness';
 import type { ReadinessCheck } from './readiness-check';
 
 @Injectable()
@@ -30,8 +31,8 @@ class HungCheck implements ReadinessCheck {
 }
 
 async function appWith(
-  checks: (new () => ReadinessCheck)[],
-  opts: { timeoutMs?: number; drainMs?: number } = {},
+  checks: Type<ReadinessCheck>[],
+  opts: Partial<Parameters<typeof HealthModule.forRoot>[0]> = {},
 ): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({
     imports: [HealthModule.forRoot({ checks, drainMs: 0, ...opts })],
@@ -43,6 +44,30 @@ async function appWith(
 
 type Body = { status: string; details: Record<string, { status: string }> };
 const server = (a: INestApplication) => a.getHttpServer() as Server;
+
+@Injectable()
+class FakePrisma {
+  fail = false;
+  $queryRawUnsafe(): Promise<unknown> {
+    return this.fail ? Promise.reject(new Error('db down')) : Promise.resolve([{ '?column?': 1 }]);
+  }
+}
+
+@Module({ providers: [FakePrisma], exports: [FakePrisma] })
+class FakeDbModule {}
+
+const DEP = Symbol('DEP');
+@Module({ providers: [{ provide: DEP, useValue: 'dep-value' }], exports: [DEP] })
+class DepModule {}
+
+@Injectable()
+class InjectingCheck implements ReadinessCheck {
+  readonly name = 'injecting';
+  constructor(@Inject(DEP) private readonly dep: string) {}
+  check(): Promise<void> {
+    return this.dep === 'dep-value' ? Promise.resolve() : Promise.reject(new Error('bad'));
+  }
+}
 
 describe('HealthModule', () => {
   let app: INestApplication | undefined;
@@ -100,5 +125,24 @@ describe('HealthModule', () => {
     await closing;
     expect(Date.now() - started).toBeGreaterThanOrEqual(290);
     app = undefined;
+  });
+
+  it('prismaReadinessCheck resolves the client from an imported module', async () => {
+    app = await appWith([prismaReadinessCheck(FakePrisma)], { imports: [FakeDbModule] });
+    const res = await request(server(app)).get('/health/ready').expect(200);
+    expect((res.body as Body).details['database']?.status).toBe('up');
+  });
+
+  it('prismaReadinessCheck reports database down when the query rejects', async () => {
+    app = await appWith([prismaReadinessCheck(FakePrisma)], { imports: [FakeDbModule] });
+    app.get(FakePrisma, { strict: false }).fail = true;
+    const res = await request(server(app)).get('/health/ready').expect(503);
+    expect((res.body as Body).details['database']?.status).toBe('down');
+  });
+
+  it('a check can inject providers exported by an imported module', async () => {
+    app = await appWith([InjectingCheck], { imports: [DepModule] });
+    const res = await request(server(app)).get('/health/ready').expect(200);
+    expect((res.body as Body).details['injecting']?.status).toBe('up');
   });
 });
