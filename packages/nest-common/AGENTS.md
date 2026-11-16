@@ -9,7 +9,8 @@ Shared by `apps/gateway`, `apps/ticket-service`, `apps/payment-service`,
 `configureApp`, `pinoHttpOptions`, `correlationIdOf`, `ErrorEnvelopeFilter`,
 `DomainError`, `FallbackModule`, `isUniqueViolation(err, constraint)`, `toMinor`,
 `schemaOf`, `createValidationPipe`, `trimTrailingSlashes`,
-`HealthModule.forRoot({ checks, timeoutMs, drainMs })`, `ReadinessCheck`,
+`HealthModule.forRoot({ checks, imports, timeoutMs, drainMs })` (check
+dependencies must come from an imported module that exports them), `ReadinessCheck`,
 `prismaReadinessCheck(token)`, `ShutdownState`,
 `resolveContractFile(distDir, service)`, `bootstrapService(createApp)`, `runIfMain(module, fn)`. A helper needed by two services belongs here
 (ADR-0020).

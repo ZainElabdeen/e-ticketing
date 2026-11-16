@@ -23,8 +23,12 @@ by the contract suites and must not change.
    dependency.
 3. `ShutdownState` fails readiness in `beforeApplicationShutdown` (indicator
    `shutdown`, reason `shutting_down`) and waits `SHUTDOWN_DRAIN_MS` (0-30000,
-   default 5000, tests 0) before Nest closes the HTTP server. Probes and
-   proxies see 503, stop routing, and in-flight requests finish.
+   default 5000, tests 0) before Nest closes the HTTP server. The delay covers endpoint-update
+   propagation after termination starts: in K8s, SIGTERM marks the pod
+   terminating in its EndpointSlice and Traefik/kube-proxy stop routing; in
+   compose nothing routes by health. The readiness 503 is a secondary signal
+   for external pollers (the readiness probe, 5 s period x 6 failures, cannot
+   trip inside a 5 s drain). In-flight requests finish before the server closes.
 4. The drain sits inside the platform grace period: compose
    `stop_grace_period: 20s` for the Nest services; K8s Nest pods use the 30 s
    default (the .NET Ticket Service keeps its own 20 s).
@@ -48,7 +52,9 @@ Measured: `docker compose stop gateway` took 5.29 s; during the drain
 - Gateway `/health/deep` for downstream checks with plain readiness (own DB-less
   process check): the purist fix, rejected for now because it changes the
   contract and the suites; revisit if the gateway is ever scaled out.
-- Drain via a Kubernetes `preStop` sleep: does not help compose or local runs.
+- Drain via a Kubernetes `preStop` sleep: the in-app delay is one mechanism for
+  compose, local and K8s and is equivalent; a `preStop` sleep can be added later
+  if Traefik lags behind endpoint updates.
 
 ## Trade-off
 

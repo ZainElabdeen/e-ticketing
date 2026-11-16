@@ -571,8 +571,9 @@ The total on `/` is a preview from listed prices; the server total from
 - **Health**: `/health/live` (process up) and `/health/ready` (DB reachable;
   gateway: downstream `/health/live` reachable). K8s probes use them. One shared
   `HealthModule` in `@eticket/nest-common` serves all four Nest apps. On
-  shutdown, readiness returns 503 (`shutdown: shutting_down`) and the process
-  waits `SHUTDOWN_DRAIN_MS` before closing the HTTP server (ADR-0030).
+  shutdown, the process waits `SHUTDOWN_DRAIN_MS` before closing the HTTP
+  server so endpoint updates propagate after SIGTERM; readiness returns 503
+  (`shutdown: shutting_down`) meanwhile as a secondary signal (ADR-0030).
 - **Logging**: JSON (nestjs-pino / Serilog): `timestamp`, `level`, `service`,
   `correlationId`, `method`, `route`, `statusCode`, `durationMs`. Redacted:
   `card.number`, `card.cvc`, `authorization`, `x-api-key`, password fields.
@@ -600,7 +601,7 @@ The total on `/` is a preview from listed prices; the server total from
 | `TRUST_PROXY` (0) | gateway | Proxy hops trusted for the client IP (0–5) |
 | `RATE_LIMIT_DEFAULT_PER_MIN` (100), `RATE_LIMIT_ORDERS_PER_MIN` (5), `RATE_LIMIT_LOGIN_PER_MIN` (10) | gateway | Per-IP rate limits (§7) |
 | `RATE_LIMIT_WINDOW_MS` (60000) | gateway | Test-only: shortens the rate-limit window; never set in compose or K3s |
-| `SHUTDOWN_DRAIN_MS` (5000) | gateway, ticket, payment, ledger | Readiness-fail wait before the HTTP server closes (0-30000; tests 0); keep below the compose `stop_grace_period` (20s) and the pod grace period (ADR-0030) |
+| `SHUTDOWN_DRAIN_MS` (5000) | gateway, ticket, payment, ledger | Drain wait before the HTTP server closes (0-30000; tests 0); keep below the compose `stop_grace_period` (20s) and the pod grace period (ADR-0030) |
 | `WEB_ORIGIN` | gateway | CORS allowed origin |
 | `SWAGGER_ENABLED` | all services | Serve `/docs` |
 | `LOG_LEVEL` | all services | pino / Serilog level |
