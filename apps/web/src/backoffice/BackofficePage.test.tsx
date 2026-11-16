@@ -431,6 +431,24 @@ describe('BackofficePage tabs keyboard', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('tab=ledger');
   });
 
+  it('moves between sections with ArrowDown and ArrowUp', async () => {
+    const { user } = setup();
+    await screen.findByText('PAY-20261114-ABC1');
+    tab('Transactions').focus();
+    await user.keyboard('{ArrowDown}');
+    expect(tab('Ledger entries')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Ledger entries')).toHaveFocus();
+    await user.keyboard('{ArrowUp}');
+    expect(tab('Transactions')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Transactions')).toHaveFocus();
+  });
+
+  it('links back to the shop', async () => {
+    setup();
+    await screen.findByText('PAY-20261114-ABC1');
+    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/');
+  });
+
   it('ArrowLeft from the first tab wraps to the last', async () => {
     const { user } = setup();
     await screen.findByText('PAY-20261114-ABC1');

@@ -45,3 +45,22 @@ describe('Layout focus on navigation', () => {
     expect(screen.getByRole('main')).not.toHaveFocus();
   });
 });
+
+describe('Layout header', () => {
+  it('hides the shop header on backoffice routes', () => {
+    const view = (route: string) =>
+      renderWithApp(
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="*" element={<h1>Page</h1>} />
+          </Route>
+        </Routes>,
+        { route },
+      );
+    const login = view('/backoffice/login');
+    expect(screen.queryByRole('banner')).toBeNull();
+    login.unmount();
+    view('/');
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+  });
+});

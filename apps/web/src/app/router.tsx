@@ -1,4 +1,5 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
+import { ConsoleArea } from '../backoffice/ConsoleArea';
 import { RequireAuth } from '../backoffice/RequireAuth';
 import { CheckoutPage } from '../checkout/CheckoutPage';
 import { ResultPage } from '../result/ResultPage';
@@ -26,21 +27,28 @@ export const routes: RouteObject[] = [
           },
           { path: '/result/:paymentId', element: <ResultPage /> },
           {
-            path: '/backoffice/login',
-            lazy: async () => ({ Component: (await import('../backoffice/LoginPage')).LoginPage }),
-          },
-          {
-            path: '/backoffice',
-            lazy: async () => {
-              const { BackofficePage } = await import('../backoffice/BackofficePage');
-              return {
-                element: (
-                  <RequireAuth>
-                    <BackofficePage />
-                  </RequireAuth>
-                ),
-              };
-            },
+            element: <ConsoleArea />,
+            children: [
+              {
+                path: '/backoffice/login',
+                lazy: async () => ({
+                  Component: (await import('../backoffice/LoginPage')).LoginPage,
+                }),
+              },
+              {
+                path: '/backoffice',
+                lazy: async () => {
+                  const { BackofficePage } = await import('../backoffice/BackofficePage');
+                  return {
+                    element: (
+                      <RequireAuth>
+                        <BackofficePage />
+                      </RequireAuth>
+                    ),
+                  };
+                },
+              },
+            ],
           },
           {
             path: '*',

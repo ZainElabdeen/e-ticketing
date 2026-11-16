@@ -16,15 +16,24 @@ export function Layout(): ReactElement {
     main.current?.focus();
   }, [pathname]);
 
+  // The console draws its own shell, so the shop header and main padding step aside.
+  const inConsole = pathname.startsWith('/backoffice');
+
   return (
     <>
-      <header className={styles.header}>
-        <Link to="/" className={styles.wordmark}>
-          E-Ticket
-        </Link>
-        <Link to="/backoffice">Backoffice</Link>
-      </header>
-      <main ref={main} tabIndex={-1} className={styles.main}>
+      {inConsole ? null : (
+        <header className={styles.header}>
+          <Link to="/" className={styles.wordmark}>
+            E-Ticket
+          </Link>
+          <Link to="/backoffice">Backoffice</Link>
+        </header>
+      )}
+      <main
+        ref={main}
+        tabIndex={-1}
+        className={inConsole ? `${styles.main} ${styles.console}` : styles.main}
+      >
         <Outlet />
       </main>
     </>

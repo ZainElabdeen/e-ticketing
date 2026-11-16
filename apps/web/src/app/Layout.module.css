@@ -23,3 +23,8 @@
 .main:focus {
   outline: none;
 }
+
+.main.console {
+  max-width: none;
+  padding: 0;
+}

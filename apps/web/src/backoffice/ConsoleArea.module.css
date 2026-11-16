@@ -1,0 +1,6 @@
+/* The body reads :root tokens, so the area paints its own background and text colour. */
+.area {
+  min-height: 100dvh;
+  background: var(--surface);
+  color: var(--text);
+}

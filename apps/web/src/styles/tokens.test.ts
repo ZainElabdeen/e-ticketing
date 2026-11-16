@@ -50,6 +50,9 @@ describe('colour tokens meet WCAG AA (4.5:1)', () => {
   const pairs: [string, string][] = [
     ['c-on-accent', 'c-accent'],
     ['c-accent', 'c-accent-soft'],
+    ['c-accent', 'c-canvas'],
+    ['c-accent', 'c-surface'],
+    ['stamp', 'c-surface'],
     ['c-ok-fg', 'c-ok-bg'],
     ['card', 'ink'],
   ];
