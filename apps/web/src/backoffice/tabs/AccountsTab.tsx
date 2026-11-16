@@ -1,19 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
-import { useApi } from '../../api/client';
-import { call } from '../../api/errors';
 import { formatMinor } from '../../lib/money';
+import { useAccounts } from '../queries';
 import { Loading, QueryFailure } from '../QueryFailure';
 import styles from '../tables.module.css';
 
 const titleCase = (s: string): string => s.charAt(0) + s.slice(1).toLowerCase();
 
 export function AccountsTab(): ReactElement {
-  const api = useApi();
-  const q = useQuery({
-    queryKey: ['backoffice', 'accounts'],
-    queryFn: () => call(api.GET('/v1/backoffice/accounts')),
-  });
+  const q = useAccounts();
 
   if (q.isPending) return <Loading />;
   if (q.isError) return <QueryFailure error={q.error} onRetry={() => void q.refetch()} />;

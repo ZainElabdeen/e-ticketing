@@ -4,6 +4,7 @@ import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useAuth } from './AuthProvider';
 import styles from './BackofficePage.module.css';
 import { ConsoleShell } from './ConsoleShell';
+import { SummaryTiles } from './SummaryTiles';
 import { AccountsTab } from './tabs/AccountsTab';
 import { AvailabilityTab } from './tabs/AvailabilityTab';
 import { LedgerEntriesTab } from './tabs/LedgerEntriesTab';
@@ -87,6 +88,7 @@ export function BackofficePage(): ReactElement {
   return (
     <ConsoleShell nav={nav} onSignOut={() => logout()}>
       <h1 className={styles.title}>Backoffice</h1>
+      <SummaryTiles />
       <div role="tabpanel" id="backoffice-panel" aria-labelledby={`tab-${tab}`}>
         {tab === 'transactions' ? <TransactionsTab page={page} onPage={onPage} /> : null}
         {tab === 'ledger' ? <LedgerEntriesTab page={page} onPage={onPage} /> : null}

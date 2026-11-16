@@ -1,10 +1,8 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
-import { useApi } from '../../api/client';
-import { call } from '../../api/errors';
 import { formatMinor } from '../../lib/money';
 import { formatDateTime } from '../../lib/time';
 import { Pagination } from '../../ui/Pagination';
+import { useTransactions } from '../queries';
 import { Loading, QueryFailure } from '../QueryFailure';
 import styles from '../tables.module.css';
 import { PAGE_SIZE, useClampPage, type TabProps } from '../usePage';
@@ -12,17 +10,7 @@ import { PAGE_SIZE, useClampPage, type TabProps } from '../usePage';
 const METHODS: Record<string, string> = { CARD: 'Card', QR: 'QR' };
 
 export function TransactionsTab({ page, onPage }: TabProps): ReactElement {
-  const api = useApi();
-  const q = useQuery({
-    placeholderData: keepPreviousData,
-    queryKey: ['backoffice', 'transactions', page],
-    queryFn: () =>
-      call(
-        api.GET('/v1/backoffice/transactions', {
-          params: { query: { page, pageSize: PAGE_SIZE } },
-        }),
-      ),
-  });
+  const q = useTransactions(page);
   useClampPage(page, q.data?.total, onPage);
 
   if (q.isPending) return <Loading />;

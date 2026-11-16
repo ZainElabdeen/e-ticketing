@@ -268,6 +268,13 @@ describe('BackofficePage', () => {
   it('a transient error shows a banner with Try again and keeps the session', async () => {
     saveSession('jwt', 3600);
     const { user } = renderBackoffice([
+      accounts(0, 0),
+      {
+        method: 'GET',
+        path: '/v1/backoffice/ticket-availability',
+        status: 200,
+        body: { data: [] },
+      },
       {
         method: 'GET',
         path: '/v1/backoffice/transactions',
