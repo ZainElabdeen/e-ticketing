@@ -486,7 +486,7 @@ e-ticketing-gateway`. Expiry is the only revocation (ADR-0010).
 | `/checkout/:orderId/qr/:paymentId` | QR code (qrcode.react), polling, "use card instead" | `GET /v1/payments/{id}` every 1 s, `POST /v1/payments/{id}/cancel` |
 | `/result/:paymentId` | Transaction ID, payment reference, timestamp, amount | `GET /v1/payments/{id}` |
 | `/backoffice/login` | Admin login | `POST /v1/auth/login` |
-| `/backoffice` | Tabs: transactions, ledger entries, account balances, ticket availability | `GET /v1/backoffice/*` |
+| `/backoffice` | Sections (sidebar at 1024px and up, top menu below): transactions, ledger entries, account balances, ticket availability; summary tiles (revenue = account 4000 balance, transaction total, tickets left) | `GET /v1/backoffice/*` |
 
 The total on `/` is a preview from listed prices; the server total from
 `POST /v1/orders` is authoritative and is what checkout shows.
@@ -729,3 +729,4 @@ QR → result → backoffice → balances) ships with it.
 | [0022](./adr/0022-gateway-auth-libraries-and-admin-hash.md) | `@nestjs/jwt` + `bcryptjs`; admin hash stored as base64 (`ADMIN_PASSWORD_HASH_B64`); expiry-only revocation | `jose`, native `bcrypt`, `$$` escaping, a secret file |
 | [0025](./adr/0025-ci-pipeline-and-coverage.md) | GitHub Actions CI: opt-in coverage (`CI_COVERAGE=1`) from unit and integration runs, two SonarCloud projects, native arm64 runners, only `main` publishes images | QEMU arm64, unit-only coverage, one Sonar project, turbo `--affected` |
 | [0026](./adr/0026-k3s-manifests-and-deploy.md) | K3s via Kustomize (base, local and prod overlays), initdb and migrate initContainers instead of Jobs, Secret from a VM-generated env file, opt-in CD, k3d CI | Jobs, Helm, Sealed Secrets |
+| [0027](./adr/0027-web-visual-system-and-responsive-layout.md) | Per-area semantic tokens, 4/6/12/20px radii, 640/1024 breakpoints, container query for TicketStub, sidebar console, DESIGN.md | Two style kits, Tailwind |

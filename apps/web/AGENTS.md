@@ -12,15 +12,23 @@ nginx sends `script-src`/`style-src 'self'` with no `unsafe-eval`
   before any schema exists).
 - Styling is CSS Modules only, no `style=` attribute. Values come from
   `src/styles/tokens.css` (light theme only, by spec).
-- Layout: `--gutter` switches at 560px; component media queries use
-  `max-width: 559px`. Controls are at least 44px tall with square corners.
+- Design source: `apps/web/DESIGN.md` (ADR-0027). Components read only semantic
+  tokens (`--surface`, `--text`, `--accent`, `--radius-card`, ...); the console
+  re-points them under `data-area='console'`. No raw hex outside `tokens.css`.
+- Layout: mobile first, exactly two breakpoints, `min-width: 640px` and
+  `min-width: 1024px`; `--gutter` is 16/24/32px. Radii are 4px (inputs), 6px
+  (shop cards), 12px (console cards) and 20px (pills). Controls are at least
+  44px tall or have a 44px hit area. Tables become cards on phones, never
+  sideways scroll.
 
 ## React standards
 
 - **Feature folders** (`shop/`, `checkout/`, `qr/`, `result/`, `backoffice/`) own
   their pages, hooks, schemas and CSS. `ui/` holds presentational components
   used by two or more features (`Button`, `Banner`, `Stepper`, `Pagination`,
-  `TicketStub`); they take props and render, with no data fetching.
+  `TicketStub`, `StickyBar`); they take props and render, with no data fetching.
+  `backoffice/` also holds `ConsoleArea` (console token scope), `ConsoleShell`
+  (sidebar or top bar) and `LabeledCell` (table cell with a phone-only label).
 - **State has one owner**: server data in TanStack Query, form input in React
   Hook Form, navigation state in the URL (params, `?tab=&page=`), and the rest in
   the nearest component that needs it. No global store; React context only for
