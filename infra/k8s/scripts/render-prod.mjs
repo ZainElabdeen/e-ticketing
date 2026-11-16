@@ -10,7 +10,14 @@
 // --out may be left out when only --traefik-out is wanted. --traefik-out must be a
 // .yaml file inside the system temp dir or infra/k8s/.rendered/. Symlinks that leave
 // those places and `..` escapes are rejected.
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,26 +50,51 @@ export function isDnsName(value) {
   );
 }
 
-/** realpath of a path that may not exist yet: the nearest existing ancestor is resolved. */
+function lstatOrNull(path) {
+  try {
+    return lstatSync(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+/**
+ * realpath of a path that may not exist yet: the nearest lstat-visible ancestor is resolved
+ * (a dangling symlink there makes realpath throw, which rejects it), and the leaf itself
+ * must not be a symlink.
+ */
 function realPathLoose(path) {
   const rest = [];
   let current = resolve(path);
-  while (!existsSync(current)) {
+  while (lstatOrNull(current) === null) {
     rest.unshift(basename(current));
     const parent = dirname(current);
     if (parent === current) break;
     current = parent;
   }
-  return join(realpathSync(current), ...rest);
+  let resolved;
+  try {
+    resolved = realpathSync(current);
+  } catch (error) {
+    if (error.code === 'ENOENT') throw new Error(`${path} is or crosses a dangling symbolic link`);
+    throw error;
+  }
+  const real = join(resolved, ...rest);
+  if (rest.length === 0 && lstatSync(current).isSymbolicLink()) {
+    throw new Error(`${path} is a symbolic link`);
+  }
+  return real;
 }
 
-/** Validates --out: exactly two levels below infra/k8s. Returns the real path. */
+/** Validates --out: infra/k8s/overlays/prod or infra/k8s/.rendered/<name>. Returns the real path. */
 export function checkOutDir(out) {
   const real = realPathLoose(out);
-  if (dirname(dirname(real)) !== realpathSync(k8sDir)) {
-    throw new Error(
-      '--out must be infra/k8s/overlays/prod or infra/k8s/.rendered/<name> (two levels below infra/k8s)',
-    );
+  const root = realpathSync(k8sDir);
+  const allowed =
+    real === join(root, 'overlays', 'prod') || dirname(real) === join(root, '.rendered');
+  if (!allowed) {
+    throw new Error('--out must be infra/k8s/overlays/prod or infra/k8s/.rendered/<name>');
   }
   return real;
 }
@@ -70,7 +102,7 @@ export function checkOutDir(out) {
 /** Validates --traefik-out: a .yaml file in the temp dir or infra/k8s/.rendered/. Returns the real path. */
 export function checkTraefikOut(file) {
   const real = realPathLoose(file);
-  const roots = [realpathSync(tmpdir()), realPathLoose(join(k8sDir, '.rendered'))];
+  const roots = [realpathSync(tmpdir()), join(realpathSync(k8sDir), '.rendered')];
   const inside = roots.some((root) => real.startsWith(root + sep));
   if (!inside || !real.endsWith('.yaml')) {
     throw new Error(
@@ -78,6 +110,14 @@ export function checkTraefikOut(file) {
     );
   }
   return real;
+}
+
+/** Writes a fresh file: never follows a link planted at the path (`wx` fails on any existing entry). */
+function writeFresh(file, text) {
+  const existing = lstatOrNull(file);
+  if (existing?.isSymbolicLink()) throw new Error(`${file} is a symbolic link`);
+  if (existing?.isFile()) unlinkSync(file);
+  writeFileSync(file, text, { flag: 'wx' });
 }
 
 function fill(template, values) {
@@ -115,16 +155,27 @@ function main(argv) {
   if (values.out === undefined && values['traefik-out'] === undefined) {
     throw new Error('--out <dir> is required');
   }
-  const outDir = values.out === undefined ? undefined : checkOutDir(values.out);
-  const traefikOut =
-    values['traefik-out'] === undefined ? undefined : checkTraefikOut(values['traefik-out']);
   const kustomization = renderProd({ host: values.host, tag: values.tag });
-  if (outDir !== undefined) {
+  if (values.out !== undefined) {
+    const outDir = checkOutDir(values.out);
+    // Guard inline, on the exact variable that is written.
+    const kustomizationFile = join(outDir, 'kustomization.yaml');
+    const base = realpathSync(k8sDir);
+    if (!kustomizationFile.startsWith(base + sep)) throw new Error('--out escapes infra/k8s');
     mkdirSync(outDir, { recursive: true });
-    writeFileSync(join(outDir, 'kustomization.yaml'), kustomization);
+    if (lstatSync(outDir).isSymbolicLink()) throw new Error('--out is a symbolic link');
+    writeFresh(kustomizationFile, kustomization);
   }
-  if (traefikOut !== undefined) {
-    writeFileSync(traefikOut, renderHelmChartConfig({ acmeEmail: values['acme-email'] }));
+  if (values['traefik-out'] !== undefined) {
+    const traefikFile = checkTraefikOut(values['traefik-out']);
+    const allowedRoots = [realpathSync(tmpdir()), join(realpathSync(k8sDir), '.rendered')];
+    if (
+      !allowedRoots.some((root) => traefikFile.startsWith(root + sep)) ||
+      !traefikFile.endsWith('.yaml')
+    ) {
+      throw new Error('--traefik-out is outside the allowed directories');
+    }
+    writeFresh(traefikFile, renderHelmChartConfig({ acmeEmail: values['acme-email'] }));
   } else if (values['acme-email'] !== undefined) {
     throw new Error('--acme-email needs --traefik-out <file>');
   }

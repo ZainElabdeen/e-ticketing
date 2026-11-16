@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -132,6 +132,9 @@ test('--out is limited to two levels below infra/k8s', () => {
   ]) {
     assert.throws(() => checkOutDir(bad), /--out must be/, bad);
   }
+  for (const bad of ['overlays/local', 'base/x', 'overlays']) {
+    assert.throws(() => checkOutDir(join(k8sDir, bad)), /--out must be/, bad);
+  }
 });
 
 test('--out rejects a symlink that leaves infra/k8s', () => {
@@ -140,7 +143,7 @@ test('--out rejects a symlink that leaves infra/k8s', () => {
   try {
     mkdirSync(join(k8sDir, '.rendered'), { recursive: true });
     symlinkSync(outside, link);
-    assert.throws(() => checkOutDir(link), /--out must be/);
+    assert.throws(() => checkOutDir(link), /symbolic link/);
   } finally {
     rmSync(link, { force: true });
     rmSync(outside, { recursive: true, force: true });
@@ -204,6 +207,46 @@ test('CLI accepts --traefik-out alone (deploy.sh drift hint)', () => {
     );
     assert.match(readFileSync(join(dir, 't.yaml'), 'utf8'), /ops@example\.org/);
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('dangling symlinks are rejected and nothing is written through them', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'render-prod-dangle-'));
+  const target = join(dir, 'victim.yaml');
+  const leaf = join(dir, 'leaf.yaml');
+  const outLink = join(k8sDir, '.rendered', `dangle-${process.pid}`);
+  try {
+    symlinkSync(target, leaf);
+    assert.throws(() => checkTraefikOut(leaf), /symbolic link/);
+    const t = spawnSync(
+      process.execPath,
+      [
+        script,
+        '--host',
+        'demo.example.org',
+        '--tag',
+        'sha-abc1234',
+        '--acme-email',
+        'ops@example.org',
+        '--traefik-out',
+        leaf,
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.equal(t.status, 1);
+    assert.equal(existsSync(target), false);
+    mkdirSync(join(k8sDir, '.rendered'), { recursive: true });
+    symlinkSync(join(dir, 'nowhere'), outLink);
+    const o = spawnSync(
+      process.execPath,
+      [script, '--host', 'demo.example.org', '--tag', 'sha-abc1234', '--out', outLink],
+      { encoding: 'utf8' },
+    );
+    assert.equal(o.status, 1);
+    assert.equal(existsSync(join(dir, 'nowhere')), false);
+  } finally {
+    rmSync(outLink, { force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });
