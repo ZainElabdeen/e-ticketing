@@ -45,8 +45,7 @@ if [[ -z "$host" ]]; then
 fi
 
 rendered="$(mktemp)"
-hint_tmp=""
-trap 'rm -rf "$rendered" "$hint_tmp"' EXIT
+trap 'rm -rf "$rendered"' EXIT
 
 if [[ "$dry_run" -eq 0 ]]; then
   echo "deploy: checking the eight images have $tag on GHCR"
@@ -54,7 +53,7 @@ if [[ "$dry_run" -eq 0 ]]; then
   "$here/apply-secrets.sh"
 fi
 
-node "$here/render-prod.mjs" --host "$host" --tag "$tag" --out "$here/../overlays/prod"
+node "$here/render-prod.mjs" --target prod --host "$host" --tag "$tag"
 "$here/render.sh" prod >"$rendered"
 
 # Expected workloads come from the rendered YAML; an empty list fails before any apply.
@@ -80,17 +79,14 @@ traefik_hint() {
     echo "deploy: reminder: if infra/k8s/traefik/helmchartconfig.yaml changed, re-copy it to $vm_traefik (infra/k8s/README.md, Upgrade)" >&2
     return 0
   fi
-  local acme_email tmp
+  local acme_email
   acme_email="$(node --env-file="$env_file" -e 'process.stdout.write(process.env.ACME_EMAIL ?? "")')" || return 0
   [[ -n "$acme_email" ]] || return 0
-  tmp="$(mktemp -d)" || return 0
-  hint_tmp="$tmp"
-  if ! node "$here/render-prod.mjs" --host "$host" --tag "$tag" \
-    --acme-email "$acme_email" --traefik-out "$tmp/traefik.yaml" 2>/dev/null; then
+  if ! node "$here/render-prod.mjs" --traefik --acme-email "$acme_email" >/dev/null 2>&1; then
     echo "deploy: note: could not render the Traefik config; drift hint skipped" >&2
     return 0
   fi
-  if ! cmp -s "$tmp/traefik.yaml" "$vm_traefik"; then
+  if ! cmp -s "$here/../.rendered/traefik-config.yaml" "$vm_traefik"; then
     echo "deploy: hint: infra/k8s/traefik/helmchartconfig.yaml differs from $vm_traefik; re-render and copy it (infra/k8s/README.md, Upgrade)" >&2
   fi
 }

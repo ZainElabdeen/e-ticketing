@@ -175,9 +175,8 @@ Traefik, configured once (HTTP to HTTPS 308, Let's Encrypt resolver, `externalTr
 limits see real clients):
 
 ```bash
-node infra/k8s/scripts/render-prod.mjs --host "$HOST" --tag sha-<7> \
-  --out infra/k8s/.rendered/traefik --acme-email "$EMAIL" --traefik-out /tmp/traefik-config.yaml
-sudo cp /tmp/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+node infra/k8s/scripts/render-prod.mjs --traefik --acme-email "$EMAIL"
+sudo cp infra/k8s/.rendered/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
 kubectl -n kube-system rollout status deploy/traefik --timeout=300s
 kubectl -n kube-system get svc traefik -o jsonpath='{.spec.externalTrafficPolicy}{"\n"}'   # Local
 ```

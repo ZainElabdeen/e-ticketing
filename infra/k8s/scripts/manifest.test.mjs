@@ -2,7 +2,7 @@
 // kubectl is not on PATH; CI installs it (Task 4 of the Phase 9 plan).
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -33,17 +33,16 @@ function render(overlay) {
 }
 
 function renderProdSample() {
-  const dir = join(k8sDir, '.rendered', `test-${process.pid}`);
-  mkdirSync(dir, { recursive: true });
+  const dir = join(k8sDir, '.rendered', 'validate');
   try {
     execFileSync('node', [
       join(k8sDir, 'scripts/render-prod.mjs'),
+      '--target',
+      'validate',
       '--host',
       'demo.example.org',
       '--tag',
       'sha-abc1234',
-      '--out',
-      dir,
     ]);
     return render(dir);
   } finally {

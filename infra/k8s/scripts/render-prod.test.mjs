@@ -1,18 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-  checkOutDir,
-  checkTraefikOut,
-  isDnsName,
-  renderHelmChartConfig,
-  renderProd,
-} from './render-prod.mjs';
+import { isDnsName, renderHelmChartConfig, renderProd } from './render-prod.mjs';
 
 const script = fileURLToPath(new URL('./render-prod.mjs', import.meta.url));
 const k8sDir = fileURLToPath(new URL('..', import.meta.url));
@@ -82,171 +75,85 @@ test('renderHelmChartConfig rejects invalid emails', () => {
   }
 });
 
-test('CLI writes kustomization.yaml and the Traefik config, and fails on bad input', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'render-prod-'));
-  const rendered = join(k8sDir, '.rendered', `render-prod-test-${process.pid}`);
+const run = (...args) => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
+const overlayArgs = ['--host', 'demo.example.org', '--tag', 'sha-abc1234'];
+const traefikFile = join(k8sDir, '.rendered/traefik-config.yaml');
+
+test('each --target writes kustomization.yaml to its fixed directory', () => {
+  const fixed = {
+    prod: join(k8sDir, 'overlays/prod'),
+    k3d: join(k8sDir, '.rendered/k3d'),
+    validate: join(k8sDir, '.rendered/validate'),
+  };
+  for (const [target, dir] of Object.entries(fixed)) {
+    const file = join(dir, 'kustomization.yaml');
+    const existed = existsSync(file);
+    try {
+      execFileSync(process.execPath, [script, '--target', target, ...overlayArgs], {
+        stdio: 'pipe',
+      });
+      assert.match(readFileSync(file, 'utf8'), /sha-abc1234/, target);
+    } finally {
+      if (target !== 'prod') rmSync(dir, { recursive: true, force: true });
+      else if (!existed) rmSync(file, { force: true });
+    }
+  }
+});
+
+test('an unknown --target exits 2 and writes nothing', () => {
+  for (const target of ['staging', '../x', '/tmp/render-prod-x', '', 'Prod']) {
+    const r = run('--target', target, ...overlayArgs);
+    assert.equal(r.status, 2, target);
+    assert.match(r.stderr, /--target must be one of prod, k3d, validate/);
+  }
+  assert.equal(existsSync('/tmp/render-prod-x'), false);
+  const none = run(...overlayArgs);
+  assert.equal(none.status, 2);
+});
+
+test('--traefik writes the fixed file and prints its path', () => {
   try {
-    execFileSync(
-      process.execPath,
-      [
-        script,
-        '--host',
-        'demo.example.org',
-        '--tag',
-        'sha-abc1234',
-        '--out',
-        rendered,
-        '--acme-email',
-        'ops@example.org',
-        '--traefik-out',
-        join(dir, 't.yaml'),
-      ],
-      { stdio: 'pipe' },
-    );
-    assert.match(readFileSync(join(rendered, 'kustomization.yaml'), 'utf8'), /sha-abc1234/);
-    assert.match(readFileSync(join(dir, 't.yaml'), 'utf8'), /ops@example\.org/);
-    const bad = spawnSync(
-      process.execPath,
-      [script, '--host', 'nope', '--tag', 'sha-abc1234', '--out', rendered],
-      { encoding: 'utf8' },
-    );
-    assert.equal(bad.status, 1);
-    assert.match(bad.stderr, /render-prod: HOST must be/);
+    const r = run('--traefik', '--acme-email', 'ops@example.org');
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout.trim(), traefikFile);
+    assert.match(readFileSync(traefikFile, 'utf8'), /email: ops@example\.org/);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
-    rmSync(rendered, { recursive: true, force: true });
+    rmSync(traefikFile, { force: true });
   }
 });
 
-test('--out is limited to two levels below infra/k8s', () => {
-  assert.doesNotThrow(() => checkOutDir(join(k8sDir, 'overlays/prod')));
-  assert.doesNotThrow(() => checkOutDir(join(k8sDir, '.rendered/anything')));
-  for (const bad of [
-    '/etc/cron.d',
-    join(tmpdir(), 'x'),
-    join(k8sDir, 'overlays/prod/..'),
-    join(k8sDir, '.rendered/a/b'),
-    join(k8sDir, '.rendered'),
-    join(k8sDir, '.rendered/../../../etc'),
-    k8sDir,
-  ]) {
-    assert.throws(() => checkOutDir(bad), /--out must be/, bad);
-  }
-  for (const bad of ['overlays/local', 'base/x', 'overlays']) {
-    assert.throws(() => checkOutDir(join(k8sDir, bad)), /--out must be/, bad);
-  }
+test('--traefik rejects a bad email and mixing with overlay options', () => {
+  assert.equal(run('--traefik', '--acme-email', 'nope').status, 1);
+  assert.equal(run('--traefik').status, 1);
+  assert.equal(run('--traefik', '--target', 'prod', '--acme-email', 'ops@example.org').status, 1);
+  assert.equal(run('--target', 'k3d', '--acme-email', 'ops@example.org').status, 1);
 });
 
-test('--out rejects a symlink that leaves infra/k8s', () => {
-  const outside = mkdtempSync(join(tmpdir(), 'render-prod-out-'));
-  const link = join(k8sDir, '.rendered', `link-${process.pid}`);
-  try {
-    mkdirSync(join(k8sDir, '.rendered'), { recursive: true });
-    symlinkSync(outside, link);
-    assert.throws(() => checkOutDir(link), /symbolic link/);
-  } finally {
-    rmSync(link, { force: true });
-    rmSync(outside, { recursive: true, force: true });
+test('--out and --traefik-out are rejected as unknown options', () => {
+  for (const flag of ['--out', '--traefik-out']) {
+    const r = run('--target', 'k3d', ...overlayArgs, flag, '/tmp/render-prod-x');
+    assert.equal(r.status, 1, flag);
+    assert.match(r.stderr, /Unknown option/);
   }
+  assert.equal(existsSync('/tmp/render-prod-x'), false);
 });
 
-test('--traefik-out is limited to .yaml files in the temp dir or .rendered', () => {
-  assert.doesNotThrow(() => checkTraefikOut(join(tmpdir(), 't.yaml')));
-  assert.doesNotThrow(() => checkTraefikOut(join(k8sDir, '.rendered/traefik/t.yaml')));
-  for (const bad of [
-    '/etc/passwd',
-    '/etc/cron.d/x.yaml',
-    join(tmpdir(), 't.txt'),
-    join(tmpdir(), '../etc/x.yaml'),
-    join(k8sDir, 'traefik/helmchartconfig.yaml'),
-    join(k8sDir, 'overlays/prod/x.yaml'),
-  ]) {
-    assert.throws(() => checkTraefikOut(bad), /--traefik-out must be/, bad);
-  }
-});
-
-test('--traefik-out rejects a symlinked directory pointing outside', () => {
-  const outside = mkdtempSync(join(k8sDir, 'render-prod-sym-'));
-  const dir = mkdtempSync(join(tmpdir(), 'render-prod-link-'));
-  try {
-    symlinkSync(outside, join(dir, 'ln'));
-    assert.throws(() => checkTraefikOut(join(dir, 'ln/t.yaml')), /--traefik-out must be/);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-    rmSync(outside, { recursive: true, force: true });
-  }
-});
-
-test('CLI exits 1 on a rejected path and writes nothing', () => {
-  const r = spawnSync(
-    process.execPath,
-    [script, '--host', 'demo.example.org', '--tag', 'sha-abc1234', '--out', '/tmp/render-prod-x'],
-    { encoding: 'utf8' },
-  );
+test('a bad host fails with exit 1', () => {
+  const r = run('--target', 'k3d', '--host', 'nope', '--tag', 'sha-abc1234');
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /render-prod: --out must be/);
+  assert.match(r.stderr, /render-prod: HOST must be/);
 });
 
-test('CLI accepts --traefik-out alone (deploy.sh drift hint)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'render-prod-alone-'));
+test('a symlink planted at the fixed file is rejected and not written through', () => {
+  const victim = join(k8sDir, '.rendered', `victim-${process.pid}.txt`);
   try {
-    execFileSync(
-      process.execPath,
-      [
-        script,
-        '--host',
-        'demo.example.org',
-        '--tag',
-        'sha-abc1234',
-        '--acme-email',
-        'ops@example.org',
-        '--traefik-out',
-        join(dir, 't.yaml'),
-      ],
-      { stdio: 'pipe' },
-    );
-    assert.match(readFileSync(join(dir, 't.yaml'), 'utf8'), /ops@example\.org/);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test('dangling symlinks are rejected and nothing is written through them', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'render-prod-dangle-'));
-  const target = join(dir, 'victim.yaml');
-  const leaf = join(dir, 'leaf.yaml');
-  const outLink = join(k8sDir, '.rendered', `dangle-${process.pid}`);
-  try {
-    symlinkSync(target, leaf);
-    assert.throws(() => checkTraefikOut(leaf), /symbolic link/);
-    const t = spawnSync(
-      process.execPath,
-      [
-        script,
-        '--host',
-        'demo.example.org',
-        '--tag',
-        'sha-abc1234',
-        '--acme-email',
-        'ops@example.org',
-        '--traefik-out',
-        leaf,
-      ],
-      { encoding: 'utf8' },
-    );
-    assert.equal(t.status, 1);
-    assert.equal(existsSync(target), false);
     mkdirSync(join(k8sDir, '.rendered'), { recursive: true });
-    symlinkSync(join(dir, 'nowhere'), outLink);
-    const o = spawnSync(
-      process.execPath,
-      [script, '--host', 'demo.example.org', '--tag', 'sha-abc1234', '--out', outLink],
-      { encoding: 'utf8' },
-    );
-    assert.equal(o.status, 1);
-    assert.equal(existsSync(join(dir, 'nowhere')), false);
+    symlinkSync(victim, traefikFile);
+    const r = run('--traefik', '--acme-email', 'ops@example.org');
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /symbolic link/);
+    assert.equal(existsSync(victim), false);
   } finally {
-    rmSync(outLink, { force: true });
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(traefikFile, { force: true });
   }
 });

@@ -201,12 +201,8 @@ done
 [[ $got429 -eq 1 ]] || fail "no 429 within 11 login attempts: a spoofed X-Forwarded-For escaped the limit"
 
 step "Traefik HelmChartConfig (redirect, client IP, ACME volume)"
-traefik_yaml="$tmp/traefik.yaml"
-overlay_dir="infra/k8s/.rendered/k3d-e2e-$$"
-mkdir -p "$overlay_dir"
-node "$scripts/render-prod.mjs" --host demo.example.org --tag sha-abc1234 --out "$overlay_dir" \
-  --acme-email ci@example.test --traefik-out "$traefik_yaml" >/dev/null
-rm -rf "$overlay_dir"
+node "$scripts/render-prod.mjs" --traefik --acme-email ci@example.test >/dev/null
+traefik_yaml="infra/k8s/.rendered/traefik-config.yaml"
 job_uid_before="$(kubectl -n kube-system get job helm-install-traefik -o jsonpath='{.metadata.uid}' 2>/dev/null || true)"
 kubectl apply -f "$traefik_yaml"
 # The Helm controller upgrades the chart in a fresh helm-install-traefik job.

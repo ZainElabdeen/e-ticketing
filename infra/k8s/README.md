@@ -135,12 +135,11 @@ Render it with your email and copy it into K3s' auto-apply directory:
 
 ```bash
 EMAIL=<you@example.com>
-node infra/k8s/scripts/render-prod.mjs --host <host> --tag sha-0000000 --out infra/k8s/.rendered/traefik \
-  --acme-email "$EMAIL" --traefik-out /tmp/traefik-config.yaml
-sudo cp /tmp/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+node infra/k8s/scripts/render-prod.mjs --traefik --acme-email "$EMAIL"
+sudo cp infra/k8s/.rendered/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
 ```
 
-(`--tag` only fills the prod overlay written to `--out`; the value is irrelevant here.) K3s reconciles the file and restarts Traefik.
+(The script takes no paths: it always writes `infra/k8s/.rendered/traefik-config.yaml` and prints it.) K3s reconciles the file and restarts Traefik.
 
 ### 6. Build the images [GitHub]
 
@@ -293,9 +292,9 @@ If `infra/k8s/traefik/helmchartconfig.yaml` changed, `deploy.sh` does not apply 
 
 ```bash
 # [VM]
-node infra/k8s/scripts/render-prod.mjs --host <host> --tag sha-0000000 --out infra/k8s/.rendered/traefik \
-  --acme-email <you@example.com> --traefik-out /tmp/traefik-config.yaml
-sudo cp /tmp/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+EMAIL=<you@example.com>
+node infra/k8s/scripts/render-prod.mjs --traefik --acme-email "$EMAIL"
+sudo cp infra/k8s/.rendered/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
 ```
 
 Deploy a newer tag with `deploy.sh sha-<7>` (or let CD do it). Roll back by deploying an older tag that still exists on GHCR. A new tag
