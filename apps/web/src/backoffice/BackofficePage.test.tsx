@@ -262,6 +262,7 @@ describe('BackofficePage', () => {
     );
     const row = (await screen.findByText('Gold')).closest('tr')!;
     const cells = within(row).getAllByRole('cell');
+    expect(cells).toHaveLength(6);
     ['Gold', 'AED 100.00', '100', '12', '3', '85'].forEach((value, i) => {
       expect(cells[i]).toHaveTextContent(value);
     });

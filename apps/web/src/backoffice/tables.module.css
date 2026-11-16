@@ -92,6 +92,11 @@
   display: none !important;
 }
 
+/* An empty ledger debit/credit cell would render as a blank row in a card. */
+.table td:empty {
+  display: none;
+}
+
 .group {
   display: block;
   font-stretch: 75%;
@@ -226,6 +231,11 @@
     display: none;
   }
 
+  .emptyCell,
+  .table td:empty {
+    display: table-cell;
+  }
+
   .emptyCell {
     display: table-cell !important;
   }
@@ -248,7 +258,7 @@
 
 .quiet {
   margin: 0;
-  color: var(--ink-muted);
+  color: var(--text-muted);
 }
 
 .failure {
