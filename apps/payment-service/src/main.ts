@@ -1,20 +1,14 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { configureApp } from '@eticket/nest-common';
+import {
+  bootstrapService,
+  configureApp,
+  resolveContractFile,
+  runIfMain,
+} from '@eticket/nest-common';
 import { createAppModule, type AppOptions } from './app.module';
-import { validateEnv, type EnvironmentVariables } from './config/env';
-
-/** `dist/openapi.json` once built; the contracts package's copy in dev and tests. */
-function contractFile(): string {
-  const built = join(__dirname, '..', 'openapi.json');
-  return existsSync(built)
-    ? built
-    : require.resolve('@eticket/contracts/openapi/payment-service.json');
-}
+import { validateEnv } from './config/env';
 
 /** Builds the fully configured app without listening. Used by `bootstrap` and tests. */
 export async function createApp(
@@ -23,22 +17,11 @@ export async function createApp(
 ): Promise<INestApplication> {
   const validated = validateEnv(env);
   const app = await NestFactory.create(createAppModule(validated, options), { bufferLogs: true });
-  configureApp(app, { swaggerEnabled: validated.SWAGGER_ENABLED, contractFile: contractFile() });
+  configureApp(app, {
+    swaggerEnabled: validated.SWAGGER_ENABLED,
+    contractFile: resolveContractFile(__dirname, 'payment-service'),
+  });
   return app;
 }
 
-async function bootstrap(): Promise<void> {
-  const app = await createApp(process.env);
-  app.enableShutdownHooks();
-  const port = app
-    .get<ConfigService<EnvironmentVariables, true>>(ConfigService)
-    .get('PORT', { infer: true });
-  await app.listen(port, '0.0.0.0');
-}
-
-if (require.main === module) {
-  bootstrap().catch((err: unknown) => {
-    console.error(err);
-    process.exit(1);
-  });
-}
+runIfMain(module, () => bootstrapService(createApp));

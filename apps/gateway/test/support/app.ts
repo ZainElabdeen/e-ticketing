@@ -51,6 +51,7 @@ export async function startGateway(
       RATE_LIMIT_ORDERS_PER_MIN: '10000',
       RATE_LIMIT_LOGIN_PER_MIN: '10000',
       LOG_LEVEL: 'silent',
+      SHUTDOWN_DRAIN_MS: '0',
       ...overrides,
     },
     options,

@@ -1,4 +1,5 @@
 export * from './api-key.guard';
+export * from './bootstrap';
 export * from './configure-app';
 export * from './correlation-id';
 export * from './db-errors';

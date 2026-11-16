@@ -10,7 +10,8 @@ Shared by `apps/gateway`, `apps/ticket-service`, `apps/payment-service`,
 `DomainError`, `FallbackModule`, `isUniqueViolation(err, constraint)`, `toMinor`,
 `schemaOf`, `createValidationPipe`, `trimTrailingSlashes`,
 `HealthModule.forRoot({ checks, timeoutMs, drainMs })`, `ReadinessCheck`,
-`prismaReadinessCheck(token)`, `ShutdownState`. A helper needed by two services belongs here
+`prismaReadinessCheck(token)`, `ShutdownState`,
+`resolveContractFile(distDir, service)`, `bootstrapService(createApp)`, `runIfMain(module, fn)`. A helper needed by two services belongs here
 (ADR-0020).
 
 ## App wiring

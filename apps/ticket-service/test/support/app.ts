@@ -27,6 +27,7 @@ export async function startTicketService(
       INTERNAL_API_KEY_TICKET: INTERNAL_KEY,
       ORDER_EXPIRY_ENABLED: 'false',
       LOG_LEVEL: 'silent',
+      SHUTDOWN_DRAIN_MS: '0',
       ...overrides,
     },
     options,

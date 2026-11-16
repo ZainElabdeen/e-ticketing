@@ -2,19 +2,20 @@ import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { TerminusModule } from '@nestjs/terminus';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 import {
   API_KEYS,
   ApiKeyGuard,
   FallbackModule,
+  HealthModule,
   pinoHttpOptions,
+  prismaReadinessCheck,
   type ApiKeys,
 } from '@eticket/nest-common';
+import { PrismaModule } from './common/prisma.module';
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
-import { HealthController } from './health/health.controller';
 import { InternalOrdersController } from './orders/internal-orders.controller';
 import { OrderExpiryJob } from './orders/order-expiry.job';
 import { OrdersController } from './orders/orders.controller';
@@ -54,19 +55,18 @@ export function createAppModule(
           }),
         }),
       }),
-      TerminusModule,
+      PrismaModule,
+      HealthModule.forRoot({
+        imports: [PrismaModule],
+        checks: [prismaReadinessCheck(PrismaService)],
+        drainMs: env.SHUTDOWN_DRAIN_MS,
+      }),
       ScheduleModule.forRoot(),
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [
-      HealthController,
-      TicketTypesController,
-      OrdersController,
-      InternalOrdersController,
-    ],
+    controllers: [TicketTypesController, OrdersController, InternalOrdersController],
     providers: [
-      PrismaService,
       TicketTypesRepository,
       OrdersRepository,
       OrdersService,
@@ -81,7 +81,6 @@ export function createAppModule(
       },
       { provide: APP_GUARD, useClass: ApiKeyGuard },
     ],
-    exports: [PrismaService],
   })
   class AppModule {}
 

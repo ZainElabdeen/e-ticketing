@@ -133,6 +133,8 @@ services:
       retries: 20
       start_period: 5s
     restart: unless-stopped
+    # Above the 5 s shutdown drain (SHUTDOWN_DRAIN_MS) plus in-flight requests and job drain.
+    stop_grace_period: 20s
 
   payment-service:
     build:
@@ -173,6 +175,8 @@ services:
       retries: 20
       start_period: 5s
     restart: unless-stopped
+    # Above the 5 s shutdown drain (SHUTDOWN_DRAIN_MS) plus in-flight requests and job drain.
+    stop_grace_period: 20s
 
   ledger-service:
     build:
@@ -202,6 +206,8 @@ services:
       retries: 20
       start_period: 5s
     restart: unless-stopped
+    # Above the 5 s shutdown drain (SHUTDOWN_DRAIN_MS) plus in-flight requests and job drain.
+    stop_grace_period: 20s
 
   # Public edge (spec section 6): the only service the browser talks to. It holds the three
   # public keys and the admin credentials, never an internal key.
@@ -246,6 +252,8 @@ services:
       retries: 20
       start_period: 5s
     restart: unless-stopped
+    # Above the 5 s shutdown drain (SHUTDOWN_DRAIN_MS) plus in-flight requests and job drain.
+    stop_grace_period: 20s
 
   # The SPA (spec section 5): nginx serves the Vite build and proxies /api/ to the gateway,
   # so the browser has one origin and the gateway needs no CORS in this setup.

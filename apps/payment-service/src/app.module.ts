@@ -3,24 +3,25 @@ import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { TerminusModule } from '@nestjs/terminus';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 import {
   API_KEYS,
   ApiKeyGuard,
   FallbackModule,
+  HealthModule,
   pinoHttpOptions,
+  prismaReadinessCheck,
   type ApiKeys,
 } from '@eticket/nest-common';
 import { CLOCK, SystemClock, type Clock } from './common/clock';
+import { PrismaModule } from './common/prisma.module';
 import { PrismaService } from './common/prisma.service';
 import type { EnvironmentVariables } from './config/env';
 import { LedgerClient } from './downstream/ledger.client';
 import { TicketClient } from './downstream/ticket.client';
 import { OutboxRepository } from './outbox/outbox.repository';
 import { OutboxWorker } from './outbox/outbox.worker';
-import { HealthController } from './health/health.controller';
 import { CardHandler } from './payments/handlers/card.handler';
 import { HandlerRegistry } from './payments/handlers/handler-registry';
 import { PAYMENT_HANDLERS, type PaymentHandler } from './payments/handlers/payment-handler';
@@ -64,7 +65,12 @@ export function createAppModule(
           }),
         }),
       }),
-      TerminusModule,
+      PrismaModule,
+      HealthModule.forRoot({
+        imports: [PrismaModule],
+        checks: [prismaReadinessCheck(PrismaService)],
+        drainMs: env.SHUTDOWN_DRAIN_MS,
+      }),
       HttpModule.registerAsync({
         inject: [ConfigService],
         useFactory: (config: ConfigService<EnvironmentVariables, true>) => ({
@@ -78,9 +84,8 @@ export function createAppModule(
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
-    controllers: [HealthController, PaymentsController, TransactionsController],
+    controllers: [PaymentsController, TransactionsController],
     providers: [
-      PrismaService,
       TicketClient,
       LedgerClient,
       PaymentsRepository,
@@ -113,7 +118,7 @@ export function createAppModule(
       },
       { provide: APP_GUARD, useClass: ApiKeyGuard },
     ],
-    exports: [PrismaService, TicketClient, LedgerClient],
+    exports: [TicketClient, LedgerClient],
   })
   class AppModule {}
 

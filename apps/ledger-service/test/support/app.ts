@@ -26,6 +26,7 @@ export async function startLedgerService(
       PUBLIC_API_KEY_LEDGER: PUBLIC_KEY,
       INTERNAL_API_KEY_LEDGER: INTERNAL_KEY,
       LOG_LEVEL: 'silent',
+      SHUTDOWN_DRAIN_MS: '0',
       ...overrides,
     },
     options,

@@ -1,16 +1,15 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module, type DynamicModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TerminusModule } from '@nestjs/terminus';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
-import { FallbackModule, pinoHttpOptions } from '@eticket/nest-common';
+import { FallbackModule, HealthModule, pinoHttpOptions } from '@eticket/nest-common';
 import type { EnvironmentVariables } from './config/env';
 import { AuthModule } from './auth/auth.module';
 import { BackofficeSummaryService } from './backoffice/backoffice-summary.service';
 import { BackofficeController } from './backoffice/backoffice.controller';
 import { DownstreamClient } from './downstream/downstream.client';
-import { HealthController } from './health/health.controller';
+import { DOWNSTREAM_LIVE_CHECKS } from './health/downstream-live.check';
 import { ThrottlingModule } from './throttling/throttling.module';
 import { OrdersController } from './shop/orders.controller';
 import { PaymentsController } from './shop/payments.controller';
@@ -49,16 +48,19 @@ export function createAppModule(
           }),
         }),
       }),
-      TerminusModule,
+      HealthModule.forRoot({
+        imports: [HttpModule],
+        checks: DOWNSTREAM_LIVE_CHECKS,
+        drainMs: env.SHUTDOWN_DRAIN_MS,
+      }),
       AuthModule,
       ThrottlingModule,
-      // Timeout, status and redirect handling are set per call (DownstreamClient, HealthController).
+      // Timeout, status and redirect handling are set per call (DownstreamClient, the downstream health checks).
       HttpModule,
       // Keep last: routes register in import order and this one matches everything.
       FallbackModule,
     ],
     controllers: [
-      HealthController,
       TicketTypesController,
       OrdersController,
       PaymentsController,

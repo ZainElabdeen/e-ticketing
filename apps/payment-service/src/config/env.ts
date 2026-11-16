@@ -65,6 +65,13 @@ export class EnvironmentVariables {
   @IsIn(LOG_LEVELS)
   LOG_LEVEL: string = 'info';
 
+  /** Wait between readiness failing and the HTTP server closing on shutdown. Tests set 0. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(30000)
+  SHUTDOWN_DRAIN_MS: number = 5000;
+
   @Type(() => Number)
   @IsInt()
   @Min(1)
