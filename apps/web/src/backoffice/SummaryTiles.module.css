@@ -15,14 +15,18 @@
 .label {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--text-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .value {
   margin: var(--space-1) 0 0;
   color: var(--text);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-stretch: 75%;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 

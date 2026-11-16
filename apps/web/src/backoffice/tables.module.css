@@ -73,8 +73,8 @@
   flex: none;
   color: var(--text-muted);
   font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -94,7 +94,8 @@
 
 .group {
   display: block;
-  font-weight: 500;
+  font-stretch: 75%;
+  font-weight: 700;
 }
 
 .entry .group th {
@@ -118,6 +119,7 @@
 }
 
 .total {
+  font-stretch: 75%;
   font-weight: 700;
 }
 
@@ -135,12 +137,13 @@
 }
 
 .pill.ok {
-  background: var(--c-ok-bg);
-  border-color: var(--c-ok-bg);
-  color: var(--c-ok-fg);
+  background: var(--surface-raised);
+  border-color: var(--ok);
+  color: var(--ok);
 }
 
 .pill.bad {
+  border-color: var(--stamp);
   color: var(--stamp);
 }
 
@@ -209,8 +212,8 @@
 
   .table thead th {
     font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-muted);
   }

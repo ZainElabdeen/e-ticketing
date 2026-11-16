@@ -14,19 +14,6 @@
   --tier-vip-text: #6e2b4f;
   --ok: #2f6b3f;
 
-  /* Console palette */
-  --c-canvas: #f6f9fc;
-  --c-surface: #ffffff;
-  --c-ink: #0d253d;
-  --c-muted: #5b6b82;
-  --c-hairline: #e3e8ee;
-  --c-input-border: #6b7c93;
-  --c-accent: #533afd;
-  --c-on-accent: #ffffff;
-  --c-accent-soft: #eef0ff;
-  --c-ok-bg: #d7f7e2;
-  --c-ok-fg: #05690d;
-
   /* Semantic (shop) */
   --surface: var(--paper);
   --surface-raised: var(--card);
@@ -68,16 +55,6 @@
 }
 
 [data-area='console'] {
-  --surface: var(--c-canvas);
-  --surface-raised: var(--c-surface);
-  --text: var(--c-ink);
-  --text-muted: var(--c-muted);
-  --border: var(--c-hairline);
-  --accent: var(--c-accent);
-  --accent-contrast: var(--c-on-accent);
-  --accent-soft: var(--c-accent-soft);
-  --focus-ring: var(--c-accent);
-  --radius-card: 12px;
   --row-pad: 12px 16px;
 }
 

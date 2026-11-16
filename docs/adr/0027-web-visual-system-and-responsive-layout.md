@@ -16,10 +16,9 @@ sideways on phones.
    tokens (`--surface`, `--surface-raised`, `--text`, `--text-muted`, `--border`,
    `--accent`, `--accent-contrast`, `--accent-soft`, `--focus-ring`,
    `--radius-card`, `--row-pad`). The shop uses paper and ink; the console
-   block (`data-area='console'`, set by `ConsoleArea`) re-points them to a cool
-   canvas with a violet accent. Components read only semantic tokens.
-2. **Rounded corners**: 4px inputs and buttons, 6px shop cards, 12px console
-   cards, 20px pill buttons and status pills.
+   block (`data-area='console'`, set by `ConsoleArea`) only sets `--row-pad`
+   (see Amended 2026-11-16). Components read only semantic tokens.
+2. **Rounded corners**: 4px inputs and buttons, 6px cards, 20px pill buttons and status pills.
 3. **Breakpoints**: mobile first, exactly `min-width: 640px` and
    `min-width: 1024px`. `--gutter` is 16, 24 and 32px. Content caps at 1120px
    (shop) and 1280px (console).
@@ -33,7 +32,7 @@ sideways on phones.
 6. **`apps/web/DESIGN.md`** is the design source of truth for agents;
    `tokens.css` stays the source of truth for values, and `tokens.test.ts`
    asserts every text/background pair at 4.5:1 or more (console input borders
-   use `--c-input-border`, at least 3:1).
+   use `--ink`).
 
 ## Alternatives
 
@@ -48,3 +47,11 @@ Components must use semantic tokens only; a raw colour or a one-off breakpoint
 breaks the theme switch, so the discipline is enforced in review
 (`web-review` skill) and by the contrast test. In return one component set
 serves both areas and every width.
+
+## Amended 2026-11-16
+
+At the user's request the console uses the shop palette and type. The
+`--c-*` palette, the violet accent and the 12px console card radius are
+removed. The console keeps its layout (sidebar, tiles, tables, phone card
+mode) and `--row-pad`; wordmark, tile values and table figures use the shop's
+width 75% / weight 700, and table and tile labels use the shop eyebrow style.

@@ -14,10 +14,10 @@ nginx sends `script-src`/`style-src 'self'` with no `unsafe-eval`
   `src/styles/tokens.css` (light theme only, by spec).
 - Design source: `apps/web/DESIGN.md` (ADR-0027). Components read only semantic
   tokens (`--surface`, `--text`, `--accent`, `--radius-card`, ...); the console
-  re-points them under `data-area='console'`. No raw hex outside `tokens.css`.
+  uses the same palette and type (it only sets `--row-pad`). No raw hex outside `tokens.css`.
 - Layout: mobile first, exactly two breakpoints, `min-width: 640px` and
   `min-width: 1024px`; `--gutter` is 16/24/32px. Radii are 4px (inputs), 6px
-  (shop cards), 12px (console cards) and 20px (pills). Controls are at least
+  (cards) and 20px (pills). Controls are at least
   44px tall or have a 44px hit area. Tables become cards on phones, never
   sideways scroll.
 

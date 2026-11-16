@@ -83,7 +83,7 @@ The user picked 1.
 | Decision | Choice |
 | --- | --- |
 | Shop / checkout / QR / result style | A: refined paper ticket |
-| Backoffice style | B: Stripe-style tables |
+| Backoffice style | Shop palette and type with console layout (amended 2026-11-16; was B: Stripe-style tables) |
 | Build approach | 1: one token system, per-area theme |
 | Backoffice shell | Left sidebar + three summary tiles; becomes a top menu below 1024px |
 | Shop desktop layout | Three tickets side by side, total bar below |
@@ -124,19 +124,16 @@ Keep the existing palette values where they exist and add semantic layers.
   builder may keep the old value if contrast tests prefer it), card `#fcfbfa`,
   ink `#141413`/`#1b1f2a`, ink-muted `#5d6270`, rule `#d8cfbe`, stamp
   `#c8301a`, tier gold/premium/vip as today, ok `#2f6b3f`.
-- **Console palette (backoffice, from mockup B):** canvas `#f6f9fc`, surface
-  `#ffffff`, ink `#0d253d`, muted `#5b6b82` (darker than Stripe's `#64748d` to
-  pass AA on `#f6f9fc`), hairline `#e3e8ee`, accent indigo `#533afd`, accent
-  soft `#eef0ff`, success bg/fg `#d7f7e2`/`#05690d`.
+- **Console palette:** none (amended 2026-11-16). The console uses the shop
+  palette; only `--row-pad` differs.
 - **Semantic tokens** consumed by components: `--surface`, `--surface-raised`,
   `--text`, `--text-muted`, `--border`, `--accent`, `--accent-contrast`,
-  `--focus-ring`, `--radius-sm` (4px inputs), `--radius-md` (6px tickets, 12px
-  in console cards), `--radius-pill` (20px buttons), `--row-h`.
-  The `[data-area='console']` block re-points them.
+  `--focus-ring`, `--radius-sm` (4px inputs), `--radius-md` (6px cards), `--radius-pill` (20px buttons), `--row-h`.
+  The `[data-area='console']` block sets `--row-pad` only.
 - **Spacing scale:** 4, 8, 12, 16, 24, 32, 48, 64 (`--space-1`… `--space-8`).
 - **Type:** keep the current scale. Money and table numbers use
-  `font-variant-numeric: tabular-nums`. Console headers are 12px uppercase with
-  0.04em tracking, at the 12px floor.
+  `font-variant-numeric: tabular-nums`. Console headers and tile labels use the shop
+  eyebrow style: 12px uppercase, 0.12em tracking, `--text-muted`.
 
 ### Shared components (`src/ui/`)
 
@@ -204,7 +201,7 @@ Keep the existing palette values where they exist and add semantic layers.
   read existing `GET /v1/backoffice/*` endpoints with query keys starting with
   `'backoffice'`, and each tile has its own loading and error state. No new
   endpoint.
-- **Tables (Stripe style):** white panel, 12px radius, hairline rows, uppercase
+- **Tables (shop palette):** card panel, 6px radius, rule-colour rows, eyebrow-style
   12px headers, tabular right-aligned amounts, status pills (Succeeded / Pending
   / Failed with text, not colour alone).
 - **Phones (<640px):** each table row renders as a card using the **same
@@ -295,8 +292,7 @@ what the user approved.
    Home and End, and `aria-orientation` is left unset, so there is no JS
    breakpoint and no `matchMedia`. The layout switch is CSS only.
 8. **Contrast gate covers both palettes:** `tokens.test.ts` asserts every text
-   and background pair used, including white on indigo, indigo on accent-soft,
-   success fg on bg, console muted on canvas and surface, and each tier eyebrow
+   and background pair used, including card on ink, ok on card, and each tier eyebrow
    colour on `--card` (darken any that fail).
 
 ## Left to the builder

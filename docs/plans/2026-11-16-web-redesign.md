@@ -302,3 +302,21 @@ login) and report. If a verification fails twice, stop and report."
 ```
 
 After either path, Claude reviews the branch (`repo-review` and `web-review` skills) and runs the drift check.
+
+### Task 12: Backoffice uses the shop palette and type (user change, 2026-11-16)
+
+User decision after Task 11: the backoffice keeps its layout (sidebar, tiles, tables, phone card mode) but uses **the same colours and fonts as the shop**. The Stripe palette is dropped.
+
+**Files:**
+- Modify: `apps/web/src/styles/tokens.css`, `tokens.test.ts`, `apps/web/src/backoffice/*.module.css`, `apps/web/DESIGN.md`, `docs/adr/0027-web-visual-system-and-responsive-layout.md`, `docs/superpowers/specs/2026-11-16-web-responsive-redesign-design.md` (Decided table + Tokens + Tables bullets), `apps/web/AGENTS.md` and `.claude/skills/web-review/SKILL.md` where they mention the console palette.
+
+- [ ] **Step 1: Tokens.** `[data-area='console']` re-points no colour token any more: `--surface --surface-raised --text --text-muted --border --accent --accent-contrast --accent-soft --focus-ring` come from `:root` (shop). Keep `--row-pad: 12px 16px`. `--radius-card` follows the shop (6px). Delete the now-unused `--c-*` palette tokens and their `tokens.test.ts` cases. Any pair the console now uses that the test does not cover gets a case (e.g. `ok` on `card` already exists).
+- [ ] **Step 2: Backoffice CSS.**
+  - No `--c-*` reference remains in `apps/web/src`.
+  - Login input borders use `1.5px solid var(--ink)`, like the card form.
+  - The Balanced pill uses `--ok` text with an `--ok` border on `--surface-raised`; Out of balance uses `--stamp`.
+  - The selected nav item uses `--accent-soft` (paper) bg with `--text`, and a 2px `--accent` (ink) bar or underline.
+- [ ] **Step 3: Type.** Match the shop treatment: the wordmark, page `h1`, tile values and table group/total figures use `font-stretch: 75%; font-weight: 700` like shop prices and headings. Table header labels and tile labels use the shop eyebrow style (12px uppercase, `0.12em` tracking, `--text-muted`). Body text stays as `global.css`.
+- [ ] **Step 4: Docs.** Update DESIGN.md (one palette for both areas; console = layout and density only), ADR-0027 (add an "Amended 2026-11-16" note: the console uses the shop palette and type at the user's request), spec (Decided table "Backoffice style: shop palette and type with console layout"; Tokens and Tables bullets), AGENTS.md and web-review pass 4 wording.
+- [ ] **Step 5:** Run the per-task check and `pnpm format:check`. Then `grep -rn -- '--c-' apps/web/src` returns nothing.
+- [ ] **Step 6: Commit** `feat(web): backoffice uses the shop palette and type`.

@@ -40,28 +40,7 @@ describe('colour tokens meet WCAG AA (4.5:1)', () => {
       expect(contrast(token(fg), token('card'))).toBeGreaterThanOrEqual(4.5);
     });
   }
-  for (const fg of ['c-ink', 'c-muted']) {
-    for (const bg of ['c-canvas', 'c-surface']) {
-      it(`--${fg} on --${bg}`, () => {
-        expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
-      });
-    }
-  }
-  const pairs: [string, string][] = [
-    ['c-on-accent', 'c-accent'],
-    ['c-accent', 'c-accent-soft'],
-    ['c-accent', 'c-canvas'],
-    ['c-accent', 'c-surface'],
-    ['stamp', 'c-surface'],
-    ['c-ok-fg', 'c-ok-bg'],
-    ['card', 'ink'],
-  ];
-  it('--c-input-border on --c-surface meets 3:1 for form-control boundaries', () => {
-    expect(contrast(token('c-input-border'), token('c-surface'))).toBeGreaterThanOrEqual(3);
+  it('--card on --ink (primary button text)', () => {
+    expect(contrast(token('card'), token('ink'))).toBeGreaterThanOrEqual(4.5);
   });
-  for (const [fg, bg] of pairs) {
-    it(`--${fg} on --${bg}`, () => {
-      expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
-    });
-  }
 });

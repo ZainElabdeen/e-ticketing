@@ -1,6 +1,6 @@
 ---
 name: E-Ticketing
-description: Shop (paper and ink ticket stubs) and backoffice console (cool canvas, violet accent).
+description: Paper and ink palette for the shop and the backoffice console (the console differs in layout and density only).
 colors:
   shop:
     paper: '#f6f1e7'
@@ -16,17 +16,6 @@ colors:
     tier-premium-text: '#4f6475'
     tier-vip-text: '#6e2b4f'
     ok: '#2f6b3f'
-  console:
-    c-canvas: '#f6f9fc'
-    c-surface: '#ffffff'
-    c-ink: '#0d253d'
-    c-muted: '#5b6b82'
-    c-hairline: '#e3e8ee'
-    c-accent: '#533afd'
-    c-on-accent: '#ffffff'
-    c-accent-soft: '#eef0ff'
-    c-ok-bg: '#d7f7e2'
-    c-ok-fg: '#05690d'
 semantic:
   shop:
     surface: paper
@@ -41,23 +30,14 @@ semantic:
     radius-card: 6px
     row-pad: 10px 12px
   console:
-    surface: c-canvas
-    surface-raised: c-surface
-    text: c-ink
-    text-muted: c-muted
-    border: c-hairline
-    accent: c-accent
-    accent-contrast: c-on-accent
-    accent-soft: c-accent-soft
-    focus-ring: c-accent
-    radius-card: 12px
+    note: no colour overrides, shop tokens apply
     row-pad: 12px 16px
 typography:
   family: Archivo Variable
   scale: { sm: 0.875rem, base: 1rem, md: 1.25rem, lg: 1.75rem, xl: 2.5rem, 2xl: 3.5rem }
   numerals: tabular
   floor: 12px
-rounded: { sm: 4px, pill: 20px, card-shop: 6px, card-console: 12px }
+rounded: { sm: 4px, pill: 20px, card: 6px }
 spacing: { 1: 4px, 2: 8px, 3: 12px, 4: 16px, 5: 24px, 6: 32px, 7: 48px, 8: 64px }
 layout:
   content-max: 1120px
@@ -69,17 +49,16 @@ layout:
 
 # Design: E-Ticketing
 
-This file adapts the getdesign.md Mastercard analysis (shop) and Stripe analysis
-(console). `src/styles/tokens.css` is the source of truth; every value here
+This file adapts the getdesign.md Mastercard analysis. The console reuses the
+shop palette and type (amended 2026-11-16). `src/styles/tokens.css` is the source of truth; every value here
 matches it, and `src/styles/tokens.test.ts` asserts the contrast pairs.
 
 ## Theme
 
-Two areas share one token vocabulary. The shop is warm paper with ink type and
-ticket-stub cards. The console (`data-area='console'`) is a cool canvas with white
-cards, hairline borders and a violet accent. Components read only the semantic
-tokens (`--surface`, `--text`, `--accent` and so on); the console block re-points
-them. Light theme only.
+One palette serves both areas: warm paper, ink type and ticket-stub cards. The
+console (`data-area='console'`, sidebar, tiles, tables) differs in layout and
+density only (`--row-pad: 12px 16px`); it re-points no colour. Components read
+only semantic tokens (`--surface`, `--text`, `--accent` and so on). Light theme only.
 
 Paper stays `#f6f1e7`. The alternative `#f3f0ee` was not needed because all pairs pass.
 
@@ -90,14 +69,17 @@ Paper stays `#f6f1e7`. The alternative `#f3f0ee` was not needed because all pair
   never a button colour.
 - Tier colours (`--tier-*`) fill bars and swatches. Eyebrow text uses `--tier-*-text`,
   darkened to pass 4.5:1 on `--card`.
-- Console: `--c-accent` for primary fills and selected states, `--c-accent-soft` for
-  selected nav, `--c-ok-bg` / `--c-ok-fg` for success pills.
+- Console: selected nav uses `--accent-soft` with `--text` and a 2px `--accent` bar;
+  the Balanced pill is `--ok` text and border on `--surface-raised`, Out of balance
+  is `--stamp`. Login input borders are `1.5px solid var(--ink)`.
 - Every text and background pair in use is asserted at 4.5:1 or more.
 
 ## Typography
 
 Archivo Variable only, self-hosted. Headings use width 75% and weight 700; body is
-width 100%. Tabular numbers everywhere (prices, counts, ids). Nothing below 12px.
+width 100%. Console wordmark, tile values and table group/total figures use the same
+width 75%, weight 700. Table headers and tile labels use the eyebrow style (12px,
+uppercase, 0.12em tracking, `--text-muted`). Tabular numbers everywhere (prices, counts, ids). Nothing below 12px.
 
 ## Components
 
@@ -106,7 +88,7 @@ width 100%. Tabular numbers everywhere (prices, counts, ids). Nothing below 12px
 - **Stepper**: numbered checkout steps, current step in `--accent`.
 - **StickyBar**: bottom bar on mobile carrying total and primary action; static from tablet up.
 - **Console tables**: `--surface-raised`, `--border` hairlines, `--row-pad` cells, radius `--radius-card`.
-- **Status pills**: `--radius-pill`; success uses `--c-ok-bg` / `--c-ok-fg`.
+- **Status pills**: `--radius-pill`; success uses `--ok` text and border on `--surface-raised`.
 - **Tiles**: raised cards with `--radius-card`, label in `--text-muted`, value in `--text`.
 
 ## Layout and breakpoints
