@@ -294,6 +294,10 @@ describe('BackofficePage', () => {
     );
     expect(await screen.findByText('PAY-20261114-ABC1')).toBeInTheDocument();
     expect(screen.getByText('Ticket sale')).toBeInTheDocument();
+    expect(screen.getByText('PAY-20261114-ABC1').closest('th')).toHaveAttribute(
+      'scope',
+      'rowgroup',
+    );
     const debitRow = screen.getByText('1100 Payment Gateway Clearing').closest('tr')!;
     expect(within(debitRow).getAllByRole('cell')[1]).toHaveTextContent('AED 700.00');
     expect(within(debitRow).getAllByRole('cell')[2]).toHaveTextContent('');

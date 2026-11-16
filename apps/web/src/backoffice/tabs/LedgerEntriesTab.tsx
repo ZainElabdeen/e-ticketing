@@ -46,7 +46,7 @@ export function LedgerEntriesTab({ page, onPage }: TabProps): ReactElement {
             return (
               <tbody key={entry.id} className={styles.entry}>
                 <tr className={styles.group}>
-                  <th scope="colgroup" colSpan={3}>
+                  <th scope="rowgroup" colSpan={3}>
                     <span className={styles.hidden}>Posted </span>
                     <span>{formatDateTime(entry.postedAt)}</span>
                     <span className={styles.hidden}>Reference </span>
