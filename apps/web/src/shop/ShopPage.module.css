@@ -3,7 +3,7 @@
 }
 
 .quiet {
-  color: var(--ink-muted);
+  color: var(--text-muted);
 }
 
 .list {
@@ -40,13 +40,13 @@
 
 .left {
   margin: 4px 0 0;
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-size: var(--text-sm);
 }
 
 .count {
   margin: 0;
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-size: var(--text-sm);
 }
 

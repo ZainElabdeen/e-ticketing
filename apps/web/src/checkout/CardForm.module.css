@@ -25,10 +25,10 @@
 .field input {
   min-height: 44px;
   padding: 0 12px;
-  border: 1.5px solid var(--ink);
-  border-radius: 0;
-  background: var(--card);
-  color: var(--ink);
+  border: 1.5px solid var(--text);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text);
   font: inherit;
   font-variant-numeric: tabular-nums;
 }
