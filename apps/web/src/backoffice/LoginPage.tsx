@@ -29,6 +29,26 @@ function loginMessage(e: unknown): string {
   return messageFor(e);
 }
 
+function EyeIcon({ off }: { off: boolean }): ReactElement {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {off ? <path d="M4 4l16 16" /> : null}
+    </svg>
+  );
+}
+
 export function LoginPage(): ReactElement {
   useDocumentTitle('Sign in');
   const { token, login, notice, clearNotice } = useAuth();
@@ -37,6 +57,7 @@ export function LoginPage(): ReactElement {
   useEffect(() => {
     clearNotice();
   }, [clearNotice]);
+  const [showPassword, setShowPassword] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   // A ref, not isSubmitting alone: a second submit can land before React re-renders.
   const signingIn = useRef(false);
@@ -51,20 +72,29 @@ export function LoginPage(): ReactElement {
 
   if (token) return <Navigate to="/backoffice" replace />;
 
-  const field = (name: keyof Values, label: string, type: string, autoComplete: string) => {
+  const field = (
+    name: keyof Values,
+    label: string,
+    type: string,
+    autoComplete: string,
+    toggle?: ReactElement,
+  ) => {
     const message = errors[name]?.message;
     return (
       <div className={styles.field}>
         <label htmlFor={`login-${name}`}>{label}</label>
-        <input
-          id={`login-${name}`}
-          type={type}
-          autoComplete={autoComplete}
-          spellCheck={false}
-          aria-invalid={message ? true : undefined}
-          aria-describedby={message ? `login-${name}-error` : undefined}
-          {...register(name)}
-        />
+        <div className={styles.control}>
+          <input
+            id={`login-${name}`}
+            type={type}
+            autoComplete={autoComplete}
+            spellCheck={false}
+            aria-invalid={message ? true : undefined}
+            aria-describedby={message ? `login-${name}-error` : undefined}
+            {...register(name)}
+          />
+          {toggle}
+        </div>
         {message ? (
           <p id={`login-${name}-error`} role="alert" className={styles.error}>
             {message}
@@ -97,7 +127,21 @@ export function LoginPage(): ReactElement {
         }}
       >
         {field('email', 'Email', 'email', 'username')}
-        {field('password', 'Password', 'password', 'current-password')}
+        {field(
+          'password',
+          'Password',
+          showPassword ? 'text' : 'password',
+          'current-password',
+          <button
+            type="button"
+            className={styles.toggle}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-pressed={showPassword}
+            onClick={() => setShowPassword((v) => !v)}
+          >
+            <EyeIcon off={showPassword} />
+          </button>,
+        )}
         <Button type="submit" disabled={isSubmitting} className={styles.submit}>
           Sign in
         </Button>
