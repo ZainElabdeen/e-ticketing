@@ -649,6 +649,11 @@ payload.
   unchanged images from the previous main commit so every commit has all eight
   `sha-<7>` tags. CI proves the manifests with kubeconform and a k3d (K3s in
   Docker) end-to-end job.
+- **Live deployment**: Google Cloud Compute Engine, one `e2-medium` VM
+  (x86, Ubuntu 24.04, `europe-west1-b`) dedicated to the demo, static IP,
+  DuckDNS name, K3s `v1.37.2+k3s1`, images from the released `main` commit.
+  Step-by-step record, choices and problems solved:
+  [`docs/deployment-gcp.md`](./deployment-gcp.md).
 - **Database bootstrap**: an init SQL script (compose:
   `docker-entrypoint-initdb.d`; K3s: the same script mounted from a ConfigMap
   into `docker-entrypoint-initdb.d`, run once on the empty volume) creates the three
@@ -693,7 +698,7 @@ payload.
 | API key, validation, idempotency, no secrets | §2.2, §4.2, §6, §7.1, ADR-0005, ADR-0010 | |
 | Separation of tickets / orders-transactions / ledger, audit trail | §3, `orders.paid_transaction_id` | |
 | Pluggable payment methods | ADR-0008 | |
-| Deployed online, free domain | §9, `infra/k8s/README.md`, ADR-0011, ADR-0026 | K3s on one VM (Oracle or Google Cloud), host-agnostic; live deploy follows the guide; CD is opt-in |
+| Deployed online, free domain | §9, `infra/k8s/README.md`, `docs/deployment-gcp.md`, ADR-0011, ADR-0026 | K3s on one VM, host-agnostic; live on a Google Cloud `e2-medium` with a DuckDNS name; CD is opt-in |
 | CI: lint, build, test, Docker image; bonus Sonar, coverage | `.github/workflows/ci.yml`, `.github/workflows/images.yml`, `.github/workflows/deploy.yml`, ADR-0025, ADR-0026 | |
 | README contents | §12 | |
 

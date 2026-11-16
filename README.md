@@ -81,7 +81,7 @@ Checks: `pnpm lint`, `pnpm format:check`, `pnpm build`, `pnpm test`, `pnpm test:
 
 Kustomize manifests in `infra/k8s`, Traefik ingress with Let's Encrypt, images from GHCR, opt-in CD. Step by step
 (Oracle or Google Cloud VM, DNS, K3s, secrets, first deploy, CD, backups, troubleshooting):
-**[infra/k8s/README.md](infra/k8s/README.md)**. Rationale: [ADR-0011](docs/adr/0011-deployment-k3s-single-vm.md), [ADR-0026](docs/adr/0026-k3s-manifests-and-deploy.md).
+**[infra/k8s/README.md](infra/k8s/README.md)**. How the live demo was deployed on Google Cloud, with the problems hit and their fixes: [docs/deployment-gcp.md](docs/deployment-gcp.md). Rationale: [ADR-0011](docs/adr/0011-deployment-k3s-single-vm.md), [ADR-0026](docs/adr/0026-k3s-manifests-and-deploy.md).
 
 ## Environment variables
 

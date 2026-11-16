@@ -64,7 +64,7 @@ gcloud compute addresses create eticket-ip --region <region>
 # create the VM with --tags eticket --address eticket-ip
 ```
 
-Keep SSH (22) limited to your own IP on both clouds.
+Keep SSH (22) limited to your own IP on both clouds. A full Google Cloud walkthrough of the live deployment: [docs/deployment-gcp.md](../../docs/deployment-gcp.md).
 
 ### 2. DNS [laptop]
 
