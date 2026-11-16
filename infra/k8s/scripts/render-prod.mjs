@@ -2,13 +2,17 @@
 // Fills the placeholders of the prod overlay and the Traefik HelmChartConfig.
 //
 //   node infra/k8s/scripts/render-prod.mjs --host <dns> --tag <sha-xxxxxxx> --out <dir>
-//        [--acme-email <addr> --traefik-out <file>]
+//        [--acme-email <addr> --traefik-out <file.yaml>]
 //
 // --out receives kustomization.yaml and must sit two levels below infra/k8s
 // (overlays/prod, or .rendered/<name>) so its `../../base` resolves; the
 // generated files are git-ignored. Then: scripts/render.sh <dir>.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+// --out may be left out when only --traefik-out is wanted. --traefik-out must be a
+// .yaml file inside the system temp dir or infra/k8s/.rendered/. Symlinks that leave
+// those places and `..` escapes are rejected.
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -37,6 +41,43 @@ export function isDnsName(value) {
         !label.endsWith('-'),
     )
   );
+}
+
+/** realpath of a path that may not exist yet: the nearest existing ancestor is resolved. */
+function realPathLoose(path) {
+  const rest = [];
+  let current = resolve(path);
+  while (!existsSync(current)) {
+    rest.unshift(basename(current));
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return join(realpathSync(current), ...rest);
+}
+
+/** Validates --out: exactly two levels below infra/k8s. Returns the real path. */
+export function checkOutDir(out) {
+  const real = realPathLoose(out);
+  if (dirname(dirname(real)) !== realpathSync(k8sDir)) {
+    throw new Error(
+      '--out must be infra/k8s/overlays/prod or infra/k8s/.rendered/<name> (two levels below infra/k8s)',
+    );
+  }
+  return real;
+}
+
+/** Validates --traefik-out: a .yaml file in the temp dir or infra/k8s/.rendered/. Returns the real path. */
+export function checkTraefikOut(file) {
+  const real = realPathLoose(file);
+  const roots = [realpathSync(tmpdir()), realPathLoose(join(k8sDir, '.rendered'))];
+  const inside = roots.some((root) => real.startsWith(root + sep));
+  if (!inside || !real.endsWith('.yaml')) {
+    throw new Error(
+      '--traefik-out must be a .yaml file inside the system temp dir or infra/k8s/.rendered/',
+    );
+  }
+  return real;
 }
 
 function fill(template, values) {
@@ -71,15 +112,19 @@ function main(argv) {
       'traefik-out': { type: 'string' },
     },
   });
-  if (values.out === undefined) throw new Error('--out <dir> is required');
+  if (values.out === undefined && values['traefik-out'] === undefined) {
+    throw new Error('--out <dir> is required');
+  }
+  const outDir = values.out === undefined ? undefined : checkOutDir(values.out);
+  const traefikOut =
+    values['traefik-out'] === undefined ? undefined : checkTraefikOut(values['traefik-out']);
   const kustomization = renderProd({ host: values.host, tag: values.tag });
-  mkdirSync(values.out, { recursive: true });
-  writeFileSync(join(values.out, 'kustomization.yaml'), kustomization);
-  if (values['traefik-out'] !== undefined) {
-    writeFileSync(
-      values['traefik-out'],
-      renderHelmChartConfig({ acmeEmail: values['acme-email'] }),
-    );
+  if (outDir !== undefined) {
+    mkdirSync(outDir, { recursive: true });
+    writeFileSync(join(outDir, 'kustomization.yaml'), kustomization);
+  }
+  if (traefikOut !== undefined) {
+    writeFileSync(traefikOut, renderHelmChartConfig({ acmeEmail: values['acme-email'] }));
   } else if (values['acme-email'] !== undefined) {
     throw new Error('--acme-email needs --traefik-out <file>');
   }
