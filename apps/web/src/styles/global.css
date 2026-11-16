@@ -9,8 +9,8 @@
 
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--surface);
+  color: var(--text);
   font-family: var(--font);
   font-size: var(--text-base);
   font-weight: 400;
@@ -45,6 +45,6 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--stamp);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }

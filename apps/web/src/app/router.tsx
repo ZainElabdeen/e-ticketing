@@ -1,7 +1,6 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
+import { ConsoleArea } from '../backoffice/ConsoleArea';
 import { RequireAuth } from '../backoffice/RequireAuth';
-import { CheckoutPage } from '../checkout/CheckoutPage';
-import { ResultPage } from '../result/ResultPage';
 import { ShopPage } from '../shop/ShopPage';
 import { Layout } from './Layout';
 import { Loading } from './Loading';
@@ -18,29 +17,45 @@ export const routes: RouteObject[] = [
         errorElement: <RouteError />,
         children: [
           { path: '/', element: <ShopPage /> },
-          { path: '/checkout/:orderId', element: <CheckoutPage /> },
+          {
+            // Lazy: keeps zod and react-hook-form out of the shop's entry chunk.
+            path: '/checkout/:orderId',
+            lazy: async () => ({
+              Component: (await import('../checkout/CheckoutPage')).CheckoutPage,
+            }),
+          },
           {
             // Lazy: QrPage pulls qrcode.react, which only this page needs.
             path: '/checkout/:orderId/qr/:paymentId',
             lazy: async () => ({ Component: (await import('../qr/QrPage')).QrPage }),
           },
-          { path: '/result/:paymentId', element: <ResultPage /> },
           {
-            path: '/backoffice/login',
-            lazy: async () => ({ Component: (await import('../backoffice/LoginPage')).LoginPage }),
+            path: '/result/:paymentId',
+            lazy: async () => ({ Component: (await import('../result/ResultPage')).ResultPage }),
           },
           {
-            path: '/backoffice',
-            lazy: async () => {
-              const { BackofficePage } = await import('../backoffice/BackofficePage');
-              return {
-                element: (
-                  <RequireAuth>
-                    <BackofficePage />
-                  </RequireAuth>
-                ),
-              };
-            },
+            element: <ConsoleArea />,
+            children: [
+              {
+                path: '/backoffice/login',
+                lazy: async () => ({
+                  Component: (await import('../backoffice/LoginPage')).LoginPage,
+                }),
+              },
+              {
+                path: '/backoffice',
+                lazy: async () => {
+                  const { BackofficePage } = await import('../backoffice/BackofficePage');
+                  return {
+                    element: (
+                      <RequireAuth>
+                        <BackofficePage />
+                      </RequireAuth>
+                    ),
+                  };
+                },
+              },
+            ],
           },
           {
             path: '*',

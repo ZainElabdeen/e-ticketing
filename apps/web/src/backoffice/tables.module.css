@@ -1,41 +1,117 @@
+/* Phone first: every row is a card. From 640px the markup is a real table. */
 .wrap {
-  overflow-x: auto;
-  background: var(--card);
-  border: 1px solid var(--rule);
+  background: transparent;
 }
 
 .table {
   width: 100%;
-  border-collapse: collapse;
   font-size: var(--text-sm);
+  color: var(--text);
 }
 
-.table th,
-.table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--rule);
-  text-align: left;
-  vertical-align: baseline;
+.table,
+.table tbody,
+.table tr,
+.table td,
+.table th {
+  display: block;
+}
+
+.table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
-.table thead th {
-  font-weight: 500;
-  color: var(--ink-muted);
+.row,
+.entry {
+  margin-bottom: 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  padding: var(--row-pad);
+}
+
+.table td,
+.table th {
+  padding: 6px 0;
+  text-align: left;
+}
+
+.row td,
+.entry tr:not(.group) {
+  width: 100%;
+}
+
+.entry tr:not(.group) {
+  display: flex;
+  flex-wrap: wrap;
+  padding: var(--row-pad);
+  border-top: 1px solid var(--border);
+}
+
+.entry tr td {
+  width: 100%;
+}
+
+.table td,
+.entry .group th {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cellLabel {
+  flex: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .table .num {
-  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
+.lead {
+  order: -1;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.emptyCell {
+  display: none !important;
+}
+
+/* An empty ledger debit/credit cell would render as a blank row in a card. */
+.table td:empty {
+  display: none;
+}
+
 .group {
-  background: var(--paper);
-  font-weight: 500;
+  display: block;
+  font-stretch: 75%;
+  font-weight: 700;
+}
+
+.entry .group th {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  padding: var(--row-pad);
+  column-gap: 16px;
 }
 
 .group span:not(.hidden) ~ span:not(.hidden) {
-  margin-left: 16px;
+  margin-left: 0;
 }
 
 .hidden {
@@ -47,29 +123,155 @@
   white-space: nowrap;
 }
 
-.total td {
+.total {
+  font-stretch: 75%;
   font-weight: 700;
 }
 
 .status {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
   margin-top: 16px;
-  font-weight: 700;
 }
 
-.ok {
+.pill {
+  display: inline-block;
+  padding: 2px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.pill.ok {
+  background: var(--surface-raised);
+  border-color: var(--ok);
   color: var(--ok);
 }
 
-.bad {
+.id {
+  overflow-wrap: anywhere;
+}
+
+.pill.bad {
+  border-color: var(--stamp);
   color: var(--stamp);
+}
+
+.total.bad td {
+  color: var(--stamp);
+}
+
+@media (min-width: 640px) {
+  .id {
+    display: inline-block;
+    max-width: 10ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+
+  .wrap {
+    overflow-x: auto;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+  }
+
+  .table {
+    display: table;
+    border-collapse: collapse;
+  }
+
+  .table thead {
+    position: static;
+    display: table-header-group;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .table tbody,
+  .entry {
+    display: table-row-group;
+  }
+
+  .table tr,
+  .row,
+  .entry tr:not(.group) {
+    display: table-row;
+    width: auto;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .row,
+  .entry {
+    margin: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .entry tr td {
+    width: auto;
+  }
+
+  .table td,
+  .table th,
+  .entry .group th {
+    display: table-cell;
+    width: auto;
+    padding: var(--row-pad);
+    border-bottom: 1px solid var(--border);
+    vertical-align: baseline;
+    white-space: nowrap;
+  }
+
+  .table thead th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .table .num {
+    text-align: right;
+  }
+
+  .cellLabel {
+    display: none;
+  }
+
+  .emptyCell,
+  .table td:empty {
+    display: table-cell;
+  }
+
+  .emptyCell {
+    display: table-cell !important;
+  }
+
+  .lead {
+    order: 0;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  .group {
+    display: table-row;
+    background: var(--surface);
+  }
+
+  .group span:not(.hidden) ~ span:not(.hidden) {
+    margin-left: 16px;
+  }
 }
 
 .quiet {
   margin: 0;
-  color: var(--ink-muted);
+  color: var(--text-muted);
 }
 
 .failure {

@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { Link, useParams } from 'react-router';
-import { useDocumentTitle } from '../app/useDocumentTitle';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { useApi } from '../api/client';
 import { ApiError, call, messageFor } from '../api/errors';
 import type { Payment } from '../api/types';
-import { paymentKey } from '../qr/usePaymentPolling';
+import { paymentKey } from '../payment/paymentKey';
 import { formatMinor } from '../lib/money';
 import { formatDateTime } from '../lib/time';
 import { Banner } from '../ui/Banner';
@@ -24,7 +24,7 @@ function Row(props: { label: string; children: React.ReactNode }): ReactElement 
 function Receipt({ payment }: { payment: Payment }): ReactElement {
   const tx = payment.transaction;
   return (
-    <section className={styles.receipt}>
+    <section className={`${styles.page} ${styles.receipt}`}>
       <div className={styles.head}>
         <h1 className={styles.title}>Payment received</h1>
         <span aria-hidden="true" className={styles.stamp}>
@@ -77,7 +77,7 @@ export function ResultPage(): ReactElement {
   if (!payment) {
     const notFound = query.error instanceof ApiError && query.error.status === 404;
     return (
-      <section>
+      <section className={styles.page}>
         <h1 className={styles.title}>Payment</h1>
         <Banner>{notFound ? "We couldn't find this payment" : messageFor(query.error)}</Banner>
         <div className={styles.actions}>
@@ -98,7 +98,7 @@ export function ResultPage(): ReactElement {
 
   const pending = payment.status === 'PENDING';
   return (
-    <section>
+    <section className={styles.page}>
       <h1 className={styles.title}>Payment</h1>
       <Banner tone="info">
         {pending ? 'This payment is still processing' : 'This payment was cancelled'}

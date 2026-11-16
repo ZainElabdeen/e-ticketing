@@ -1,6 +1,6 @@
 # Web SPA
 
-React + Vite. Spec §5; ADR-0014, 0023. UI work: the `frontend-design` skill
+React + Vite. Spec §5; ADR-0014, 0023, 0028. UI work: the `frontend-design` skill
 (Claude Code); visual checks: the `ui-walkthrough` skill.
 
 ## CSP drives the code
@@ -12,15 +12,29 @@ nginx sends `script-src`/`style-src 'self'` with no `unsafe-eval`
   before any schema exists).
 - Styling is CSS Modules only, no `style=` attribute. Values come from
   `src/styles/tokens.css` (light theme only, by spec).
-- Layout: `--gutter` switches at 560px; component media queries use
-  `max-width: 559px`. Controls are at least 44px tall with square corners.
+- Design source: `apps/web/DESIGN.md` (ADR-0027). Components read only semantic
+  tokens (`--surface`, `--text`, `--accent`, `--radius-card`, ...); the console
+  uses the same palette and type (it only sets `--row-pad`). No raw hex outside `tokens.css`.
+- Layout: mobile first, exactly two breakpoints, `min-width: 640px` and
+  `min-width: 1024px`; `--gutter` is 16/24/32px. Radii are 4px (inputs), 6px
+  (cards) and 20px (pills). Controls are at least
+  44px tall or have a 44px hit area. Tables become cards on phones, never
+  sideways scroll.
 
 ## React standards
 
 - **Feature folders** (`shop/`, `checkout/`, `qr/`, `result/`, `backoffice/`) own
   their pages, hooks, schemas and CSS. `ui/` holds presentational components
   used by two or more features (`Button`, `Banner`, `Stepper`, `Pagination`,
-  `TicketStub`); they take props and render, with no data fetching.
+  `TicketStub`, `StickyBar`); they take props and render, with no data fetching.
+  `payment/` is a shared domain module (`paymentMemory`, `paymentKey`) used by
+  `checkout/`, `qr/` and `result/`; it imports only `api/` and `lib/`.
+  **Import direction (ADR-0028, lint-enforced):** `app` -> features -> shared
+  (`ui`, `lib`, `api`, `styles`, `payment`). A feature never imports another
+  feature or `app/`; shared code never imports a feature. Move shared code down
+  instead. A new feature folder must be added to `FEATURES` in `eslint.config.mjs`.
+  `backoffice/` also holds `ConsoleArea` (console token scope), `ConsoleShell`
+  (sidebar or top bar) and `LabeledCell` (table cell with a phone-only label).
 - **State has one owner**: server data in TanStack Query, form input in React
   Hook Form, navigation state in the URL (params, `?tab=&page=`), and the rest in
   the nearest component that needs it. No global store; React context only for
@@ -61,12 +75,14 @@ nginx sends `script-src`/`style-src 'self'` with no `unsafe-eval`
   sessionStorage (`src/backoffice/session.ts`).
 - Backoffice query keys start with `'backoffice'`: only a 401 on those logs the
   user out (`AuthProvider.tsx`).
-- Shared query keys: `paymentKey` (`qr/usePaymentPolling.ts`, also used by
-  `ResultPage`), `TICKET_TYPES_KEY` (`shop/useTicketTypes.ts`).
+- Shared query keys: `paymentKey` (`payment/paymentKey.ts`, used by `qr/` and
+  `result/`), `TICKET_TYPES_KEY` (`shop/useTicketTypes.ts`).
 - Card data lives only in React Hook Form state and the POST body. Payment memory
-  (`eticket.payment.<orderId>`) stores the payment id and method only.
+  (`payment/paymentMemory.ts`, key `eticket.payment.<orderId>`) stores the payment id and method only.
 - Double-submit guards are refs (`inFlight`, `cancelling`) released only on
   error. Keep that pattern.
+- Backoffice freshness: section queries `staleTime` 10 s / 15 s interval, tile queries 30 s,
+  no blanket `invalidateQueries`, `SummaryTiles` memoised (`src/backoffice/queries.ts`).
 - Backoffice tab and page live in the URL (`?tab=&page=`); `useClampPage`
   redirects out-of-range pages.
 - `QrPage` mounts its `aria-live` region on first render so later text is

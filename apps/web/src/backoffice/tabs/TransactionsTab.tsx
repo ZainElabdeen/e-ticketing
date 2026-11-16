@@ -1,28 +1,17 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
-import { useApi } from '../../api/client';
-import { call } from '../../api/errors';
 import { formatMinor } from '../../lib/money';
 import { formatDateTime } from '../../lib/time';
 import { Pagination } from '../../ui/Pagination';
+import { useTransactions } from '../queries';
 import { Loading, QueryFailure } from '../QueryFailure';
+import { LabeledCell } from '../LabeledCell';
 import styles from '../tables.module.css';
 import { PAGE_SIZE, useClampPage, type TabProps } from '../usePage';
 
 const METHODS: Record<string, string> = { CARD: 'Card', QR: 'QR' };
 
 export function TransactionsTab({ page, onPage }: TabProps): ReactElement {
-  const api = useApi();
-  const q = useQuery({
-    placeholderData: keepPreviousData,
-    queryKey: ['backoffice', 'transactions', page],
-    queryFn: () =>
-      call(
-        api.GET('/v1/backoffice/transactions', {
-          params: { query: { page, pageSize: PAGE_SIZE } },
-        }),
-      ),
-  });
+  const q = useTransactions(page);
   useClampPage(page, q.data?.total, onPage);
 
   if (q.isPending) return <Loading />;
@@ -50,17 +39,19 @@ export function TransactionsTab({ page, onPage }: TabProps): ReactElement {
           </thead>
           <tbody>
             {q.data.data.map((t) => (
-              <tr key={t.transactionId}>
-                <td>{formatDateTime(t.createdAt)}</td>
-                <td>{t.paymentReference}</td>
-                <td>
-                  <span title={t.transactionId}>{t.transactionId.slice(0, 8)}</span>
-                </td>
-                <td>
-                  <span title={t.orderId}>{t.orderId.slice(0, 8)}</span>
-                </td>
-                <td>{METHODS[t.method] ?? t.method}</td>
-                <td className={styles.num}>{formatMinor(t.amountMinor, t.currency)}</td>
+              <tr key={t.transactionId} className={styles.row}>
+                <LabeledCell label="Time">{formatDateTime(t.createdAt)}</LabeledCell>
+                <LabeledCell label="Payment reference">{t.paymentReference}</LabeledCell>
+                <LabeledCell label="Transaction ID">
+                  <span className={styles.id}>{t.transactionId}</span>
+                </LabeledCell>
+                <LabeledCell label="Order">
+                  <span className={styles.id}>{t.orderId}</span>
+                </LabeledCell>
+                <LabeledCell label="Method">{METHODS[t.method] ?? t.method}</LabeledCell>
+                <LabeledCell label="Amount" className={`${styles.num} ${styles.lead}`}>
+                  {formatMinor(t.amountMinor, t.currency)}
+                </LabeledCell>
               </tr>
             ))}
           </tbody>

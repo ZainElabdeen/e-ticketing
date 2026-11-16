@@ -7,6 +7,7 @@ import type { DestinationStream } from 'pino';
 import { FallbackModule, pinoHttpOptions } from '@eticket/nest-common';
 import type { EnvironmentVariables } from './config/env';
 import { AuthModule } from './auth/auth.module';
+import { BackofficeSummaryService } from './backoffice/backoffice-summary.service';
 import { BackofficeController } from './backoffice/backoffice.controller';
 import { DownstreamClient } from './downstream/downstream.client';
 import { HealthController } from './health/health.controller';
@@ -63,7 +64,7 @@ export function createAppModule(
       PaymentsController,
       BackofficeController,
     ],
-    providers: [DownstreamClient],
+    providers: [DownstreamClient, BackofficeSummaryService],
   })
   class AppModule {}
 

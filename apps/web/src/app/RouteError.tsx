@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router';
 import { Banner } from '../ui/Banner';
-import { useDocumentTitle } from './useDocumentTitle';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import styles from './RouteError.module.css';
 
 export function RouteError(): ReactElement {

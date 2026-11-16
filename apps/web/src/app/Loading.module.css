@@ -1,5 +1,5 @@
 .quiet {
   margin: 0;
   padding: 16px var(--gutter);
-  color: var(--ink-muted);
+  color: var(--text-muted);
 }

@@ -1,7 +1,7 @@
 .form {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
   max-width: 480px;
 }
 
@@ -13,7 +13,7 @@
 
 .holder,
 .number,
-.pay {
+.form > :last-child {
   grid-column: 1 / -1;
 }
 
@@ -25,10 +25,10 @@
 .field input {
   min-height: 44px;
   padding: 0 12px;
-  border: 1.5px solid var(--ink);
-  border-radius: 0;
-  background: var(--card);
-  color: var(--ink);
+  border: 1.5px solid var(--text);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text);
   font: inherit;
   font-variant-numeric: tabular-nums;
 }
@@ -43,16 +43,8 @@
   font-size: var(--text-sm);
 }
 
-.pay {
-  justify-self: start;
-}
-
-@media (max-width: 559px) {
+@media (min-width: 640px) {
   .form {
-    grid-template-columns: 1fr;
-  }
-
-  .pay {
-    justify-self: stretch;
+    grid-template-columns: 1fr 1fr;
   }
 }

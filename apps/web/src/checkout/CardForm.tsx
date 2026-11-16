@@ -1,8 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMemo, type ReactElement } from 'react';
+import { useMemo, useState, type ChangeEvent, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 import type { CardDetails } from '../api/types';
 import { Button } from '../ui/Button';
+import { StickyBar } from '../ui/StickyBar';
+import { formatCardNumber, formatCvc, formatExpiry } from './cardFormat';
 import { makeCardSchema, type CardFormValues } from './cardSchema';
 import styles from './CardForm.module.css';
 
@@ -21,11 +23,25 @@ export function CardForm({ payLabel, disabled, onSubmit, onEdit }: CardFormProps
     register,
     handleSubmit,
     setError,
+    setValue,
     formState: { errors },
   } = useForm<CardFormValues, unknown, CardDetails>({
     resolver,
     defaultValues: { holder: '', number: '', expiry: '', cvc: '' },
   });
+
+  // The expiry as last shown: tells backspace on the slash apart from typing.
+  const [shownExpiry, setShownExpiry] = useState('');
+  const format = (name: keyof CardFormValues, raw: string): string => {
+    if (name === 'number') return formatCardNumber(raw);
+    if (name === 'cvc') return formatCvc(raw);
+    if (name === 'expiry') {
+      const next = formatExpiry(raw, shownExpiry);
+      setShownExpiry(next);
+      return next;
+    }
+    return raw;
+  };
 
   const field = (
     name: keyof CardFormValues,
@@ -34,7 +50,6 @@ export function CardForm({ payLabel, disabled, onSubmit, onEdit }: CardFormProps
       autoComplete: string;
       inputMode?: 'numeric';
       placeholder?: string;
-      maxLength?: number;
     },
   ): ReactElement => {
     const message = errors[name]?.message;
@@ -48,7 +63,12 @@ export function CardForm({ payLabel, disabled, onSubmit, onEdit }: CardFormProps
           aria-invalid={message ? true : undefined}
           aria-describedby={message ? `card-${name}-error` : undefined}
           {...extra}
-          {...register(name, { onChange: onEdit })}
+          {...register(name, {
+            onChange: (e: ChangeEvent<HTMLInputElement>) => {
+              setValue(name, format(name, e.target.value), { shouldValidate: false });
+              onEdit();
+            },
+          })}
         />
         {message ? (
           <p id={`card-${name}-error`} role="alert" className={styles.error}>
@@ -74,22 +94,21 @@ export function CardForm({ payLabel, disabled, onSubmit, onEdit }: CardFormProps
         autoComplete: 'cc-number',
         inputMode: 'numeric',
         placeholder: '4242 4242 4242 4242',
-        maxLength: 23,
       })}
       {field('expiry', 'Expiry (MM/YY)', {
         autoComplete: 'cc-exp',
         inputMode: 'numeric',
         placeholder: 'MM/YY',
-        maxLength: 5,
       })}
       {field('cvc', 'Security code', {
         autoComplete: 'cc-csc',
         inputMode: 'numeric',
-        maxLength: 4,
       })}
-      <Button type="submit" disabled={disabled} className={styles.pay}>
-        {payLabel}
-      </Button>
+      <StickyBar>
+        <Button type="submit" disabled={disabled}>
+          {payLabel}
+        </Button>
+      </StickyBar>
     </form>
   );
 }

@@ -36,3 +36,6 @@ infra/.admin-login.txt*
 infra/k8s/.env
 infra/k8s/overlays/prod/kustomization.yaml
 infra/k8s/.rendered/
+
+# Brainstorm companion mockups
+.superpowers/

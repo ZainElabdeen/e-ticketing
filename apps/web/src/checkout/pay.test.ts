@@ -89,3 +89,19 @@ describe('submitPayment', () => {
     expect(newIdempotencyKey()).toMatch(/^[0-9a-f-]{36}$/u);
   });
 });
+
+describe('newIdempotencyKey', () => {
+  it('falls back to a v4 UUID when crypto.randomUUID is missing (insecure origin)', () => {
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+    try {
+      const a = newIdempotencyKey();
+      const b = newIdempotencyKey();
+      const v4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+      expect(a).toMatch(v4);
+      expect(b).toMatch(v4);
+      expect(a).not.toBe(b);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
