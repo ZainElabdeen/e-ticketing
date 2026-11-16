@@ -40,6 +40,29 @@
 
 ---
 
+### Task 0: `render-prod.mjs` takes no paths from the command line (SonarCloud jssecurity:S8707)
+
+SonarCloud still reports S8707 on `dev` (`infra/k8s/scripts/render-prod.mjs:55, 84, 119, 120`): any output path derived
+from `process.argv` counts as tainted, whatever checks follow. Decision (user, 2026-11-16): remove CLI-supplied paths
+entirely.
+
+**Files:**
+- Modify: `infra/k8s/scripts/render-prod.mjs`, `render-prod.test.mjs`
+- Modify callers: `infra/k8s/scripts/deploy.sh`, `k3d-e2e.sh`, `validate.sh`, `infra/k8s/README.md`, `docs/deployment-gcp.md`
+- Modify: `.gitignore` only if a new fixed directory needs it
+
+**Interfaces (Produces):**
+- CLI: `render-prod.mjs --target <prod|k3d|validate> --host <dns> --tag <sha-xxxxxxx>` writes the overlay to a fixed directory chosen by a `switch` over the literal target names: `prod` → `infra/k8s/overlays/prod`, `k3d` → `infra/k8s/.rendered/k3d`, `validate` → `infra/k8s/.rendered/validate`. Unknown target → exit 2.
+- CLI: `render-prod.mjs --traefik --acme-email <addr>` writes the HelmChartConfig to the fixed file `infra/k8s/.rendered/traefik-config.yaml` and prints that path.
+- No argument value is ever concatenated into, joined with, or used to look up a file path. Keep the symlink/`wx` write protections for the fixed paths.
+- Pure functions `renderProd({host, tag})` and `renderHelmChartConfig({acmeEmail})` unchanged.
+
+- [ ] **Step 1: Write the failing tests:** each target writes to its fixed directory; an unknown target exits 2 and writes nothing; `--traefik` writes the fixed file and prints its path; `--out` / `--traefik-out` are rejected as unknown options.
+- [ ] **Step 2: Run** `node --test infra/k8s/scripts/` → new tests FAIL.
+- [ ] **Step 3: Implement**; update every caller (grep for `render-prod.mjs`). The guide's Traefik step becomes `node infra/k8s/scripts/render-prod.mjs --traefik --acme-email "$EMAIL"` followed by `sudo cp infra/k8s/.rendered/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml`.
+- [ ] **Step 4: Run** `node --test infra/k8s/scripts/`, `infra/k8s/scripts/validate.sh`, `bash -n` on changed scripts, `deploy.sh sha-abc1234 --dry-run` with a fake `K8S_ENV_FILE` (ends `DEPLOY DRY-RUN`), `pnpm lint`, `pnpm format:check` → all pass.
+- [ ] **Step 5: Commit** `fix(k8s): render-prod writes only to fixed paths (no CLI-supplied paths)`.
+
 ### Task 1: Shared health module and shutdown state in `@eticket/nest-common`
 
 **Files:**
