@@ -1,10 +1,17 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef, type KeyboardEvent, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactElement,
+} from 'react';
 import { useSearchParams } from 'react-router';
 import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { useAuth } from './AuthProvider';
 import styles from './BackofficePage.module.css';
 import { ConsoleShell } from './ConsoleShell';
+import { accountsKey, availabilityKey, ledgerKey, transactionsKey } from './queries';
 import { SummaryTiles } from './SummaryTiles';
 import { UpdatingNote } from './UpdatingNote';
 import { AccountsTab } from './tabs/AccountsTab';
@@ -28,22 +35,35 @@ function parsePage(raw: string | null): number {
 export function BackofficePage(): ReactElement {
   useDocumentTitle('Backoffice');
   const { logout } = useAuth();
-  const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const rawTab = params.get('tab');
   const tab: TabId = TABS.find((t) => t.id === rawTab)?.id ?? 'transactions';
   const page = parsePage(params.get('page'));
+
+  // Set when the user opens a section or page, so UpdatingNote ignores interval refetches.
+  const [navigating, setNavigating] = useState(false);
+  const navTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(navTimer.current), []);
 
   const go = useCallback(
     (next: TabId, nextPage: number, replace = false) => {
       const p: Record<string, string> = { tab: next };
       if (nextPage > 1) p.page = String(nextPage);
       setParams(p, { replace });
-      // Switching section refetches it (and the tiles) now, not at the next 15 s tick.
-      void queryClient.invalidateQueries({ queryKey: ['backoffice'] });
+      setNavigating(true);
+      clearTimeout(navTimer.current);
+      navTimer.current = setTimeout(() => setNavigating(false), 2_000);
     },
-    [setParams, queryClient],
+    [setParams],
   );
+  const sectionKey =
+    tab === 'transactions'
+      ? transactionsKey(page)
+      : tab === 'ledger'
+        ? ledgerKey(page)
+        : tab === 'accounts'
+          ? accountsKey
+          : availabilityKey;
   const onPage = useCallback((p: number, replace?: boolean) => go(tab, p, replace), [go, tab]);
 
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -94,7 +114,7 @@ export function BackofficePage(): ReactElement {
     <ConsoleShell nav={nav} onSignOut={() => logout()}>
       <h1 className={styles.title}>Backoffice</h1>
       <SummaryTiles />
-      <UpdatingNote />
+      <UpdatingNote queryKey={sectionKey} navigating={navigating} />
       <div role="tabpanel" id="backoffice-panel" aria-labelledby={`tab-${tab}`}>
         {tab === 'transactions' ? <TransactionsTab page={page} onPage={onPage} /> : null}
         {tab === 'ledger' ? <LedgerEntriesTab page={page} onPage={onPage} /> : null}

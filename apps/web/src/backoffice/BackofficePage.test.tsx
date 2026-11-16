@@ -105,6 +105,7 @@ afterEach(() => {
 
 describe('BackofficePage', () => {
   it('shows Updating while a refetch runs behind visible data', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
     saveSession('jwt-1', 3600);
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {
@@ -122,6 +123,7 @@ describe('BackofficePage', () => {
     );
     expect(await screen.findAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
     await user.click(screen.getByRole('tab', { name: 'Transactions' }));
+    vi.setSystemTime(Date.now() + 11_000); // past the 10 s staleTime
     await user.click(screen.getByRole('tab', { name: 'Account balances' }));
     expect(await screen.findByText('Updating…')).toBeInTheDocument();
     expect(screen.getAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
@@ -153,6 +155,7 @@ describe('BackofficePage', () => {
   });
 
   it('refetches the section when switching tabs', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
     saveSession('jwt-1', 3600);
     const { user } = renderBackoffice(
       [
@@ -170,6 +173,7 @@ describe('BackofficePage', () => {
     expect(await screen.findAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
     await user.click(screen.getByRole('tab', { name: 'Transactions' }));
     await screen.findByText('PAY-20261114-ABC1');
+    vi.setSystemTime(Date.now() + 11_000); // past the 10 s staleTime
     await user.click(screen.getByRole('tab', { name: 'Account balances' }));
     expect(await screen.findAllByText(/AED\s700\.00/u)).not.toHaveLength(0);
   });
