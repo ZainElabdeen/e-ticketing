@@ -23,7 +23,9 @@ evidence (quoted code or a measured value) and a fix.
    - components and pages over ~120 lines excluding imports (split by extracting
      child components, hooks or `lib`, not by compressing whitespace);
    - feature folders own their code; `ui/` never imports a feature, and one
-     feature does not reach into another's internals;
+     feature does not reach into another's internals (enforced by
+     `no-restricted-imports` in `apps/web/eslint.config.mjs`, ADR-0028: a new
+     feature folder must be added to its `FEATURES` list);
    - `utils.ts` / `helpers.ts` / `hooks.ts` dumping grounds (name files for what
      they hold);
    - a shared abstraction extracted because two things look alike, without the

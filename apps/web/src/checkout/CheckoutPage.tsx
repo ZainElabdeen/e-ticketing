@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactElement } from 'react';
 import { useParams } from 'react-router';
-import { useDocumentTitle } from '../app/useDocumentTitle';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { useApi } from '../api/client';
 import { ApiError, call, isRetryable, messageFor } from '../api/errors';
 import { Banner } from '../ui/Banner';

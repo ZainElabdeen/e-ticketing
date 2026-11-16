@@ -1,6 +1,6 @@
 import { useEffect, type ReactElement } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { useDocumentTitle } from '../app/useDocumentTitle';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { ApiError, messageFor } from '../api/errors';
 import { formatMinor } from '../lib/money';
 import { Banner } from '../ui/Banner';

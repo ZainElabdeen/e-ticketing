@@ -1,4 +1,4 @@
-import { useDocumentTitle } from '../app/useDocumentTitle';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { useState, type ReactElement } from 'react';
 import { messageFor } from '../api/errors';
 import type { TicketType } from '../api/types';

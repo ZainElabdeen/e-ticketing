@@ -1,6 +1,6 @@
 # Web SPA
 
-React + Vite. Spec §5; ADR-0014, 0023. UI work: the `frontend-design` skill
+React + Vite. Spec §5; ADR-0014, 0023, 0028. UI work: the `frontend-design` skill
 (Claude Code); visual checks: the `ui-walkthrough` skill.
 
 ## CSP drives the code
@@ -27,6 +27,12 @@ nginx sends `script-src`/`style-src 'self'` with no `unsafe-eval`
   their pages, hooks, schemas and CSS. `ui/` holds presentational components
   used by two or more features (`Button`, `Banner`, `Stepper`, `Pagination`,
   `TicketStub`, `StickyBar`); they take props and render, with no data fetching.
+  `payment/` is a shared domain module (`paymentMemory`, `paymentKey`) used by
+  `checkout/`, `qr/` and `result/`; it imports only `api/` and `lib/`.
+  **Import direction (ADR-0028, lint-enforced):** `app` -> features -> shared
+  (`ui`, `lib`, `api`, `styles`, `payment`). A feature never imports another
+  feature or `app/`; shared code never imports a feature. Move shared code down
+  instead. A new feature folder must be added to `FEATURES` in `eslint.config.mjs`.
   `backoffice/` also holds `ConsoleArea` (console token scope), `ConsoleShell`
   (sidebar or top bar) and `LabeledCell` (table cell with a phone-only label).
 - **State has one owner**: server data in TanStack Query, form input in React

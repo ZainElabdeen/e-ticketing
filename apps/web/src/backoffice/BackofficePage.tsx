@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
-import { useDocumentTitle } from '../app/useDocumentTitle';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { useAuth } from './AuthProvider';
 import styles from './BackofficePage.module.css';
 import { ConsoleShell } from './ConsoleShell';
