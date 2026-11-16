@@ -327,6 +327,7 @@ describe('CheckoutPage under fake timers', () => {
     expect(screen.getByRole('button', { name: /^Pay / })).toBeEnabled();
     await tick(3000);
     expect(screen.getByText('This order has expired')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('This order has expired');
     expect(
       screen
         .queryAllByRole('button', { name: /^Pay / })

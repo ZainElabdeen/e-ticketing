@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { Link } from 'react-router';
+import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
 import type { Method } from './MethodPicker';
 import styles from './CheckoutPage.module.css';
@@ -34,7 +35,7 @@ export function CheckoutClosed(props: Props): ReactElement {
   const { gone, method, total } = props;
   return (
     <div className={`${styles.pane} ${styles.closed}`}>
-      <p className={styles.notice}>This order has expired</p>
+      <Banner tone="info">This order has expired</Banner>
       <div className={styles.actions}>
         {gone ? null : (
           <Button disabled>{method === 'CARD' ? `Pay ${total}` : 'Show QR code'}</Button>
