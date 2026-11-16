@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          ".superpowers/brainstorm/37249-1794797092/content/design-direction.html"
+        ],
+        "createdAt": "2026-11-16T02:46:29.217Z",
+        "reason": "agent: throwaway brainstorm mockup reproducing third-party DESIGN.md palettes verbatim for comparison; not shipped UI"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".superpowers/brainstorm/37249-1794797092/content/backoffice-layout.html"
+        ],
+        "createdAt": "2026-11-16T02:56:47.645Z",
+        "reason": "agent: throwaway brainstorm mockup, already approved by user; status pills intentionally compact; real padding set in DESIGN.md during build"
+      }
+    ]
+  }
+}

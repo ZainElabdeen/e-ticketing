@@ -34,4 +34,16 @@ describe('colour tokens meet WCAG AA (4.5:1)', () => {
   it('--card text on --stamp', () => {
     expect(contrast(token('card'), token('stamp'))).toBeGreaterThanOrEqual(4.5);
   });
+
+  for (const fg of ['tier-gold-text', 'tier-premium-text', 'tier-vip-text']) {
+    it(`--${fg} on --card`, () => {
+      expect(contrast(token(fg), token('card'))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+  it('--card on --ink (primary button text)', () => {
+    expect(contrast(token('card'), token('ink'))).toBeGreaterThanOrEqual(4.5);
+  });
+  it('--ink on --card (form-control borders, non-text 3:1)', () => {
+    expect(contrast(token('ink'), token('card'))).toBeGreaterThanOrEqual(3);
+  });
 });

@@ -29,6 +29,23 @@ describe('LoginPage', () => {
     clearSession();
   });
 
+  it('shows and hides the typed password', async () => {
+    const { user } = renderLogin([]);
+    const input = screen.getByLabelText('Password');
+    await user.type(input, 'correct-horse');
+    expect(input).toHaveAttribute('type', 'password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(input).toHaveAttribute('type', 'text');
+    const hide = screen.getByRole('button', { name: 'Hide password' });
+    expect(hide).toHaveAttribute('aria-pressed', 'true');
+    await user.click(hide);
+    expect(input).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: 'Show password' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
   it('signs in and opens the backoffice', async () => {
     const { user, fetch } = renderLogin([login(200, { accessToken: 'jwt-1', expiresIn: 3600 })]);
     await user.type(screen.getByLabelText('Email'), 'admin@example.com');
@@ -46,6 +63,11 @@ describe('LoginPage', () => {
     expect(window.sessionStorage.getItem('eticket.backoffice.session')).not.toContain(
       'correct-horse',
     );
+  });
+
+  it('links back to the shop', () => {
+    renderLogin([]);
+    expect(screen.getByRole('link', { name: 'Back to shop' })).toHaveAttribute('href', '/');
   });
 
   it('wrong password shows a clear error', async () => {

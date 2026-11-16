@@ -8,9 +8,10 @@ const ROUTES: Array<[path: string, operationId: string]> = [
   ['/v1/backoffice/ledger-entries', 'backofficeLedgerEntries'],
   ['/v1/backoffice/accounts', 'backofficeAccounts'],
   ['/v1/backoffice/ticket-availability', 'backofficeTicketAvailability'],
+  ['/v1/backoffice/summary', 'backofficeSummary'],
 ];
 
-// Requests: 6, all with the one shared token.
+// Requests: 7, all with the one shared token.
 export function register(
   getTarget: () => GatewayContractTarget,
   validator: ContractValidator,

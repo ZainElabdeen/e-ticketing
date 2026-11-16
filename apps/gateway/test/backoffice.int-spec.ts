@@ -91,6 +91,45 @@ describe('backoffice routes', () => {
       expect(stubs.ticket.calls[0]!.headers['x-api-key']).toBe(PUBLIC_KEYS.ticket);
     });
 
+    it('GET summary aggregates the three services with the gateway keys', async () => {
+      stubs.ledger.on('GET', /^\/v1\/accounts/, {
+        status: 200,
+        body: { data: [{ code: '4000', currency: 'AED', balanceMinor: 70000 }] },
+      });
+      stubs.payment.on('GET', /^\/v1\/transactions/, {
+        status: 200,
+        body: { total: 18, data: [] },
+      });
+      stubs.ticket.on('GET', /^\/v1\/ticket-types/, {
+        status: 200,
+        body: {
+          data: [
+            { available: 72, quota: 100 },
+            { available: 95, quota: 100 },
+          ],
+        },
+      });
+      const r = await request(gw.baseUrl).get('/v1/backoffice/summary?page=3').set(auth());
+      expect(r.status).toBe(200);
+      expect(r.body).toEqual({
+        revenue: { amountMinor: 70000, currency: 'AED' },
+        transactionCount: 18,
+        tickets: { available: 167, quota: 200 },
+      });
+      expect(stubs.payment.calls[0]!.path).toBe('/v1/transactions?page=1&pageSize=1');
+      expect(stubs.ledger.calls[0]!.headers['x-api-key']).toBe(PUBLIC_KEYS.ledger);
+      expect(stubs.ticket.calls[0]!.headers['x-api-key']).toBe(PUBLIC_KEYS.ticket);
+    });
+
+    it('GET summary is 502 UPSTREAM_UNAVAILABLE when one service answers 500', async () => {
+      stubs.ledger.on('GET', /^\/v1\/accounts/, { status: 200, body: { data: [] } });
+      stubs.payment.on('GET', /^\/v1\/transactions/, { status: 500, body: { code: 'X' } });
+      stubs.ticket.on('GET', /^\/v1\/ticket-types/, { status: 200, body: { data: [] } });
+      const r = await request(gw.baseUrl).get('/v1/backoffice/summary').set(auth());
+      expect(r.status).toBe(502);
+      expect(bodyOf(r).code).toBe('UPSTREAM_UNAVAILABLE');
+    });
+
     it('passes a downstream 400 through', async () => {
       const envelope = {
         statusCode: 400,
@@ -110,6 +149,7 @@ describe('backoffice routes', () => {
       '/v1/backoffice/transactions',
       '/v1/backoffice/ledger-entries',
       '/v1/backoffice/ticket-availability',
+      '/v1/backoffice/summary',
     ])('%s without a header is 401 with no downstream call', async (path) => {
       const r = await request(gw.baseUrl).get(path);
       expect(r.status).toBe(401);

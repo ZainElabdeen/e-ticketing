@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../api/client';
 import { call } from '../api/errors';
 import { renderWithApp, stubFetch, type StubRoute } from '../test/render';
@@ -15,11 +15,27 @@ function Where(): React.ReactElement {
   return <p data-testid="where">{l.pathname + l.search}</p>;
 }
 
-function renderBackoffice(routes: StubRoute[], route = '/backoffice') {
-  const fetch = stubFetch(routes);
+/** Stands in for the 15 s interval: a refetch the user did not start. */
+function BackgroundRefetch(): React.ReactElement {
+  const client = useQueryClient();
+  return (
+    <button type="button" onClick={() => void client.refetchQueries({ queryKey: ['backoffice'] })}>
+      background refetch
+    </button>
+  );
+}
+
+function renderBackoffice(
+  routes: StubRoute[],
+  route = '/backoffice',
+  slow?: (inner: ReturnType<typeof stubFetch>) => typeof fetch,
+) {
+  const stub = stubFetch(routes);
+  const fetch = slow ? Object.assign(slow(stub), { calls: stub.calls }) : stub;
   const view = renderWithApp(
     <>
       <Where />
+      <BackgroundRefetch />
       <Routes>
         <Route path="/backoffice/login" element={<LoginPage />} />
         <Route
@@ -88,6 +104,80 @@ afterEach(() => {
 });
 
 describe('BackofficePage', () => {
+  it('shows Updating while a refetch runs behind visible data', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    saveSession('jwt-1', 3600);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let accountCalls = 0;
+    const { user } = renderBackoffice(
+      [txPage(2), accounts(40000, 40000)],
+      '/backoffice?tab=accounts',
+      (inner) => async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes('/v1/backoffice/accounts') && ++accountCalls >= 2) await gate;
+        return inner(input, init);
+      },
+    );
+    expect(await screen.findAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
+    await user.click(screen.getByRole('tab', { name: 'Transactions' }));
+    vi.setSystemTime(Date.now() + 11_000); // past the 10 s staleTime
+    await user.click(screen.getByRole('tab', { name: 'Account balances' }));
+    expect(await screen.findByText('Updating…')).toBeInTheDocument();
+    expect(screen.getAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
+    release();
+    await waitFor(() => expect(screen.queryByText('Updating…')).not.toBeInTheDocument());
+  });
+
+  it('does not announce Updating for a background refetch', async () => {
+    saveSession('jwt-1', 3600);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let accountCalls = 0;
+    const { user } = renderBackoffice(
+      [txPage(2), accounts(40000, 40000)],
+      '/backoffice?tab=accounts',
+      (inner) => async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes('/v1/backoffice/accounts') && ++accountCalls >= 2) await gate;
+        return inner(input, init);
+      },
+    );
+    expect(await screen.findAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'background refetch' }));
+    await waitFor(() => expect(accountCalls).toBe(2));
+    expect(screen.queryByText('Updating…')).not.toBeInTheDocument();
+    release();
+  });
+
+  it('refetches the section when switching tabs', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    saveSession('jwt-1', 3600);
+    const { user } = renderBackoffice(
+      [
+        txPage(2),
+        {
+          ...accounts(40000, 40000),
+          responses: [
+            { status: 200, body: accounts(40000, 40000).body },
+            { status: 200, body: accounts(70000, 70000).body },
+          ],
+        },
+      ],
+      '/backoffice?tab=accounts',
+    );
+    expect(await screen.findAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
+    await user.click(screen.getByRole('tab', { name: 'Transactions' }));
+    await screen.findByText('PAY-20261114-ABC1');
+    vi.setSystemTime(Date.now() + 11_000); // past the 10 s staleTime
+    await user.click(screen.getByRole('tab', { name: 'Account balances' }));
+    expect(await screen.findAllByText(/AED\s700\.00/u)).not.toHaveLength(0);
+  });
+
   it('redirects to login without a session', async () => {
     renderBackoffice([]);
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
@@ -105,9 +195,9 @@ describe('BackofficePage', () => {
     saveSession('jwt', 3600);
     const { user, fetch } = renderBackoffice([txPage(45)]);
     expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Prev' })).toBeDisabled();
-    const short = screen.getByText('00000001');
-    expect(short).toHaveAttribute('title', '00000001-aaaa-bbbb-cccc-ddddeeeeffff');
+    expect(screen.getByRole('button', { name: 'Prev' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('00000001-aaaa-bbbb-cccc-ddddeeeeffff')).toBeInTheDocument();
+    expect(screen.getByText('00000101-1111-2222-3333-444455556666')).toBeInTheDocument();
     expect(screen.getAllByText('AED 200.00')).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() =>
@@ -208,6 +298,10 @@ describe('BackofficePage', () => {
     );
     expect(await screen.findByText('PAY-20261114-ABC1')).toBeInTheDocument();
     expect(screen.getByText('Ticket sale')).toBeInTheDocument();
+    expect(screen.getByText('PAY-20261114-ABC1').closest('th')).toHaveAttribute(
+      'scope',
+      'rowgroup',
+    );
     const debitRow = screen.getByText('1100 Payment Gateway Clearing').closest('tr')!;
     expect(within(debitRow).getAllByRole('cell')[1]).toHaveTextContent('AED 700.00');
     expect(within(debitRow).getAllByRole('cell')[2]).toHaveTextContent('');
@@ -262,12 +356,22 @@ describe('BackofficePage', () => {
     );
     const row = (await screen.findByText('Gold')).closest('tr')!;
     const cells = within(row).getAllByRole('cell');
-    expect(cells.map((c) => c.textContent)).toEqual(['Gold', 'AED 100.00', '100', '12', '3', '85']);
+    expect(cells).toHaveLength(6);
+    ['Gold', 'AED 100.00', '100', '12', '3', '85'].forEach((value, i) => {
+      expect(cells[i]).toHaveTextContent(value);
+    });
   });
 
   it('a transient error shows a banner with Try again and keeps the session', async () => {
     saveSession('jwt', 3600);
     const { user } = renderBackoffice([
+      accounts(0, 0),
+      {
+        method: 'GET',
+        path: '/v1/backoffice/ticket-availability',
+        status: 200,
+        body: { data: [] },
+      },
       {
         method: 'GET',
         path: '/v1/backoffice/transactions',
@@ -279,9 +383,9 @@ describe('BackofficePage', () => {
         ],
       },
     ]);
-    expect(
-      await screen.findByText('Something went wrong on our side. Try again.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong on our side. Try again.',
+    );
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('PAY-20261114-ABC1')).toBeInTheDocument();
   });
@@ -429,6 +533,24 @@ describe('BackofficePage tabs keyboard', () => {
     expect(tab('Ledger entries')).toHaveAttribute('aria-selected', 'true');
     expect(tab('Ledger entries')).toHaveFocus();
     expect(screen.getByTestId('where')).toHaveTextContent('tab=ledger');
+  });
+
+  it('moves between sections with ArrowDown and ArrowUp', async () => {
+    const { user } = setup();
+    await screen.findByText('PAY-20261114-ABC1');
+    tab('Transactions').focus();
+    await user.keyboard('{ArrowDown}');
+    expect(tab('Ledger entries')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Ledger entries')).toHaveFocus();
+    await user.keyboard('{ArrowUp}');
+    expect(tab('Transactions')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Transactions')).toHaveFocus();
+  });
+
+  it('links back to the shop', async () => {
+    setup();
+    await screen.findByText('PAY-20261114-ABC1');
+    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/');
   });
 
   it('ArrowLeft from the first tab wraps to the last', async () => {

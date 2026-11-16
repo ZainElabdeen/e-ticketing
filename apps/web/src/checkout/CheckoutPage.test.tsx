@@ -3,7 +3,7 @@ import { Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithApp, stubFetch, type StubRoute } from '../test/render';
 import { CheckoutPage } from './CheckoutPage';
-import { recallPayment, rememberPayment } from './paymentMemory';
+import { recallPayment, rememberPayment } from '../payment/paymentMemory';
 
 const order = (over: Record<string, unknown> = {}) => ({
   id: 'o-1',
@@ -320,6 +320,20 @@ describe('CheckoutPage under fake timers', () => {
     await click('Show QR code');
   };
   const qrRoute = '/checkout/o-1?method=qr';
+
+  it('removes the Pay button when the order expires', async () => {
+    renderCheckout([orderRoute(order({ expiresAt: new Date(Date.now() + 2000).toISOString() }))]);
+    await tick(50);
+    expect(screen.getByRole('button', { name: /^Pay / })).toBeEnabled();
+    await tick(3000);
+    expect(screen.getByText('This order has expired')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('This order has expired');
+    expect(
+      screen
+        .queryAllByRole('button', { name: /^Pay / })
+        .every((b) => (b as HTMLButtonElement).disabled),
+    ).toBe(true);
+  });
 
   it.each([
     ['UPSTREAM_UNAVAILABLE', 502],

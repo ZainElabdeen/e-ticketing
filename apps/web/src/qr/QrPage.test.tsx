@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { forgetPayment, recallPayment, rememberPayment } from '../checkout/paymentMemory';
+import { forgetPayment, recallPayment, rememberPayment } from '../payment/paymentMemory';
 import { renderWithApp, stubFetch, type StubRoute } from '../test/render';
 import { QrPage } from './QrPage';
 

@@ -1,13 +1,14 @@
-import { useDocumentTitle } from '../app/useDocumentTitle';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
-import { Navigate } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { z } from 'zod';
 import { ApiError, messageFor } from '../api/errors';
 import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
 import { useAuth } from './AuthProvider';
+import { PasswordField } from './PasswordField';
 import styles from './LoginPage.module.css';
 
 const MAX_BYTES = 72; // bcrypt limit
@@ -97,11 +98,19 @@ export function LoginPage(): ReactElement {
         }}
       >
         {field('email', 'Email', 'email', 'username')}
-        {field('password', 'Password', 'password', 'current-password')}
+        <PasswordField
+          label="Password"
+          autoComplete="current-password"
+          message={errors.password?.message}
+          registration={register('password')}
+        />
         <Button type="submit" disabled={isSubmitting} className={styles.submit}>
           Sign in
         </Button>
       </form>
+      <Link to="/" className={styles.back}>
+        Back to shop
+      </Link>
     </section>
   );
 }

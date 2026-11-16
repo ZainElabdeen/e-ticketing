@@ -1,17 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
-import { useApi } from '../../api/client';
-import { call } from '../../api/errors';
 import { formatMinor } from '../../lib/money';
+import { useAvailability } from '../queries';
 import { Loading, QueryFailure } from '../QueryFailure';
+import { LabeledCell } from '../LabeledCell';
 import styles from '../tables.module.css';
 
 export function AvailabilityTab(): ReactElement {
-  const api = useApi();
-  const q = useQuery({
-    queryKey: ['backoffice', 'ticket-availability'],
-    queryFn: () => call(api.GET('/v1/backoffice/ticket-availability')),
-  });
+  const q = useAvailability();
 
   if (q.isPending) return <Loading />;
   if (q.isError) return <QueryFailure error={q.error} onRetry={() => void q.refetch()} />;
@@ -40,13 +35,23 @@ export function AvailabilityTab(): ReactElement {
         </thead>
         <tbody>
           {q.data.data.map((t) => (
-            <tr key={t.code}>
-              <td>{t.name}</td>
-              <td className={styles.num}>{formatMinor(t.priceMinor, t.currency)}</td>
-              <td className={styles.num}>{t.quota}</td>
-              <td className={styles.num}>{t.sold}</td>
-              <td className={styles.num}>{t.reserved}</td>
-              <td className={styles.num}>{t.available}</td>
+            <tr key={t.code} className={styles.row}>
+              <LabeledCell label="Type">{t.name}</LabeledCell>
+              <LabeledCell label="Price" className={styles.num}>
+                {formatMinor(t.priceMinor, t.currency)}
+              </LabeledCell>
+              <LabeledCell label="Quota" className={styles.num}>
+                {t.quota}
+              </LabeledCell>
+              <LabeledCell label="Sold" className={styles.num}>
+                {t.sold}
+              </LabeledCell>
+              <LabeledCell label="Reserved" className={styles.num}>
+                {t.reserved}
+              </LabeledCell>
+              <LabeledCell label="Available" className={`${styles.num} ${styles.lead}`}>
+                {t.available}
+              </LabeledCell>
             </tr>
           ))}
         </tbody>

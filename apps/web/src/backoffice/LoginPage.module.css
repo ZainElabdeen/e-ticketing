@@ -1,5 +1,11 @@
 .page {
+  width: calc(100% - 2 * var(--gutter));
   max-width: 420px;
+  margin: 10dvh auto 0;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
 }
 
 .page h1 {
@@ -21,18 +27,49 @@
   font-weight: 500;
 }
 
+.control {
+  position: relative;
+  display: grid;
+}
+
 .field input {
   min-height: 44px;
   padding: 0 12px;
-  border: 1.5px solid var(--ink);
-  border-radius: 0;
-  background: var(--card);
-  color: var(--ink);
+  border: 1.5px solid var(--text);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text);
   font: inherit;
 }
 
 .field input[aria-invalid='true'] {
   border-color: var(--stamp);
+}
+
+.control:has(.toggle) input {
+  padding-right: 48px;
+}
+
+.toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 .error {
@@ -43,4 +80,11 @@
 
 .submit {
   justify-self: start;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: var(--space-3);
 }

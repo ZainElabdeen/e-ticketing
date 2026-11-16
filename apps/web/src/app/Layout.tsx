@@ -16,15 +16,25 @@ export function Layout(): ReactElement {
     main.current?.focus();
   }, [pathname]);
 
+  // The console draws its own shell, so the shop header and main padding step aside. Exact
+  // paths, so an unknown /backoffice/* URL gets the shop chrome around its not-found page.
+  const inConsole = pathname === '/backoffice' || pathname === '/backoffice/login';
+
   return (
     <>
-      <header className={styles.header}>
-        <Link to="/" className={styles.wordmark}>
-          E-Ticket
-        </Link>
-        <Link to="/backoffice">Backoffice</Link>
-      </header>
-      <main ref={main} tabIndex={-1} className={styles.main}>
+      {inConsole ? null : (
+        <header className={styles.header}>
+          <Link to="/" className={styles.wordmark}>
+            E-Ticket
+          </Link>
+          <Link to="/backoffice">Backoffice</Link>
+        </header>
+      )}
+      <main
+        ref={main}
+        tabIndex={-1}
+        className={inConsole ? `${styles.main} ${styles.console}` : styles.main}
+      >
         <Outlet />
       </main>
     </>

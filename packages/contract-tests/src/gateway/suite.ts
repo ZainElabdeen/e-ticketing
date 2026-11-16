@@ -3,7 +3,7 @@
  *
  * It fits inside the production rate limits in one run, so it can target a
  * compose stack with default limits: 2 order creations (limit 4), 3 logins
- * (limit 6) and about 23 requests in total (limit 60). Keep it that way when
+ * (limit 6) and about 24 requests in total (limit 60). Keep it that way when
  * adding tests. It mutates the target (creates an order and a payment).
  */
 import { ContractValidator } from '../validator';

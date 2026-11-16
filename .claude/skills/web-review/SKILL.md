@@ -19,6 +19,17 @@ feature folder, or the whole app. State the scope in the report.
 Run every pass over the whole scope. Each finding gets severity, `file:line`,
 evidence (quoted code or a measured value) and a fix.
 
+0. **Architecture** — feature-first structure:
+   - components and pages over ~120 lines excluding imports (split by extracting
+     child components, hooks or `lib`, not by compressing whitespace);
+   - feature folders own their code; `ui/` never imports a feature, and one
+     feature does not reach into another's internals (enforced by
+     `no-restricted-imports` in `apps/web/eslint.config.mjs`, ADR-0028: a new
+     feature folder must be added to its `FEATURES` list);
+   - `utils.ts` / `helpers.ts` / `hooks.ts` dumping grounds (name files for what
+     they hold);
+   - a shared abstraction extracted because two things look alike, without the
+     same behaviour and meaning.
 1. **React** — against the React standards in `apps/web/AGENTS.md`:
    - state with two owners (query data copied into `useState`, URL state
      mirrored in state);
@@ -37,9 +48,13 @@ evidence (quoted code or a measured value) and a fix.
    forward from every error. (`ui/Stepper` is the quantity picker, not a
    progress indicator.) Copy is consistent (AED
    amounts via `lib/money.ts`, dates via `lib/time.ts`).
-4. **Design tokens** — colours, sizes and spacing come from
-   `src/styles/tokens.css`; no raw hex or px values outside it except borders
-   and breakpoints (`559px` / `560px`). Square corners, controls ≥ 44px.
+4. **Design tokens** — against `apps/web/DESIGN.md` and ADR-0027. Components
+   use semantic tokens (`--surface`, `--text`, `--accent`, ...) from
+   `src/styles/tokens.css`, never raw palette ones; the console shares the shop
+   palette and type; no raw hex or px values outside it except borders and the
+   media-query breakpoints only `640px` and `1024px`, `min-width` (layout max-width caps are fine). Radii only 4/6/20px;
+   controls ≥ 44px; `--stamp` never on a button; every text/background pair
+   covered by `tokens.test.ts`.
 5. **Accessibility** (WCAG 2.2 AA) — one `h1` per page; labels on every input;
    text contrast ≥ 4.5:1 (compute from token hex values); keyboard reaches
    everything with a visible focus ring; ARIA widgets follow their APG pattern
@@ -47,7 +62,8 @@ evidence (quoted code or a measured value) and a fix.
    and document title move on navigation.
 6. **Responsive** — run the `ui-walkthrough` skill (seven widths, CSP console).
    Without a browser, review CSS for fixed widths, `min-width` wider than 320px,
-   and tables outside an `overflow-x: auto` wrapper, and mark the pass
+   and phone tables that scroll sideways instead of using card mode
+   (`LabeledCell`), and mark the pass
    "CSS-only".
 7. **Performance** — bundle size from `pnpm --filter @eticket/web build`
    output; route-level `lazy()` candidates (backoffice); polling intervals and
