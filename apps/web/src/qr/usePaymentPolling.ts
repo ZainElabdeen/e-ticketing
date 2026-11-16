@@ -3,12 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApi } from '../api/client';
 import { ApiError, call } from '../api/errors';
 import type { Payment } from '../api/types';
+import { paymentKey } from '../payment/paymentKey';
 
 export type PollState = 'polling' | 'succeeded' | 'cancelled' | 'timeout';
 
 const TICK_MS = 250;
-
-export const paymentKey = (paymentId: string) => ['payment', paymentId] as const;
 
 /**
  * Polls `GET /v1/payments/{id}`. The cap counts only time the tab is visible: an accumulator is

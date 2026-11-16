@@ -5,13 +5,14 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useApi } from '../api/client';
 import { ApiError, call, messageFor } from '../api/errors';
-import { forgetPayment } from '../checkout/paymentMemory';
+import { forgetPayment } from '../payment/paymentMemory';
+import { paymentKey } from '../payment/paymentKey';
 import { formatMinor } from '../lib/money';
 import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
 import { TicketStub } from '../ui/TicketStub';
 import styles from './QrPage.module.css';
-import { paymentKey, usePaymentPolling } from './usePaymentPolling';
+import { usePaymentPolling } from './usePaymentPolling';
 
 export function QrPage(): ReactElement {
   useDocumentTitle('Scan to pay');

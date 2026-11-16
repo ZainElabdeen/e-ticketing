@@ -69,10 +69,10 @@ nginx sends `script-src`/`style-src 'self'` with no `unsafe-eval`
   sessionStorage (`src/backoffice/session.ts`).
 - Backoffice query keys start with `'backoffice'`: only a 401 on those logs the
   user out (`AuthProvider.tsx`).
-- Shared query keys: `paymentKey` (`qr/usePaymentPolling.ts`, also used by
-  `ResultPage`), `TICKET_TYPES_KEY` (`shop/useTicketTypes.ts`).
+- Shared query keys: `paymentKey` (`payment/paymentKey.ts`, used by `qr/` and
+  `result/`), `TICKET_TYPES_KEY` (`shop/useTicketTypes.ts`).
 - Card data lives only in React Hook Form state and the POST body. Payment memory
-  (`eticket.payment.<orderId>`) stores the payment id and method only.
+  (`payment/paymentMemory.ts`, key `eticket.payment.<orderId>`) stores the payment id and method only.
 - Double-submit guards are refs (`inFlight`, `cancelling`) released only on
   error. Keep that pattern.
 - Backoffice tab and page live in the URL (`?tab=&page=`); `useClampPage`

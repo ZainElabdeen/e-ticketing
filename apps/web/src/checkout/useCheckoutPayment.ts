@@ -5,7 +5,7 @@ import { ApiError, GENERIC_MESSAGE, messageFor } from '../api/errors';
 import type { CardDetails, Order } from '../api/types';
 import type { Method } from './MethodPicker';
 import { newIdempotencyKey, submitPayment } from './pay';
-import { recallPayment, rememberPayment } from './paymentMemory';
+import { recallPayment, rememberPayment } from '../payment/paymentMemory';
 
 export type BannerState = { tone: 'error' | 'info'; text: string };
 

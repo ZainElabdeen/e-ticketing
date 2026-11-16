@@ -5,7 +5,7 @@ import { useDocumentTitle } from '../app/useDocumentTitle';
 import { useApi } from '../api/client';
 import { ApiError, call, messageFor } from '../api/errors';
 import type { Payment } from '../api/types';
-import { paymentKey } from '../qr/usePaymentPolling';
+import { paymentKey } from '../payment/paymentKey';
 import { formatMinor } from '../lib/money';
 import { formatDateTime } from '../lib/time';
 import { Banner } from '../ui/Banner';

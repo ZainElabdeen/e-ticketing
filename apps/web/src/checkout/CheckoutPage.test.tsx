@@ -3,7 +3,7 @@ import { Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithApp, stubFetch, type StubRoute } from '../test/render';
 import { CheckoutPage } from './CheckoutPage';
-import { recallPayment, rememberPayment } from './paymentMemory';
+import { recallPayment, rememberPayment } from '../payment/paymentMemory';
 
 const order = (over: Record<string, unknown> = {}) => ({
   id: 'o-1',
