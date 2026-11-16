@@ -43,10 +43,10 @@ export function TransactionsTab({ page, onPage }: TabProps): ReactElement {
                 <LabeledCell label="Time">{formatDateTime(t.createdAt)}</LabeledCell>
                 <LabeledCell label="Payment reference">{t.paymentReference}</LabeledCell>
                 <LabeledCell label="Transaction ID">
-                  <span title={t.transactionId}>{t.transactionId.slice(0, 8)}</span>
+                  <span className={styles.id}>{t.transactionId}</span>
                 </LabeledCell>
                 <LabeledCell label="Order">
-                  <span title={t.orderId}>{t.orderId.slice(0, 8)}</span>
+                  <span className={styles.id}>{t.orderId}</span>
                 </LabeledCell>
                 <LabeledCell label="Method">{METHODS[t.method] ?? t.method}</LabeledCell>
                 <LabeledCell label="Amount" className={`${styles.num} ${styles.lead}`}>

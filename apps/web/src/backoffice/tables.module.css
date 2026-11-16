@@ -147,6 +147,10 @@
   color: var(--ok);
 }
 
+.id {
+  overflow-wrap: anywhere;
+}
+
 .pill.bad {
   border-color: var(--stamp);
   color: var(--stamp);
@@ -157,6 +161,15 @@
 }
 
 @media (min-width: 640px) {
+  .id {
+    display: inline-block;
+    max-width: 10ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+
   .wrap {
     overflow-x: auto;
     background: var(--surface-raised);
