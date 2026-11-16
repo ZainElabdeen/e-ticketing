@@ -192,6 +192,10 @@
     border-radius: 0;
   }
 
+  .entry tr td {
+    width: auto;
+  }
+
   .table td,
   .table th,
   .entry .group th {
