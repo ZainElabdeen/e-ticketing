@@ -67,11 +67,12 @@ Paper stays `#f6f1e7`. The alternative `#f3f0ee` was not needed because all pair
 - Shop primary action: `--accent` (ink) with `--accent-contrast` (card).
 - Stamp red (`--stamp`) is reserved: the PAID stamp, errors and the brand mark. It is
   never a button colour.
-- Tier colours (`--tier-*`) fill bars and swatches. Eyebrow text uses `--tier-*-text`,
-  darkened to pass 4.5:1 on `--card`.
+- Tier colour is the eyebrow text only, via `--tier-*-text`, darkened to pass 4.5:1 on
+  `--surface-raised`. There are no tier fills or swatches.
+- The QR box stays `#fff` (the one raw colour in a component) so the code scans.
 - Console: selected nav uses `--accent-soft` with `--text` and a 2px `--accent` bar;
   the Balanced pill is `--ok` text and border on `--surface-raised`, Out of balance
-  is `--stamp`. Login input borders are `1.5px solid var(--ink)`.
+  is `--stamp`. Login input borders are `1.5px solid var(--text)`.
 - Every text and background pair in use is asserted at 4.5:1 or more.
 
 ## Typography
@@ -83,9 +84,9 @@ uppercase, 0.12em tracking, `--text-muted`). Tabular numbers everywhere (prices,
 
 ## Components
 
-- **Button**: at least 44px tall, 4px radius. Primary is `--accent` on `--accent-contrast`.
+- **Button**: at least 44px tall, pill radius (`--radius-pill`, 20px). Primary is `--accent` on `--accent-contrast`.
 - **TicketStub eyebrow**: small uppercase tier label in `--tier-*-text` above the tier name.
-- **Stepper**: numbered checkout steps, current step in `--accent`.
+- **Stepper**: the ticket quantity picker, 40px round buttons inside 44px hit areas.
 - **StickyBar**: bottom bar on mobile carrying total and primary action; static from tablet up.
 - **Console tables**: `--surface-raised`, `--border` hairlines, `--row-pad` cells, radius `--radius-card`.
 - **Status pills**: `--radius-pill`; success uses `--ok` text and border on `--surface-raised`.
@@ -101,7 +102,7 @@ Mobile first with exactly two breakpoints: `min-width: 640px` (tablet) and
 ## Responsive rules
 
 - Controls are at least 44px tall or have a 44px hit area.
-- Tables collapse to stacked rows or scroll inside their container on mobile; the page never scrolls sideways.
+- Tables become cards on phones (same markup, no sideways scroll); from 640px they are real tables.
 - Sidebar becomes a top nav below 1024px.
 
 ## Do / Don't

@@ -66,7 +66,7 @@ like a payments console.
 1. **One token system, one theme per area (chosen).** `tokens.css` becomes the
    base (palette, type scale, spacing, radii, breakpoints). The backoffice shell
    sets `data-area="console"` on its root, and a `[data-area='console']` block
-   re-points semantic tokens (surface, accent, rule, row height). Shared `ui/`
+   sets only the row padding (`--row-pad`); colours stay the shop palette. Shared `ui/`
    components consume only semantic tokens, so one `Button` renders right in
    both areas. Trade-off: semantic token names must be chosen carefully so shop
    styling never leaks into the console.
@@ -128,7 +128,7 @@ Keep the existing palette values where they exist and add semantic layers.
   palette; only `--row-pad` differs.
 - **Semantic tokens** consumed by components: `--surface`, `--surface-raised`,
   `--text`, `--text-muted`, `--border`, `--accent`, `--accent-contrast`,
-  `--focus-ring`, `--radius-sm` (4px inputs), `--radius-md` (6px cards), `--radius-pill` (20px buttons), `--row-h`.
+  `--focus-ring`, `--radius-sm` (4px inputs), `--radius-card` (6px cards), `--radius-pill` (20px buttons), `--row-pad`.
   The `[data-area='console']` block sets `--row-pad` only.
 - **Spacing scale:** 4, 8, 12, 16, 24, 32, 48, 64 (`--space-1`… `--space-8`).
 - **Type:** keep the current scale. Money and table numbers use
@@ -191,8 +191,8 @@ Keep the existing palette values where they exist and add semantic layers.
   horizontal, scrollable section menu (the four sections stay visible as a strip,
   no hamburger needed for four items).
 - **Accessibility:** the sections stay the existing **APG tabs** (`role=tablist`,
-  roving tabindex, arrow/Home/End, `?tab=&page=` in the URL), with a vertical
-  tablist (`aria-orientation="vertical"`, Up/Down arrows as well) in the
+  roving tabindex, arrow/Home/End, `?tab=&page=` in the URL), with one tablist
+  (`aria-orientation` left unset by design, all four arrow keys move focus) in the
   sidebar. This keeps the current tests and URL behaviour. Sign out is a button
   outside the tablist.
 - **Summary tiles** above the active tab, on every tab: Revenue (balance of the
@@ -202,8 +202,8 @@ Keep the existing palette values where they exist and add semantic layers.
   `'backoffice'`, and each tile has its own loading and error state. No new
   endpoint.
 - **Tables (shop palette):** card panel, 6px radius, rule-colour rows, eyebrow-style
-  12px headers, tabular right-aligned amounts, status pills (Succeeded / Pending
-  / Failed with text, not colour alone).
+  12px headers, tabular right-aligned amounts, a Balanced / Out of balance pill on the ledger
+  (text, not colour alone); there is no status column.
 - **Phones (<640px):** each table row renders as a card using the **same
   `<table>` markup**, restyled with CSS (`display: block` rows). Cell labels do
   not come from `data-label` + `attr()` pseudo-elements, because generated text

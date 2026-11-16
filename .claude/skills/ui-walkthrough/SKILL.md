@@ -63,7 +63,7 @@ repo dependency: install it in the scratchpad, never in the repo.
 
 ## Gotchas
 
-- `StickyBar` is fixed to the bottom on phones: it can cover the last form field
+- `StickyBar` is `position: sticky` at the bottom on phones: it can cover the last form field
   or the footer. Scroll the field into view and check the page has bottom
   padding; from 640px it is inline.
 - `TicketStub` folds by container width (`@container (max-width: 479px)` on its

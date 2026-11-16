@@ -18,7 +18,7 @@ sideways on phones.
    `--radius-card`, `--row-pad`). The shop uses paper and ink; the console
    block (`data-area='console'`, set by `ConsoleArea`) only sets `--row-pad`
    (see Amended 2026-11-16). Components read only semantic tokens.
-2. **Rounded corners**: 4px inputs and buttons, 6px cards, 20px pill buttons and status pills.
+2. **Rounded corners**: 4px inputs, 6px cards, 20px buttons and status pills.
 3. **Breakpoints**: mobile first, exactly `min-width: 640px` and
    `min-width: 1024px`. `--gutter` is 16, 24 and 32px. Content caps at 1120px
    (shop) and 1280px (console).
@@ -32,7 +32,7 @@ sideways on phones.
 6. **`apps/web/DESIGN.md`** is the design source of truth for agents;
    `tokens.css` stays the source of truth for values, and `tokens.test.ts`
    asserts every text/background pair at 4.5:1 or more (console input borders
-   use `--ink`).
+   use `--text`).
 
 ## Alternatives
 

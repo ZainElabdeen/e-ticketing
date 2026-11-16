@@ -50,7 +50,7 @@ evidence (quoted code or a measured value) and a fix.
    use semantic tokens (`--surface`, `--text`, `--accent`, ...) from
    `src/styles/tokens.css`, never raw palette ones; the console shares the shop
    palette and type; no raw hex or px values outside it except borders and the
-   two breakpoints (`640px`, `1024px`, `min-width`). Radii only 4/6/20px;
+   media-query breakpoints only `640px` and `1024px`, `min-width` (layout max-width caps are fine). Radii only 4/6/20px;
    controls ≥ 44px; `--stamp` never on a button; every text/background pair
    covered by `tokens.test.ts`.
 5. **Accessibility** (WCAG 2.2 AA) — one `h1` per page; labels on every input;
