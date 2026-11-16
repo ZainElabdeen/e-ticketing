@@ -3,6 +3,7 @@ import type { CorrelatedRequest } from '@eticket/nest-common';
 import { correlationIdOf } from '@eticket/nest-common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DownstreamClient, relay, type RelayTarget } from '../downstream/downstream.client';
+import { BackofficeSummaryService, type BackofficeSummary } from './backoffice-summary.service';
 
 /** Forwards only `page` and `pageSize`, as the raw strings; the service validates them. */
 function pageQuery(page: unknown, pageSize: unknown): Record<string, string> {
@@ -19,7 +20,15 @@ function pageQuery(page: unknown, pageSize: unknown): Record<string, string> {
 @Controller('v1/backoffice')
 @UseGuards(JwtAuthGuard)
 export class BackofficeController {
-  constructor(private readonly downstream: DownstreamClient) {}
+  constructor(
+    private readonly downstream: DownstreamClient,
+    private readonly summaries: BackofficeSummaryService,
+  ) {}
+
+  @Get('summary')
+  summary(@Req() req: CorrelatedRequest): Promise<BackofficeSummary> {
+    return this.summaries.summary(correlationIdOf(req));
+  }
 
   @Get('transactions')
   async transactions(
