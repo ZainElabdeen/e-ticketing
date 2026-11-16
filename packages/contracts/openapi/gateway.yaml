@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Gateway (BFF) API
-  version: 2.1.1
+  version: 2.2.0
   license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
   description: >
     The only public backend. Holds public-scope API keys, rate limits, applies
@@ -287,6 +287,29 @@ paths:
         '502': { $ref: '#/components/responses/UpstreamUnavailable' }
         '504': { $ref: '#/components/responses/UpstreamTimeout' }
 
+  /v1/backoffice/summary:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/CorrelationId'
+    get:
+      tags: [backoffice]
+      operationId: backofficeSummary
+      summary: Dashboard tiles in one call (JWT; → Ledger, Payment and Ticket services)
+      description: >
+        Aggregated by the gateway from ledger `GET /v1/accounts`, payment
+        `GET /v1/transactions` (total only) and ticket `GET /v1/ticket-types`.
+        All-or-nothing: if any downstream call fails the whole request fails.
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: Revenue, transaction count and ticket availability
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BackofficeSummary' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamUnavailable' }
+        '504': { $ref: '#/components/responses/UpstreamTimeout' }
+
   /health/live:
     get:
       tags: [health]
@@ -304,6 +327,25 @@ paths:
         '503': { $ref: './common.yaml#/components/responses/Health' }
 
 components:
+  schemas:
+    BackofficeSummary:
+      type: object
+      required: [revenue, transactionCount, tickets]
+      properties:
+        revenue:
+          description: Balance of ledger account 4000 Ticket Sales Revenue
+          type: object
+          required: [amountMinor, currency]
+          properties:
+            amountMinor: { type: integer, minimum: 0 }
+            currency: { type: string, example: AED }
+        transactionCount: { type: integer, minimum: 0 }
+        tickets:
+          type: object
+          required: [available, quota]
+          properties:
+            available: { type: integer, minimum: 0 }
+            quota: { type: integer, minimum: 0 }
   securitySchemes:
     BearerAuth:
       type: http

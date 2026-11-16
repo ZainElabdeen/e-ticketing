@@ -230,6 +230,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/backoffice/summary": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Propagated end to end. The gateway keeps a client-supplied UUID and replaces anything else with a new UUID v4. Echoed in error bodies. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard tiles in one call (JWT; → Ledger, Payment and Ticket services)
+         * @description Aggregated by the gateway from ledger `GET /v1/accounts`, payment `GET /v1/transactions` (total only) and ticket `GET /v1/ticket-types`. All-or-nothing: if any downstream call fails the whole request fails.
+         */
+        get: operations["backofficeSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -268,6 +291,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        BackofficeSummary: {
+            /** @description Balance of ledger account 4000 Ticket Sales Revenue */
+            revenue: {
+                amountMinor: number;
+                /** @example AED */
+                currency: string;
+            };
+            transactionCount: number;
+            tickets: {
+                available: number;
+                quota: number;
+            };
+        };
         Error: {
             /** @example 409 */
             statusCode: number;
@@ -935,6 +971,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketTypeList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+            502: components["responses"]["UpstreamUnavailable"];
+            504: components["responses"]["UpstreamTimeout"];
+        };
+    };
+    backofficeSummary: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Propagated end to end. The gateway keeps a client-supplied UUID and replaces anything else with a new UUID v4. Echoed in error bodies. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revenue, transaction count and ticket availability */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackofficeSummary"];
                 };
             };
             401: components["responses"]["Unauthorized"];
