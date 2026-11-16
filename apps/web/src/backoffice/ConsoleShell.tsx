@@ -12,7 +12,7 @@ type Props = { nav: ReactNode; children: ReactNode; onSignOut: () => void };
 export function ConsoleShell({ nav, children, onSignOut }: Props): ReactElement {
   return (
     <div className={styles.shell}>
-      <div className={styles.side}>
+      <nav aria-label="Backoffice" className={styles.side}>
         <span className={styles.wordmark}>E-Ticket</span>
         <div className={styles.nav}>{nav}</div>
         <div className={styles.actions}>
@@ -23,7 +23,7 @@ export function ConsoleShell({ nav, children, onSignOut }: Props): ReactElement 
             Sign out
           </Button>
         </div>
-      </div>
+      </nav>
       <div className={styles.content}>{children}</div>
     </div>
   );
