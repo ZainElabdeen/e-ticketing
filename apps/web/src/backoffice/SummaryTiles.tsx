@@ -1,54 +1,42 @@
 import { memo, type ReactElement } from 'react';
 import { messageFor } from '../api/errors';
 import { formatMinor } from '../lib/money';
-import {
-  REVENUE_ACCOUNT_CODE,
-  TILE,
-  useAccounts,
-  useAvailability,
-  useTransactions,
-} from './queries';
+import { useSummary } from './queries';
 import styles from './SummaryTiles.module.css';
 
-type TileState = { isPending: boolean; isError: boolean; error: unknown };
+type Summary = NonNullable<ReturnType<typeof useSummary>['data']>;
 
-function Tile(props: { label: string; q: TileState; value: () => string }): ReactElement {
-  const { label, q, value } = props;
-  const text = q.isError ? messageFor(q.error) : q.isPending ? '…' : value();
+function Tile(props: { label: string; text: string; isError: boolean }): ReactElement {
+  const { label, text, isError } = props;
   return (
     <section aria-label={label} className={styles.tile}>
       <p className={styles.label}>{label}</p>
-      <p className={q.isError ? styles.error : styles.value}>{text}</p>
+      <p className={isError ? styles.error : styles.value}>{text}</p>
     </section>
   );
 }
 
+function texts(summary: Summary): [string, string, string] {
+  const { revenue, transactionCount, tickets } = summary;
+  return [
+    formatMinor(revenue.amountMinor, revenue.currency),
+    String(transactionCount),
+    `${tickets.available} / ${tickets.quota}`,
+  ];
+}
+
 // No props, so memo keeps tab and page URL changes from re-rendering it.
 export const SummaryTiles = memo(function SummaryTiles(): ReactElement {
-  const accounts = useAccounts(TILE);
-  const transactions = useTransactions(1, TILE);
-  const availability = useAvailability(TILE);
+  const { data, isError, error } = useSummary();
+  // One query feeds the strip, so it has one loading state and one error message.
+  const values = data ? texts(data) : undefined;
+  const fallback = isError ? messageFor(error) : '…';
+  const shown = values ?? [fallback, fallback, fallback];
   return (
     <div className={styles.grid}>
-      <Tile
-        label="Revenue"
-        q={accounts}
-        value={() => {
-          const revenue = accounts.data?.data.find((a) => a.code === REVENUE_ACCOUNT_CODE);
-          return revenue ? formatMinor(revenue.balanceMinor, revenue.currency) : '—';
-        }}
-      />
-      <Tile label="Transactions" q={transactions} value={() => String(transactions.data?.total)} />
-      <Tile
-        label="Tickets left"
-        q={availability}
-        value={() => {
-          const rows = availability.data?.data ?? [];
-          const sum = (pick: (r: (typeof rows)[number]) => number): number =>
-            rows.reduce((n, r) => n + pick(r), 0);
-          return `${sum((r) => r.available)} / ${sum((r) => r.quota)}`;
-        }}
-      />
+      <Tile label="Revenue" text={shown[0]} isError={!values && isError} />
+      <Tile label="Transactions" text={shown[1]} isError={!values && isError} />
+      <Tile label="Tickets left" text={shown[2]} isError={!values && isError} />
     </div>
   );
 });

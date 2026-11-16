@@ -3,8 +3,7 @@ import { useApi } from '../api/client';
 import { call } from '../api/errors';
 import { PAGE_SIZE } from './usePage';
 
-export const REVENUE_ACCOUNT_CODE = '4000';
-
+export const summaryKey = ['backoffice', 'summary'] as const;
 export const accountsKey = ['backoffice', 'accounts'] as const;
 export const availabilityKey = ['backoffice', 'ticket-availability'] as const;
 export const transactionsKey = (page: number) => ['backoffice', 'transactions', page] as const;
@@ -19,10 +18,11 @@ export const SECTION = {
   refetchIntervalInBackground: false,
 } as const;
 
-// Summary tiles: cheaper. They never refetch on mount or focus; a 30 s interval keeps them current.
-// They share query keys with the section tables, so while a table is mounted TanStack applies the
-// shortest interval and the lowest staleTime across the key's observers (the table's 15 s wins).
-export const TILE = {
+// Summary tiles: one gateway call (`/v1/backoffice/summary`) for all three tiles. Nothing refetches
+// on mount or focus; a 30 s interval keeps them current. TanStack evaluates staleTime and
+// refetchOnMount per observer at the moment it mounts, and every observer that sets an interval
+// runs its own timer, so the section tables (SECTION, 15 s) never change how often this runs.
+export const SUMMARY = {
   staleTime: 30_000,
   refetchInterval: 30_000,
   refetchIntervalInBackground: false,
@@ -30,30 +30,37 @@ export const TILE = {
   refetchOnWindowFocus: false,
 } as const;
 
-type Freshness = typeof SECTION | typeof TILE;
-
-export function useAccounts(freshness: Freshness = SECTION) {
+export function useSummary() {
   const api = useApi();
   return useQuery({
-    ...freshness,
+    ...SUMMARY,
+    queryKey: summaryKey,
+    queryFn: () => call(api.GET('/v1/backoffice/summary')),
+  });
+}
+
+export function useAccounts() {
+  const api = useApi();
+  return useQuery({
+    ...SECTION,
     queryKey: accountsKey,
     queryFn: () => call(api.GET('/v1/backoffice/accounts')),
   });
 }
 
-export function useAvailability(freshness: Freshness = SECTION) {
+export function useAvailability() {
   const api = useApi();
   return useQuery({
-    ...freshness,
+    ...SECTION,
     queryKey: availabilityKey,
     queryFn: () => call(api.GET('/v1/backoffice/ticket-availability')),
   });
 }
 
-export function useTransactions(page: number, freshness: Freshness = SECTION) {
+export function useTransactions(page: number) {
   const api = useApi();
   return useQuery({
-    ...freshness,
+    ...SECTION,
     placeholderData: keepPreviousData,
     queryKey: transactionsKey(page),
     queryFn: () =>
@@ -65,10 +72,10 @@ export function useTransactions(page: number, freshness: Freshness = SECTION) {
   });
 }
 
-export function useLedgerEntries(page: number, freshness: Freshness = SECTION) {
+export function useLedgerEntries(page: number) {
   const api = useApi();
   return useQuery({
-    ...freshness,
+    ...SECTION,
     placeholderData: keepPreviousData,
     queryKey: ledgerKey(page),
     queryFn: () =>

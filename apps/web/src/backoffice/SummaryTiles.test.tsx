@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderWithApp, stubFetch, type StubRoute } from '../test/render';
 import { BackofficePage } from './BackofficePage';
 import { RequireAuth } from './RequireAuth';
@@ -8,30 +8,15 @@ import { LoginPage } from './LoginPage';
 import { clearSession, saveSession } from './session';
 import { SummaryTiles } from './SummaryTiles';
 
-const accounts = (data: unknown[]): StubRoute => ({
+const summary = (revenueMinor: number, transactionCount: number, available = 254): StubRoute => ({
   method: 'GET',
-  path: '/v1/backoffice/accounts',
+  path: '/v1/backoffice/summary',
   status: 200,
-  body: { data, totals: { debitMinor: 0, creditMinor: 0 } },
-});
-const account = (code: string, balanceMinor: number) => ({
-  code,
-  name: 'n',
-  type: 'REVENUE',
-  currency: 'AED',
-  debitMinor: 0,
-  creditMinor: balanceMinor,
-  balanceMinor,
-});
-const row = (code: string, available: number) => ({
-  code,
-  name: code,
-  priceMinor: 10000,
-  currency: 'AED',
-  quota: 100,
-  sold: 100 - available,
-  reserved: 0,
-  available,
+  body: {
+    revenue: { amountMinor: revenueMinor, currency: 'AED' },
+    transactionCount,
+    tickets: { available, quota: 300 },
+  },
 });
 const unauthorized = (path: string): StubRoute => ({
   method: 'GET',
@@ -45,50 +30,42 @@ const tile = (name: string) => screen.getByRole('region', { name });
 afterEach(() => clearSession());
 
 describe('SummaryTiles', () => {
-  it('shows revenue from account 4000', async () => {
-    const fetch = stubFetch([accounts([account('1100', 5), account('4000', 70000)])]);
+  it('shows revenue, the transaction total and tickets left from one summary call', async () => {
+    const fetch = stubFetch([summary(70000, 18)]);
     renderWithApp(<SummaryTiles />, { fetch });
     expect(await within(tile('Revenue')).findByText('AED 700.00')).toBeInTheDocument();
+    expect(within(tile('Transactions')).getByText('18')).toBeInTheDocument();
+    expect(within(tile('Tickets left')).getByText('254 / 300')).toBeInTheDocument();
+    expect(fetch.calls).toHaveLength(1);
+    expect(new URL(fetch.calls[0]!.url).pathname).toMatch(/\/v1\/backoffice\/summary$/);
   });
 
-  it('shows a dash when the revenue account is missing', async () => {
-    const fetch = stubFetch([accounts([account('1100', 5)])]);
-    renderWithApp(<SummaryTiles />, { fetch });
-    expect(await within(tile('Revenue')).findByText('—')).toBeInTheDocument();
+  it('shows zero revenue as a formatted amount', async () => {
+    renderWithApp(<SummaryTiles />, { fetch: stubFetch([summary(0, 0, 300)]) });
+    expect(await within(tile('Revenue')).findByText('AED 0.00')).toBeInTheDocument();
   });
 
-  it('shows the transaction total', async () => {
+  it('shows the same error in every tile when the summary fails', async () => {
     const fetch = stubFetch([
       {
         method: 'GET',
-        path: '/v1/backoffice/transactions',
-        status: 200,
-        body: { page: 1, pageSize: 20, total: 18, data: [] },
+        path: '/v1/backoffice/summary',
+        status: 429,
+        body: { code: 'RATE_LIMITED', message: 'x' },
       },
     ]);
     renderWithApp(<SummaryTiles />, { fetch });
-    expect(await within(tile('Transactions')).findByText('18')).toBeInTheDocument();
+    await vi.waitFor(() => expect(tile('Revenue')).not.toHaveTextContent('…'));
+    const message = within(tile('Revenue')).getByText(/./, { selector: 'p:last-child' });
+    expect(within(tile('Transactions')).getByText(message.textContent ?? '')).toBeInTheDocument();
+    expect(within(tile('Tickets left')).getByText(message.textContent ?? '')).toBeInTheDocument();
   });
 
-  it('sums tickets left', async () => {
-    const fetch = stubFetch([
-      {
-        method: 'GET',
-        path: '/v1/backoffice/ticket-availability',
-        status: 200,
-        body: { data: [row('GOLD', 72), row('PREMIUM', 95), row('VIP', 87)] },
-      },
-    ]);
-    renderWithApp(<SummaryTiles />, { fetch });
-    expect(await within(tile('Tickets left')).findByText('254 / 300')).toBeInTheDocument();
-  });
-
-  it('logs out once when every backoffice query returns 401', async () => {
+  it('logs out once when the summary and the open section both return 401', async () => {
     saveSession('jwt', 3600);
     const fetch = stubFetch([
-      unauthorized('/v1/backoffice/accounts'),
+      unauthorized('/v1/backoffice/summary'),
       unauthorized('/v1/backoffice/transactions'),
-      unauthorized('/v1/backoffice/ticket-availability'),
     ]);
     renderWithApp(
       <Routes>
