@@ -9,6 +9,9 @@ account balances and ticket availability. It is four services behind one gateway
 NestJS Payment, Ledger and Gateway services), one PostgreSQL instance with a schema per service, and a React SPA. It
 runs with one command locally (Docker Compose) and deploys to a single-node K3s VM behind Traefik with Let's Encrypt.
 
+**Live demo:** <https://eticket-zain.duckdns.org/> (backoffice at `/backoffice`). The demo VM is temporary and may be
+stopped or deleted after the review period; if it is gone, run the project locally with [docs/local-demo.md](docs/local-demo.md).
+
 Requirements: [docs/challenge.md](docs/challenge.md). Full design: [docs/spec.md](docs/spec.md). Decisions and rejected
 alternatives: [docs/adr/](docs/adr/) (index in spec section 13).
 

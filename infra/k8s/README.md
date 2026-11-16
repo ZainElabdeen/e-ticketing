@@ -28,7 +28,7 @@ All Services are `ClusterIP`; only Traefik (ports 80 and 443) faces the internet
 | `render.sh <local\|prod\|dir>`                             | Print the rendered manifests of an overlay                                                                                                                                             |
 | `validate.sh`                                              | Render local, a sample prod and the Traefik config; run `kubeconform -strict` (needs `kubectl`, `kubeconform`)                                                                         |
 | `k3d-e2e.sh [--keep]`                                      | Real K3s in Docker (k3d): deploy the `local` overlay, run smoke and the gateway contract suite, redeploy, check the redirect. Uses its own cluster and a private kubeconfig; port 8081 |
-| `install-ci-tools.sh <dir> <kubectl\|kubeconform\|k3d>...` | Install the pinned, sha256-checked CLI tools (linux/amd64)                                                                                                                             |
+| `install-ci-tools.sh <dir> <kubectl\|kubeconform\|k3d>...` | Install the pinned, sha256-checked CLI tools (linux/amd64, linux/arm64)                                                                                                                |
 | `apply-secrets.sh [--dry-run]`                             | `infra/k8s/.env` to Secret `eticket-secrets` (server-side apply; `K8S_ENV_FILE` overrides the path)                                                                                    |
 | `deploy.sh <sha-xxxxxxx> [--dry-run]`                      | Check the tag on GHCR for all eight images, apply secrets, render prod, apply, wait for rollouts, print `DEPLOY OK <tag>`                                                              |
 | `render-prod.mjs`                                          | Fill host, tag and ACME email into the prod overlay / Traefik config                                                                                                                   |
@@ -80,7 +80,10 @@ Check: `dig +short <host>` returns the VM IP. This value is `HOST` below.
 ```bash
 curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='v1.37.2+k3s1' sh -
 sudo k3s kubectl get nodes          # Ready after about a minute
-mkdir -p ~/.kube && sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config && sudo chown "$USER" ~/.kube/config
+mkdir -p ~/.kube && sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config && sudo chown "$USER" ~/.kube/config && chmod 600 ~/.kube/config
+# System-wide, so non-interactive SSH (CD) sees it too: ~/.bashrc is skipped there, and K3s' kubectl then
+# falls back to the root-only /etc/rancher/k3s/k3s.yaml ("permission denied").
+echo "KUBECONFIG=$HOME/.kube/config" | sudo tee -a /etc/environment && export KUBECONFIG=$HOME/.kube/config
 kubectl get nodes                   # the scripts call plain `kubectl`; it must work without sudo
 ```
 
@@ -224,6 +227,16 @@ gh variable set DEPLOY_PATH --env production --body '/home/<user>/e-ticketing'
 Verify the keyscan fingerprint against the VM (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the VM) before trusting it;
 the workflow enforces `StrictHostKeyChecking=yes` against exactly that value. Manual deploy of a tag:
 `gh workflow run deploy.yml --ref main -f tag=sha-<7>`.
+
+## Hardening notes
+
+- **HSTS for the SPA.** The `prod` overlay adds the Traefik `Middleware` `security-headers` (`Strict-Transport-Security`,
+  `max-age=15552000`, no `includeSubDomains`, no preload) to the `web` router only. API responses already get HSTS from
+  helmet, and the plain-HTTP `local` overlay does not get it.
+- **SSH on the VM (when CD is on).** The deploy key logs in over SSH, so lock the daemon down: key-only auth (the cloud
+  image default; keep `PasswordAuthentication no`), `PermitRootLogin no` in `/etc/ssh/sshd_config`, and fail2ban
+  (`sudo apt-get install -y fail2ban`; its default `sshd` jail is enabled on Ubuntu). Use a dedicated deploy key
+  (see Continuous deployment), never your personal key.
 
 ## Operations
 

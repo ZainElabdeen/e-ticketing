@@ -45,7 +45,8 @@ if [[ -z "$host" ]]; then
 fi
 
 rendered="$(mktemp)"
-trap 'rm -f "$rendered"' EXIT
+hint_tmp=""
+trap 'rm -rf "$rendered" "$hint_tmp"' EXIT
 
 if [[ "$dry_run" -eq 0 ]]; then
   echo "deploy: checking the eight images have $tag on GHCR"
@@ -72,21 +73,28 @@ if ! kubectl -n kube-system get helmchartconfig traefik >/dev/null 2>&1; then
 fi
 
 # The HelmChartConfig is copied by hand (one-time step); remind the operator when the repo's version differs.
-vm_traefik=/var/lib/rancher/k3s/server/manifests/traefik-config.yaml
-if [[ -r "$vm_traefik" ]]; then
-  acme_email="$(node --env-file="$env_file" -e 'process.stdout.write(process.env.ACME_EMAIL ?? "")')"
-  if [[ -n "$acme_email" ]]; then
-    traefik_tmp="$(mktemp)"
-    node "$here/render-prod.mjs" --host "$host" --tag "$tag" --out "$(mktemp -d)" \
-      --acme-email "$acme_email" --traefik-out "$traefik_tmp"
-    if ! cmp -s "$traefik_tmp" "$vm_traefik"; then
-      echo "deploy: hint: infra/k8s/traefik/helmchartconfig.yaml differs from $vm_traefik; re-render and copy it (infra/k8s/README.md, Upgrade)" >&2
-    fi
-    rm -f "$traefik_tmp"
+# Advisory only: every failure here is swallowed so it can never abort before the rollout check.
+traefik_hint() {
+  local vm_traefik=/var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+  if [[ ! -r "$vm_traefik" ]]; then
+    echo "deploy: reminder: if infra/k8s/traefik/helmchartconfig.yaml changed, re-copy it to $vm_traefik (infra/k8s/README.md, Upgrade)" >&2
+    return 0
   fi
-else
-  echo "deploy: reminder: if infra/k8s/traefik/helmchartconfig.yaml changed, re-copy it to $vm_traefik (infra/k8s/README.md, Upgrade)" >&2
-fi
+  local acme_email tmp
+  acme_email="$(node --env-file="$env_file" -e 'process.stdout.write(process.env.ACME_EMAIL ?? "")')" || return 0
+  [[ -n "$acme_email" ]] || return 0
+  tmp="$(mktemp -d)" || return 0
+  hint_tmp="$tmp"
+  if ! node "$here/render-prod.mjs" --host "$host" --tag "$tag" \
+    --acme-email "$acme_email" --traefik-out "$tmp/traefik.yaml" 2>/dev/null; then
+    echo "deploy: note: could not render the Traefik config; drift hint skipped" >&2
+    return 0
+  fi
+  if ! cmp -s "$tmp/traefik.yaml" "$vm_traefik"; then
+    echo "deploy: hint: infra/k8s/traefik/helmchartconfig.yaml differs from $vm_traefik; re-render and copy it (infra/k8s/README.md, Upgrade)" >&2
+  fi
+}
+traefik_hint || true
 
 for workload in $workloads; do
   kubectl -n "$namespace" rollout status "$workload" --timeout=300s
