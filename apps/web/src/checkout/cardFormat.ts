@@ -11,12 +11,14 @@ export function formatCardNumber(raw: string): string {
 
 /**
  * Digits only as MM/YY. A first digit of 2-9 becomes `0d/`; a month above 12 or 00 drops its
- * second digit. `previous` detects backspace on the slash: it removes the slash and the last
+ * second digit. A pasted `MM/YYYY` keeps the last two year digits. `previous` detects backspace on the slash: it removes the slash and the last
  * month digit (`12/` then backspace gives `1`).
  */
 export function formatExpiry(raw: string, previous: string): string {
   if (previous.endsWith('/') && raw === previous.slice(0, -1)) return raw.slice(0, -1);
-  let digits = digitsOf(raw).slice(0, 4);
+  let digits = digitsOf(raw);
+  // Autofill and paste can bring MM/YYYY; typing never gets here with six digits.
+  digits = digits.length === 6 ? digits.slice(0, 2) + digits.slice(4) : digits.slice(0, 4);
   if (/^[2-9]/u.test(digits)) digits = `0${digits}`.slice(0, 4);
   if (digits.length < 2) return digits;
   const month = Number(digits.slice(0, 2));

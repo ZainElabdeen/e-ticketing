@@ -27,7 +27,12 @@ describe('formatExpiry', () => {
   });
   it('formats a full expiry and caps at four digits', () => {
     expect(formatExpiry('1225', '12/2')).toBe('12/25');
-    expect(formatExpiry('122599', '12/25')).toBe('12/25');
+    expect(formatExpiry('12253', '12/25')).toBe('12/25');
+  });
+  it('keeps month and last two year digits for a four-digit year', () => {
+    expect(formatExpiry('12/2028', '')).toBe('12/28');
+    expect(formatExpiry('122028', '')).toBe('12/28');
+    expect(formatExpiry('12/28', '')).toBe('12/28');
   });
   it('rejects a month above 12 or 00', () => {
     expect(formatExpiry('13', '1')).toBe('1');

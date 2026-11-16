@@ -23,6 +23,13 @@ describe('CardForm input helpers', () => {
     expect(screen.getByLabelText('Expiry (MM/YY)')).toHaveValue('12/25');
   });
 
+  it('keeps the last two year digits when a MM/YYYY expiry is pasted', async () => {
+    const { user } = setup();
+    await user.click(screen.getByLabelText('Expiry (MM/YY)'));
+    await user.paste('12/2028');
+    expect(screen.getByLabelText('Expiry (MM/YY)')).toHaveValue('12/28');
+  });
+
   it('pads a first digit above 1 with a zero and slash', async () => {
     const { user } = setup();
     await user.type(screen.getByLabelText('Expiry (MM/YY)'), '4');
