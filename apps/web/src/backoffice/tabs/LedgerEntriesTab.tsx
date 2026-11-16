@@ -1,10 +1,8 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
-import { useApi } from '../../api/client';
-import { call } from '../../api/errors';
 import { formatMinor } from '../../lib/money';
 import { formatDateTime } from '../../lib/time';
 import { Pagination } from '../../ui/Pagination';
+import { useLedgerEntries } from '../queries';
 import { Loading, QueryFailure } from '../QueryFailure';
 import { LabeledCell } from '../LabeledCell';
 import styles from '../tables.module.css';
@@ -16,17 +14,7 @@ const POSTING: Record<string, string> = {
 };
 
 export function LedgerEntriesTab({ page, onPage }: TabProps): ReactElement {
-  const api = useApi();
-  const q = useQuery({
-    placeholderData: keepPreviousData,
-    queryKey: ['backoffice', 'ledger-entries', page],
-    queryFn: () =>
-      call(
-        api.GET('/v1/backoffice/ledger-entries', {
-          params: { query: { page, pageSize: PAGE_SIZE } },
-        }),
-      ),
-  });
+  const q = useLedgerEntries(page);
   useClampPage(page, q.data?.total, onPage);
 
   if (q.isPending) return <Loading />;

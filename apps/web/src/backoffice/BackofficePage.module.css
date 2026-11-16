@@ -47,3 +47,10 @@
     background: var(--accent-soft);
   }
 }
+
+.updating {
+  min-height: 1.5em;
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

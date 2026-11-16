@@ -15,8 +15,13 @@ function Where(): React.ReactElement {
   return <p data-testid="where">{l.pathname + l.search}</p>;
 }
 
-function renderBackoffice(routes: StubRoute[], route = '/backoffice') {
-  const fetch = stubFetch(routes);
+function renderBackoffice(
+  routes: StubRoute[],
+  route = '/backoffice',
+  slow?: (inner: ReturnType<typeof stubFetch>) => typeof fetch,
+) {
+  const stub = stubFetch(routes);
+  const fetch = slow ? Object.assign(slow(stub), { calls: stub.calls }) : stub;
   const view = renderWithApp(
     <>
       <Where />
@@ -88,6 +93,53 @@ afterEach(() => {
 });
 
 describe('BackofficePage', () => {
+  it('shows Updating while a refetch runs behind visible data', async () => {
+    saveSession('jwt-1', 3600);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let accountCalls = 0;
+    const { user } = renderBackoffice(
+      [txPage(2), accounts(40000, 40000)],
+      '/backoffice?tab=accounts',
+      (inner) => async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes('/v1/backoffice/accounts') && ++accountCalls >= 2) await gate;
+        return inner(input, init);
+      },
+    );
+    expect(await screen.findAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
+    await user.click(screen.getByRole('tab', { name: 'Transactions' }));
+    await user.click(screen.getByRole('tab', { name: 'Account balances' }));
+    expect(await screen.findByText('Updating…')).toBeInTheDocument();
+    expect(screen.getAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
+    release();
+    await waitFor(() => expect(screen.queryByText('Updating…')).not.toBeInTheDocument());
+  });
+
+  it('refetches the section when switching tabs', async () => {
+    saveSession('jwt-1', 3600);
+    const { user } = renderBackoffice(
+      [
+        txPage(2),
+        {
+          ...accounts(40000, 40000),
+          responses: [
+            { status: 200, body: accounts(40000, 40000).body },
+            { status: 200, body: accounts(70000, 70000).body },
+          ],
+        },
+      ],
+      '/backoffice?tab=accounts',
+    );
+    expect(await screen.findAllByText(/AED\s400\.00/u)).not.toHaveLength(0);
+    await user.click(screen.getByRole('tab', { name: 'Transactions' }));
+    await screen.findByText('PAY-20261114-ABC1');
+    await user.click(screen.getByRole('tab', { name: 'Account balances' }));
+    expect(await screen.findAllByText(/AED\s700\.00/u)).not.toHaveLength(0);
+  });
+
   it('redirects to login without a session', async () => {
     renderBackoffice([]);
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();

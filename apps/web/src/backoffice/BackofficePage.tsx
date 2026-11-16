@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 import { useDocumentTitle } from '../app/useDocumentTitle';
@@ -5,6 +6,7 @@ import { useAuth } from './AuthProvider';
 import styles from './BackofficePage.module.css';
 import { ConsoleShell } from './ConsoleShell';
 import { SummaryTiles } from './SummaryTiles';
+import { UpdatingNote } from './UpdatingNote';
 import { AccountsTab } from './tabs/AccountsTab';
 import { AvailabilityTab } from './tabs/AvailabilityTab';
 import { LedgerEntriesTab } from './tabs/LedgerEntriesTab';
@@ -26,6 +28,7 @@ function parsePage(raw: string | null): number {
 export function BackofficePage(): ReactElement {
   useDocumentTitle('Backoffice');
   const { logout } = useAuth();
+  const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const rawTab = params.get('tab');
   const tab: TabId = TABS.find((t) => t.id === rawTab)?.id ?? 'transactions';
@@ -36,8 +39,10 @@ export function BackofficePage(): ReactElement {
       const p: Record<string, string> = { tab: next };
       if (nextPage > 1) p.page = String(nextPage);
       setParams(p, { replace });
+      // Switching section refetches it (and the tiles) now, not at the next 15 s tick.
+      void queryClient.invalidateQueries({ queryKey: ['backoffice'] });
     },
-    [setParams],
+    [setParams, queryClient],
   );
   const onPage = useCallback((p: number, replace?: boolean) => go(tab, p, replace), [go, tab]);
 
@@ -89,6 +94,7 @@ export function BackofficePage(): ReactElement {
     <ConsoleShell nav={nav} onSignOut={() => logout()}>
       <h1 className={styles.title}>Backoffice</h1>
       <SummaryTiles />
+      <UpdatingNote />
       <div role="tabpanel" id="backoffice-panel" aria-labelledby={`tab-${tab}`}>
         {tab === 'transactions' ? <TransactionsTab page={page} onPage={onPage} /> : null}
         {tab === 'ledger' ? <LedgerEntriesTab page={page} onPage={onPage} /> : null}
