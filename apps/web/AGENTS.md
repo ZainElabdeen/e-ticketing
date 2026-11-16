@@ -81,6 +81,8 @@ nginx sends `script-src`/`style-src 'self'` with no `unsafe-eval`
   (`payment/paymentMemory.ts`, key `eticket.payment.<orderId>`) stores the payment id and method only.
 - Double-submit guards are refs (`inFlight`, `cancelling`) released only on
   error. Keep that pattern.
+- Backoffice freshness: section queries `staleTime` 10 s / 15 s interval, tile queries 30 s,
+  no blanket `invalidateQueries`, `SummaryTiles` memoised (`src/backoffice/queries.ts`).
 - Backoffice tab and page live in the URL (`?tab=&page=`); `useClampPage`
   redirects out-of-range pages.
 - `QrPage` mounts its `aria-live` region on first render so later text is

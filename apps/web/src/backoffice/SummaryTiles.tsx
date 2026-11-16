@@ -1,7 +1,13 @@
-import type { ReactElement } from 'react';
+import { memo, type ReactElement } from 'react';
 import { messageFor } from '../api/errors';
 import { formatMinor } from '../lib/money';
-import { REVENUE_ACCOUNT_CODE, useAccounts, useAvailability, useTransactions } from './queries';
+import {
+  REVENUE_ACCOUNT_CODE,
+  TILE,
+  useAccounts,
+  useAvailability,
+  useTransactions,
+} from './queries';
 import styles from './SummaryTiles.module.css';
 
 type TileState = { isPending: boolean; isError: boolean; error: unknown };
@@ -17,10 +23,11 @@ function Tile(props: { label: string; q: TileState; value: () => string }): Reac
   );
 }
 
-export function SummaryTiles(): ReactElement {
-  const accounts = useAccounts();
-  const transactions = useTransactions(1);
-  const availability = useAvailability();
+// No props, so memo keeps tab and page URL changes from re-rendering it.
+export const SummaryTiles = memo(function SummaryTiles(): ReactElement {
+  const accounts = useAccounts(TILE);
+  const transactions = useTransactions(1, TILE);
+  const availability = useAvailability(TILE);
   return (
     <div className={styles.grid}>
       <Tile
@@ -44,4 +51,4 @@ export function SummaryTiles(): ReactElement {
       />
     </div>
   );
-}
+});
