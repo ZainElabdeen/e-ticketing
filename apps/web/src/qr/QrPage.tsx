@@ -67,7 +67,7 @@ export function QrPage(): ReactElement {
 
   if (notFound) {
     return (
-      <section>
+      <section className={styles.page}>
         <h1 className={styles.title}>Payment</h1>
         {live(null)}
         <Banner>{"We couldn't find this payment"}</Banner>
@@ -78,7 +78,7 @@ export function QrPage(): ReactElement {
 
   if (state === 'cancelled') {
     return (
-      <section>
+      <section className={styles.page}>
         <h1 className={styles.title}>Payment</h1>
         {live(null)}
         <Banner>This payment was cancelled</Banner>
@@ -89,7 +89,7 @@ export function QrPage(): ReactElement {
 
   if (!payment) {
     return (
-      <section>
+      <section className={styles.page}>
         <h1 className={styles.title}>Payment</h1>
         {live(timeout ? 'Still processing' : 'Loading your payment…')}
         <div className={styles.actions}>
@@ -101,7 +101,7 @@ export function QrPage(): ReactElement {
   }
 
   return (
-    <section>
+    <section className={styles.page}>
       <h1 className={styles.title}>Scan to pay</h1>
       <TicketStub
         tier="NEUTRAL"
@@ -110,7 +110,7 @@ export function QrPage(): ReactElement {
         {payment.qrPayload ? (
           <>
             <div className={styles.code}>
-              <QRCodeSVG value={payment.qrPayload} size={224} level="M" title="Payment QR code" />
+              <QRCodeSVG value={payment.qrPayload} size={224} level="M" title="Payment QR code" className={styles.qr} />
             </div>
             <p className={styles.hint}>
               Scan the code with your banking app. In this simulation the server completes the
