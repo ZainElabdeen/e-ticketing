@@ -5,6 +5,8 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
+  # Both overlays/prod and .rendered/<name> sit two levels below infra/k8s, so this path resolves from either.
+  - ../../overlays/prod/security-headers.yaml
 images:
   - name: ghcr.io/zainelabdeen/e-ticketing/ticket-service
     newTag: '${TAG}'
@@ -106,3 +108,10 @@ patches:
       - op: add
         path: /metadata/annotations/traefik.ingress.kubernetes.io~1router.tls.certresolver
         value: le
+  - target:
+      kind: Ingress
+      name: web
+    patch: |-
+      - op: add
+        path: /metadata/annotations/traefik.ingress.kubernetes.io~1router.middlewares
+        value: eticketing-security-headers@kubernetescrd

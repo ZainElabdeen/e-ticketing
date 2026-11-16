@@ -170,6 +170,11 @@ test(
     const limit = named(docs, 'Middleware', 'api-ratelimit').spec.rateLimit;
     assert.deepEqual([limit.average, limit.burst, limit.period], [20, 50, '1s']);
     assert.equal(limit.sourceCriterion.ipStrategy.depth, 0);
+    assert.equal(
+      docs.some((d) => d.kind === 'Middleware' && d.metadata.name === 'security-headers'),
+      false,
+      'HSTS must not reach the plain-HTTP local overlay',
+    );
   },
 );
 
@@ -366,7 +371,21 @@ test(
       named(docs, 'Ingress', 'web').metadata.annotations[
         'traefik.ingress.kubernetes.io/router.middlewares'
       ],
-      undefined,
+      'eticketing-security-headers@kubernetescrd',
+    );
+    const hsts = named(docs, 'Middleware', 'security-headers');
+    assert.equal(hsts.metadata.namespace, 'eticketing');
+    assert.deepEqual(hsts.spec.headers, {
+      stsSeconds: 15552000,
+      stsIncludeSubdomains: false,
+      stsPreload: false,
+      forceSTSHeader: false,
+    });
+    assert.doesNotMatch(
+      named(docs, 'Ingress', 'api').metadata.annotations[
+        'traefik.ingress.kubernetes.io/router.middlewares'
+      ],
+      /security-headers/,
     );
   },
 );
