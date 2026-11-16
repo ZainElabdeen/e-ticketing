@@ -110,7 +110,13 @@ export function QrPage(): ReactElement {
         {payment.qrPayload ? (
           <>
             <div className={styles.code}>
-              <QRCodeSVG value={payment.qrPayload} size={224} level="M" title="Payment QR code" className={styles.qr} />
+              <QRCodeSVG
+                value={payment.qrPayload}
+                size={224}
+                level="M"
+                title="Payment QR code"
+                className={styles.qr}
+              />
             </div>
             <p className={styles.hint}>
               Scan the code with your banking app. In this simulation the server completes the
