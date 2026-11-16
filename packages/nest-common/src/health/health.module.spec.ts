@@ -106,7 +106,7 @@ describe('HealthModule', () => {
   });
 
   it('fails readiness during the drain while liveness stays 200', async () => {
-    app = await appWith([UpCheck], { drainMs: 300 });
+    app = await appWith([UpCheck], { drainMs: 1500 });
     await app.listen(0, '127.0.0.1');
     const url = await app.getUrl();
     const started = Date.now();
@@ -123,7 +123,7 @@ describe('HealthModule', () => {
     expect(body.details.shutdown?.status).toBe('down');
     expect(live.status).toBe(200);
     await closing;
-    expect(Date.now() - started).toBeGreaterThanOrEqual(290);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1450);
     app = undefined;
   });
 
