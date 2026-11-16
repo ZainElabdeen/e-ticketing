@@ -472,6 +472,11 @@ Gateway routes, JWT required:
   the live proof that Σdebits = Σcredits).
 - `GET /v1/backoffice/ticket-availability` → Ticket Service
   `GET /v1/ticket-types`.
+- `GET /v1/backoffice/summary` → `{ revenue: { amountMinor, currency }, transactionCount,
+  tickets: { available, quota } }`, aggregated by the gateway from ledger `GET /v1/accounts`
+  (account 4000 balance), payment `GET /v1/transactions?page=1&pageSize=1` (`total`) and ticket
+  `GET /v1/ticket-types` (sums). All-or-nothing: a failed downstream call fails the request
+  (502 `UPSTREAM_UNAVAILABLE` / 504 `UPSTREAM_TIMEOUT`), ADR-0029.
 
 Admin: single user from env (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH_B64`: base64 of a bcrypt cost-12
 hash, made by `infra/scripts/admin-hash.mjs`, ADR-0022). JWT: HS256, claims `sub` (email), `iat`, `exp` (1 h), `iss =
@@ -486,7 +491,7 @@ e-ticketing-gateway`. Expiry is the only revocation (ADR-0010).
 | `/checkout/:orderId/qr/:paymentId` | QR code (qrcode.react), polling, "use card instead" | `GET /v1/payments/{id}` every 1 s, `POST /v1/payments/{id}/cancel` |
 | `/result/:paymentId` | Transaction ID, payment reference, timestamp, amount | `GET /v1/payments/{id}` |
 | `/backoffice/login` | Admin login | `POST /v1/auth/login` |
-| `/backoffice` | Sections (sidebar at 1024px and up, top menu below): transactions, ledger entries, account balances, ticket availability; summary tiles (revenue = account 4000 balance, transaction total, tickets left) | `GET /v1/backoffice/*` |
+| `/backoffice` | Sections (sidebar at 1024px and up, top menu below): transactions, ledger entries, account balances, ticket availability; summary tiles (revenue = account 4000 balance, transaction total, tickets left, one call every 30 s) | `GET /v1/backoffice/*`; tiles read `GET /v1/backoffice/summary` |
 
 The total on `/` is a preview from listed prices; the server total from
 `POST /v1/orders` is authoritative and is what checkout shows.
@@ -731,3 +736,4 @@ QR → result → backoffice → balances) ships with it.
 | [0026](./adr/0026-k3s-manifests-and-deploy.md) | K3s via Kustomize (base, local and prod overlays), initdb and migrate initContainers instead of Jobs, Secret from a VM-generated env file, opt-in CD, k3d CI | Jobs, Helm, Sealed Secrets |
 | [0027](./adr/0027-web-visual-system-and-responsive-layout.md) | Per-area semantic tokens, 4/6/12/20px radii, 640/1024 breakpoints, container query for TicketStub, sidebar console, DESIGN.md | Two style kits, Tailwind |
 | [0028](./adr/0028-web-feature-boundaries.md) | Layers app -> features -> shared (ui, lib, api, styles, payment), shared `payment/` module, import direction enforced by core `no-restricted-imports` | `eslint-plugin-boundaries`, per-feature `index.ts`, Feature-Sliced Design |
+| [0029](./adr/0029-backoffice-summary-endpoint.md) | Gateway aggregates the tiles into `GET /v1/backoffice/summary`, all-or-nothing | Client-side fan-out; per-service summary endpoints; caching layer |
