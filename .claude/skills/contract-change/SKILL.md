@@ -1,6 +1,6 @@
 ---
 name: contract-change
-description: Use when adding or changing an HTTP endpoint, request or response field, error code, header or status in any service. Contract-first OpenAPI change, type regeneration, both Ticket Service implementations and the contract suites.
+description: Use when adding or changing an HTTP endpoint, request or response field, error code, header or status in any service. Contract-first OpenAPI change, type regeneration, the Ticket Service and the contract suites.
 ---
 
 # Contract change

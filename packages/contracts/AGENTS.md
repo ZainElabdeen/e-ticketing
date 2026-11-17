@@ -13,4 +13,4 @@ Gotchas the README leaves implicit:
 - `check:generated` uses `git diff`, which misses a brand-new untracked
   generated file; `git status --short src/generated` catches both.
 - Shared shapes live in `openapi/common.yaml`; reference them, never copy.
-- A Ticket Service contract change binds two implementations (NestJS and .NET).
+- A Ticket Service contract change binds the .NET Ticket Service.
