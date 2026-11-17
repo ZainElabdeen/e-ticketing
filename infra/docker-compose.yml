@@ -37,7 +37,7 @@ services:
       context: ..
       dockerfile: infra/migrate/Dockerfile
       args:
-        SERVICE: ticket-service
+        SERVICE: ticket-service-dotnet
     environment:
       MIGRATION_DATABASE_URL: postgresql://tickets_owner:${TICKETS_OWNER_PASSWORD:?set TICKETS_OWNER_PASSWORD in infra/.env}@postgres:5432/eticketing?schema=tickets
     depends_on:

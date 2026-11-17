@@ -24,7 +24,7 @@ check() {
 
 check 'ticket types seeded' 'SELECT count(*) FROM tickets.ticket_types' '3'
 check 'ledger accounts seeded' 'SELECT count(*) FROM ledger.accounts' '3'
-for pair in tickets:ticket-service payments:payment-service ledger:ledger-service; do
+for pair in tickets:ticket-service-dotnet payments:payment-service ledger:ledger-service; do
   schema="${pair%%:*}"
   service="${pair##*:}"
   expected=$(find "../apps/$service/prisma/migrations" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
