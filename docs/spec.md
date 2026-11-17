@@ -568,7 +568,7 @@ The total on `/` is a preview from listed prices; the server total from
 
 - **Health**: `/health/live` (process up) and `/health/ready` (DB reachable;
   gateway: downstream `/health/live` reachable). K8s probes use them. One shared
-  `HealthModule` in `@eticket/nest-common` serves all four Nest apps. On
+  `HealthModule` in `@eticket/nest-common` serves all three Nest apps. On
   shutdown, the process waits `SHUTDOWN_DRAIN_MS` before closing the HTTP
   server so endpoint updates propagate after SIGTERM; readiness returns 503
   (`shutdown: shutting_down`) meanwhile as a secondary signal (ADR-0030).

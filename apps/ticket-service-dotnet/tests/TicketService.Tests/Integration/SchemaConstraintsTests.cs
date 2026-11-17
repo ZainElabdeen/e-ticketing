@@ -4,7 +4,7 @@ using TicketService.Tests.Support;
 namespace TicketService.Tests.Integration;
 
 /// <summary>
-/// Ported from the NestJS app's schema.int-spec.ts: the only coverage of the tickets schema's CHECK
+/// Covers the tickets schema's CHECK
 /// constraints, grants, seed and oversell race. Mutates shared state, so it runs on its own container.
 /// </summary>
 [Trait("Category", "Integration")]

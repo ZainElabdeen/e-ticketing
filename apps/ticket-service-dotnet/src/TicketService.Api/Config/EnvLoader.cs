@@ -3,7 +3,7 @@ using Npgsql;
 namespace TicketService.Api.Config;
 
 /// <summary>
-/// Same variables, defaults and rules as the NestJS service's validateEnv. Throws one
+/// Validates the environment variables, applying defaults and rules. Throws one
 /// exception that lists every invalid variable.
 /// </summary>
 public static class EnvLoader
@@ -18,10 +18,10 @@ public static class EnvLoader
     private static readonly string[] LogLevels = ["fatal", "error", "warn", "info", "debug", "trace", "silent"];
     private const int MinKeyLength = 32;
 
-    /// <summary>Same as node-postgres' default, which the NestJS service runs with.</summary>
+    /// <summary>Default connection pool size.</summary>
     private const int DefaultPoolSize = 10;
 
-    /// <summary>Bounds lock waits, as the NestJS service's 10 s transaction timeout does.</summary>
+    /// <summary>Bounds lock waits with a 10 s command timeout.</summary>
     private const int CommandTimeoutSeconds = 10;
 
     public static TicketServiceOptions Load(IDictionary<string, string?> env)

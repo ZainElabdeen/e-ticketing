@@ -28,7 +28,7 @@ manifests.
 |---|---|---|---|
 | `@eticket/contracts` | `packages/contracts` | OpenAPI YAML, generated TS types, bundled JSON | every app, `contract-tests` |
 | `@eticket/contract-tests` | `packages/contract-tests` | black-box suites against any base URL | Nest apps (`contract.int-spec.ts`), `infra/scripts/contract.sh` |
-| `@eticket/nest-common` | `packages/nest-common` | guard, error envelope, logging, validation, money helpers | the four Nest apps |
+| `@eticket/nest-common` | `packages/nest-common` | guard, error envelope, logging, validation, money helpers | the three Nest apps |
 | `@eticket/testing` | `packages/testing` | Testcontainers Postgres, HTTP stub | Nest apps' integration tests |
 | `@eticket/config` | `packages/config` | shared ESLint flat config, tsconfig, Jest presets | all TS packages |
 
