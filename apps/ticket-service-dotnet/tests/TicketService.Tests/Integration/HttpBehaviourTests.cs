@@ -173,7 +173,7 @@ public sealed class HttpBehaviourTests(PostgresFixture db)
     [Theory]
     [InlineData("text/plain")]
     [InlineData("application/x-www-form-urlencoded")]
-    public async Task A_non_json_content_type_is_400_VALIDATION_ERROR_like_the_nestjs_service(string contentType)
+    public async Task A_non_json_content_type_is_400_VALIDATION_ERROR(string contentType)
     {
         await using var factory = new TicketServiceFactory(db);
         using var client = factory.CreateClient();

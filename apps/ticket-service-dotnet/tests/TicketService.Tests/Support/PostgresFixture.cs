@@ -35,7 +35,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         await _container.StartAsync();
 
         var migrations = Directory
-            .GetDirectories(Path.Combine(RepoRoot, "apps/ticket-service/prisma/migrations"))
+            .GetDirectories(Path.Combine(RepoRoot, "apps/ticket-service-dotnet/prisma/migrations"))
             .OrderBy(dir => Path.GetFileName(dir), StringComparer.Ordinal);
         await using var connection = await OpenAsync("tickets_owner");
         foreach (var dir in migrations)

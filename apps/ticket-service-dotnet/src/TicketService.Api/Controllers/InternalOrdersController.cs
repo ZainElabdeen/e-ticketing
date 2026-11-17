@@ -10,7 +10,7 @@ namespace TicketService.Api.Controllers;
 [Route("v1/internal/orders")]
 public sealed class InternalOrdersController(OrdersService service) : ControllerBase
 {
-    // A string, not {orderId:guid}: a route constraint would answer 404 where the NestJS service answers 400.
+    // A string, not {orderId:guid}: a route constraint would answer 404 where the contract requires 400.
     [HttpPost("{orderId}/confirm")]
     public async Task<OrderView> Confirm(string orderId, [FromBody] ConfirmOrderRequest? request, CancellationToken ct)
     {

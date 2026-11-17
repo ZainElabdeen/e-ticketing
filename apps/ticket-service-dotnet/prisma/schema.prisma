@@ -1,0 +1,6 @@
+// This file exists only so `prisma migrate deploy` can run (the `migrate-tickets`
+// image, ADR-0015). The runtime model is the EF Core mapping, guarded by
+// SchemaMappingTests. Never run `prisma migrate dev`: migrations are hand-written SQL.
+datasource db {
+  provider = "postgresql"
+}

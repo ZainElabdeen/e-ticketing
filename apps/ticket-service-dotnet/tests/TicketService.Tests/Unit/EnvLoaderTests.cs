@@ -107,7 +107,7 @@ public sealed class EnvLoaderTests
     }
 
     [Fact]
-    public void Caps_the_pool_at_ten_like_the_nest_service()
+    public void Caps_the_pool_at_ten()
     {
         var options = EnvLoader.Load(Valid());
 

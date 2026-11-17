@@ -28,7 +28,7 @@ public sealed class ErrorEnvelopeMiddleware(RequestDelegate next, Serilog.ILogge
         {
             var (status, code, message) = response.StatusCode switch
             {
-                // Express answers an unsupported method or media type through its catch-all or an empty body:
+                // An unsupported method or media type is answered through the catch-all or an empty body:
                 // 404, and a 400 validation failure (the body is treated as empty).
                 404 or 405 => (404, "NOT_FOUND", "Route not found"),
                 415 => (400, "VALIDATION_ERROR", "Request body must be application/json"),

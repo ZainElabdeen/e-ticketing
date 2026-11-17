@@ -39,13 +39,13 @@ Locally nginx plays Traefik's part (`/api` to the gateway).
 
 ## Services
 
-| Service                                                                                                    | Owns                                                                                                                                    | Never does                                                                     |
-| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **Gateway** (NestJS BFF, `apps/gateway`)                                                                   | Public edge: CORS, per-IP rate limits, backoffice login and JWT checks, correlation IDs, API-key custody, 1:1 proxying                  | Business logic, DB access, holding internal-scope keys                         |
-| **Ticket Service** (ASP.NET Core, `apps/ticket-service-dotnet`; NestJS reference in `apps/ticket-service`) | Ticket types, quota, orders, atomic reservation (one conditional `UPDATE`), 15-minute expiry job, order confirmation                    | Payments, money movement                                                       |
-| **Payment Service** (NestJS, `apps/payment-service`)                                                       | Payment methods (Strategy + registry: `CardHandler`, `QrHandler`), idempotency, one live payment per order, transactions, outbox worker | Pricing (the amount is read from the Ticket Service), choosing ledger accounts |
-| **Ledger Service** (NestJS, `apps/ledger-service`)                                                         | Chart of accounts, posting templates, double-entry append-only journal, balances                                                        | Knowing about tickets or payment methods                                       |
-| **Web** (React + Vite, `apps/web`)                                                                         | Ticket selection, checkout, receipt, backoffice UI                                                                                      | Holding API keys, computing prices                                             |
+| Service                                                         | Owns                                                                                                                                    | Never does                                                                     |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Gateway** (NestJS BFF, `apps/gateway`)                        | Public edge: CORS, per-IP rate limits, backoffice login and JWT checks, correlation IDs, API-key custody, 1:1 proxying                  | Business logic, DB access, holding internal-scope keys                         |
+| **Ticket Service** (ASP.NET Core, `apps/ticket-service-dotnet`) | Ticket types, quota, orders, atomic reservation (one conditional `UPDATE`), 15-minute expiry job, order confirmation                    | Payments, money movement                                                       |
+| **Payment Service** (NestJS, `apps/payment-service`)            | Payment methods (Strategy + registry: `CardHandler`, `QrHandler`), idempotency, one live payment per order, transactions, outbox worker | Pricing (the amount is read from the Ticket Service), choosing ledger accounts |
+| **Ledger Service** (NestJS, `apps/ledger-service`)              | Chart of accounts, posting templates, double-entry append-only journal, balances                                                        | Knowing about tickets or payment methods                                       |
+| **Web** (React + Vite, `apps/web`)                              | Ticket selection, checkout, receipt, backoffice UI                                                                                      | Holding API keys, computing prices                                             |
 
 Shared code: `packages/nest-common` (Nest plumbing), `packages/contracts` (OpenAPI per service plus generated types; the
 contract is the source of truth, [ADR-0013](docs/adr/0013-contract-first-openapi.md)).
@@ -90,7 +90,7 @@ Kustomize manifests in `infra/k8s`, Traefik ingress with Let's Encrypt, images f
 
 No secret is committed: only `.env.example` files, and `infra/scripts/setup-local.mjs` generates real values into
 git-ignored files. Full table: [spec section 7.1](docs/spec.md#71-environment-variables). Examples:
-[`infra/.env.example`](infra/.env.example) (compose), [`apps/gateway`](apps/gateway/.env.example), [`apps/ticket-service`](apps/ticket-service/.env.example),
+[`infra/.env.example`](infra/.env.example) (compose), [`apps/gateway`](apps/gateway/.env.example),
 [`apps/payment-service`](apps/payment-service/.env.example), [`apps/ledger-service`](apps/ledger-service/.env.example), [`apps/web`](apps/web/.env.example).
 
 | Variable                                                          | Used by                                     | Purpose                                                                                      |
@@ -186,6 +186,6 @@ Branch flow: feature or phase branch, PR to `dev`, release PR `dev` to `main`; o
 - **Guest checkout** means anonymous clients can hoard reservations; mitigated by per-IP limits (5 orders per minute), at most 10 per item and a 15-minute expiry.
 - **Single node, one replica per workload.** No HA; scheduled jobs (expiry, QR flip, outbox) assume one replica and are safe but wasteful with two. Postgres is a StatefulSet on local-path storage with a daily dump on the same disk; managed Postgres is out of scope. There are no NetworkPolicies: every Service is `ClusterIP` and only Traefik is exposed.
 - **Postgres bootstrap and migrations** run as initdb and an initContainer, not Jobs (ADR-0026); a password rotation therefore needs a manual role change in psql (documented in the deploy guide).
-- **Language split.** The challenge mandates .NET for one core service: the Ticket Service was built in NestJS first and ported to ASP.NET Core against the same contract, with the contract suite as the parity gate ([ADR-0002](docs/adr/0002-nestjs-first-dotnet-port.md), [ADR-0021](docs/adr/0021-ticket-service-dotnet-port.md)).
+- **Language split.** The challenge mandates .NET for one core service: the Ticket Service is C#/.NET as the challenge requires. Contract-first OpenAPI and the black-box contract suite pin its behaviour ([ADR-0021](docs/adr/0021-ticket-service-dotnet-port.md), [ADR-0031](docs/adr/0031-remove-nestjs-ticket-service.md)).
 - **SQL-first migrations** (Prisma only applies them) so CHECK constraints, partial unique indexes and grants are explicit ([ADR-0015](docs/adr/0015-sql-first-migrations.md)).
 - Risk table: [spec section 10](docs/spec.md#10-risks-and-limitations). Requirement traceability: [spec section 11](docs/spec.md#11-requirement-traceability).

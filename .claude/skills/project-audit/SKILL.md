@@ -16,7 +16,7 @@ user-approved task.
 2. **Split by area** and review in parallel (subagents when available, one per
    area):
    - web: `apps/web` and the nginx config;
-   - NestJS: the four Nest apps, `packages/nest-common`, `packages/testing`;
+   - NestJS: the three Nest apps, `packages/nest-common`, `packages/testing`;
    - .NET: `apps/ticket-service-dotnet`;
    - infra and contracts: `infra/`, `packages/contracts`,
      `packages/contract-tests`, root config.

@@ -1,7 +1,6 @@
-# NestJS conventions (all four Nest apps)
+# NestJS conventions (the three Nest apps)
 
-Shared by `apps/gateway`, `apps/ticket-service`, `apps/payment-service`,
-`apps/ledger-service`. Each app's own `AGENTS.md` adds service facts.
+Shared by `apps/gateway`, `apps/payment-service`, `apps/ledger-service`. Each app's own `AGENTS.md` adds service facts.
 
 ## Reuse before writing
 

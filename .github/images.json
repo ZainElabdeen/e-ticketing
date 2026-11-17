@@ -27,7 +27,7 @@
   {
     "name": "migrate-tickets",
     "dockerfile": "infra/migrate/Dockerfile",
-    "buildArgs": { "SERVICE": "ticket-service" }
+    "buildArgs": { "SERVICE": "ticket-service-dotnet" }
   },
   {
     "name": "migrate-payments",

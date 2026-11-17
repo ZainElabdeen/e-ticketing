@@ -15,7 +15,7 @@ public sealed class OrdersController(OrdersService service) : ControllerBase
         return StatusCode(StatusCodes.Status201Created, await service.CreateOrderAsync(request!, ct));
     }
 
-    // A string, not {orderId:guid}: a route constraint would answer 404 where the NestJS service answers 400.
+    // A string, not {orderId:guid}: a route constraint would answer 404 where the contract requires 400.
     [HttpGet("{orderId}")]
     public async Task<OrderView> Get(string orderId, CancellationToken ct)
     {

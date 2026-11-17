@@ -9,7 +9,6 @@ FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6
 RUN npm install -g --ignore-scripts pnpm@10.34.9
 WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/ticket-service/package.json apps/ticket-service/package.json
 COPY apps/payment-service/package.json apps/payment-service/package.json
 COPY apps/ledger-service/package.json apps/ledger-service/package.json
 COPY apps/web/package.json apps/web/package.json
