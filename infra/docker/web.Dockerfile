@@ -8,7 +8,6 @@ WORKDIR /repo
 
 # Manifests first so the install layer is cached until a dependency changes.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/ticket-service/package.json apps/ticket-service/package.json
 COPY apps/payment-service/package.json apps/payment-service/package.json
 COPY apps/ledger-service/package.json apps/ledger-service/package.json
 COPY apps/gateway/package.json apps/gateway/package.json
