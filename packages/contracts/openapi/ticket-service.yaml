@@ -5,8 +5,8 @@ info:
   license: { name: MIT, url: 'https://opensource.org/licenses/MIT' }
   description: >
     Ticket types, quota, orders, atomic reservation, expiry and confirmation.
-    Implemented by the NestJS reference service and the ASP.NET Core port; the
-    contract test suite runs against either. Behavior: docs/spec.md §4.1, §4.5.
+    Implemented by the ASP.NET Core Ticket Service; the black-box contract test
+    suite pins its behavior. Behavior: docs/spec.md §4.1, §4.5.
 servers:
   - url: http://localhost:3001
 tags:

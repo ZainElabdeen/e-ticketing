@@ -58,23 +58,21 @@ service. No cross-schema foreign keys; services integrate only over REST
 | Service | Owns | Never does |
 | --- | --- | --- |
 | **Gateway** (NestJS BFF) | Public edge: CORS, rate limits, backoffice login and JWT checks, correlation-ID issuance, key custody, proxying to services | Business logic, database access, holding internal-scope keys |
-| **Ticket Service** (NestJS reference, then ASP.NET Core) | Ticket types, quota, orders, atomic reservation, order expiry, order confirmation | Payments, money movement |
+| **Ticket Service** (ASP.NET Core) | Ticket types, quota, orders, atomic reservation, order expiry, order confirmation | Payments, money movement |
 | **Payment Service** (NestJS) | Payment methods (Strategy), idempotency, one-live-payment-per-order rule, transactions, outbox delivery | Pricing (amount always read from the Ticket Service), choosing ledger accounts |
 | **Ledger Service** (NestJS) | Chart of accounts, posting templates, double-entry journal, append-only audit trail, balances | Knowing about tickets or payment methods |
 | **Web** (React SPA) | Ticket selection, checkout, payment result, backoffice UI | Holding API keys, computing prices |
 
-Note (Phase 5): the deployed Ticket Service is now the ASP.NET Core one (`apps/ticket-service-dotnet`, [ADR-0021](./adr/0021-ticket-service-dotnet-port.md)); the NestJS version stays as the reference under the compose `reference` profile.
-
-Language note: the challenge mandates C#/.NET for at least one core service and
-names the Ticket Service as the .NET candidate. We build the Ticket Service in
-NestJS first, then port it to ASP.NET Core against the same contract, gated by
-the same black-box contract suite, with a hard start date for the port
-(ADR-0002). Payment (Node) matches the challenge's suggestion. Ledger is
-NestJS where the challenge says "Python or similar" (ADR-0002).
+The ASP.NET Core Ticket Service (`apps/ticket-service-dotnet`) is the only
+implementation ([ADR-0021](./adr/0021-ticket-service-dotnet-port.md),
+[ADR-0031](./adr/0031-remove-nestjs-ticket-service.md)). The challenge mandates
+C#/.NET for at least one core service and names the Ticket Service as that
+candidate. Payment (Node) matches the challenge's suggestion. Ledger is NestJS
+where the challenge says "Python or similar" (ADR-0002).
 
 Every NestJS service uses the layers controller → application service →
-domain → repository; the .NET port mirrors them (controller → application →
-domain → EF Core repository).
+domain → repository; the .NET Ticket Service uses controller → application →
+domain → EF Core repository.
 
 ### 2.2 Communication and trust (ADR-0010)
 
@@ -721,7 +719,7 @@ QR → result → backoffice → balances) ships with it.
 | ADR | Decision | Main rejected alternative |
 | --- | --- | --- |
 | [0001](./adr/0001-monorepo-pnpm-turborepo.md) | pnpm + Turborepo monorepo | Repo per service |
-| [0002](./adr/0002-nestjs-first-dotnet-port.md) | NestJS first; Ticket Service ported to .NET with a hard start date | .NET from day one |
+| [0002](./adr/0002-nestjs-first-dotnet-port.md) | NestJS first; Ticket Service ported to .NET with a hard start date (superseded in part by 0031) | .NET from day one |
 | [0003](./adr/0003-one-postgres-schema-per-service.md) | One Postgres, schema and roles per service | Database per service |
 | [0004](./adr/0004-quota-reservation-and-expiry.md) | Conditional-UPDATE reservation, lock order, expiry job, expired-confirm policy | SELECT FOR UPDATE then UPDATE |
 | [0005](./adr/0005-idempotency-key-table.md) | Idempotency table, bind-on-create, blocking insert | Unique (order_id, method) |
@@ -740,7 +738,7 @@ QR → result → backoffice → balances) ships with it.
 | [0018](./adr/0018-api-key-scope-enforcement.md) | `@Internal()` metadata read by the guard, path check as defense in depth, last-registered fallback route | Path-only check; guard-free middleware |
 | [0019](./adr/0019-nestjs-axios-outbound-http.md) | `@nestjs/axios` + axios for service-to-service HTTP, Promise-only client API | Built-in `fetch`; `openapi-fetch` |
 | [0020](./adr/0020-shared-nest-common-package.md) | Shared NestJS plumbing in @eticket/nest-common | Copy per service |
-| [0021](./adr/0021-ticket-service-dotnet-port.md) | .NET Ticket Service: one web project, EF Core on the Prisma-owned schema, raw SQL for locks, envelope middleware; contract suite is the parity gate | Minimal APIs, four assemblies, EF migrations, Dapper |
+| [0021](./adr/0021-ticket-service-dotnet-port.md) | .NET Ticket Service: one web project, EF Core on the Prisma-owned schema, raw SQL for locks, envelope middleware; contract suite is the parity gate (superseded in part by 0031) | Minimal APIs, four assemblies, EF migrations, Dapper |
 | [0022](./adr/0022-gateway-auth-libraries-and-admin-hash.md) | `@nestjs/jwt` + `bcryptjs`; admin hash stored as base64 (`ADMIN_PASSWORD_HASH_B64`); expiry-only revocation | `jose`, native `bcrypt`, `$$` escaping, a secret file |
 | [0025](./adr/0025-ci-pipeline-and-coverage.md) | GitHub Actions CI: opt-in coverage (`CI_COVERAGE=1`) from unit and integration runs, two SonarCloud projects, native arm64 runners, only `main` publishes images | QEMU arm64, unit-only coverage, one Sonar project, turbo `--affected` |
 | [0026](./adr/0026-k3s-manifests-and-deploy.md) | K3s via Kustomize (base, local and prod overlays), initdb and migrate initContainers instead of Jobs, Secret from a VM-generated env file, opt-in CD, k3d CI | Jobs, Helm, Sealed Secrets |
@@ -748,3 +746,4 @@ QR → result → backoffice → balances) ships with it.
 | [0028](./adr/0028-web-feature-boundaries.md) | Layers app -> features -> shared (ui, lib, api, styles, payment), shared `payment/` module, import direction enforced by core `no-restricted-imports` | `eslint-plugin-boundaries`, per-feature `index.ts`, Feature-Sliced Design |
 | [0029](./adr/0029-backoffice-summary-endpoint.md) | Gateway aggregates the tiles into `GET /v1/backoffice/summary`, all-or-nothing | Client-side fan-out; per-service summary endpoints; caching layer |
 | [0030](./adr/0030-shared-health-and-graceful-shutdown.md) | Shared Terminus `HealthModule` and bootstrap helpers in nest-common, readiness-fail drain before server close, gateway readiness keeps downstream checks (deviation) | Per-service controllers; `/health/deep`; K8s preStop sleep |
+| [0031](./adr/0031-remove-nestjs-ticket-service.md) | Delete the NestJS Ticket Service; tickets migrations move into the .NET app; contract suite is the behaviour gate | Keep it as a reference; switch migrations to EF Core or DbUp |

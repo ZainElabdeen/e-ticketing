@@ -18,8 +18,7 @@ manifests.
 |---|---|---|---|---|---|
 | `@eticket/web` | `apps/web` | SPA | React + Vite | — | Vitest + Testing Library (jsdom) |
 | `@eticket/gateway` | `apps/gateway` | BFF, public edge | NestJS | — | Jest / Jest + Supertest |
-| `@eticket/ticket-service` | `apps/ticket-service` | service (reference impl) | NestJS + Prisma | `tickets` (owner of migrations) | Jest / Testcontainers |
-| `@eticket/ticket-service-dotnet` | `apps/ticket-service-dotnet` | service (runs in compose) | ASP.NET Core + EF Core | `tickets` (read model only) | xUnit `Category=Unit` / `Category=Integration` |
+| `@eticket/ticket-service-dotnet` | `apps/ticket-service-dotnet` | service (runs in compose) | ASP.NET Core + EF Core | `tickets` (owner of migrations) | xUnit `Category=Unit` / `Category=Integration` |
 | `@eticket/payment-service` | `apps/payment-service` | service | NestJS + Prisma | `payments` | Jest / Testcontainers |
 | `@eticket/ledger-service` | `apps/ledger-service` | service | NestJS + Prisma | `ledger` | Jest / Testcontainers |
 
@@ -37,7 +36,7 @@ manifests.
 
 | Path | Content |
 |---|---|
-| `infra/docker-compose.yml` | Postgres, three migrate jobs, four services, gateway, nginx web; `ticket-service-node` under profile `reference` |
+| `infra/docker-compose.yml` | Postgres, three migrate jobs, four services, gateway, nginx web |
 | `infra/docker/` | `nest-service`, `dotnet-ticket`, `web` Dockerfiles; nginx config and header snippet |
 | `infra/migrate/` | Prisma `migrate deploy` runner image |
 | `infra/postgres/init/` | roles and schemas bootstrap (`00-roles.sh`) |

@@ -1,5 +1,7 @@
 # ADR-0002: NestJS for all services first; Ticket Service ported to .NET
 
+Status: Superseded in part by [ADR-0031](./0031-remove-nestjs-ticket-service.md)
+
 ## Context
 
 The challenge mandates C#/.NET for at least one core service, names the Ticket

@@ -15,7 +15,7 @@ Local run guide: `docs/local-demo.md`. Commands: root `AGENTS.md`.
 
 ## Compose
 
-- Host ports: ticket 3001 (.NET), ticket-service-node 3011, payment 3002, ledger 3003, gateway
+- Host ports: ticket 3001 (.NET), payment 3002, ledger 3003, gateway
   `${GATEWAY_HOST_PORT:-3000}`, web `${WEB_HOST_PORT:-8080}`, postgres
   `${POSTGRES_HOST_PORT:-5432}`. All bind to 127.0.0.1. `contract.mjs` hardcodes
   3001–3003.

@@ -24,8 +24,8 @@ Code follows the contract, never the reverse.
 6. **Write the failing contract test** in `packages/contract-tests/src/<service>/`
    (the suite that runs against any base URL), plus the service's own unit or
    integration test, then implement.
-7. **Ticket Service**: implement in BOTH `apps/ticket-service` and
-   `apps/ticket-service-dotnet`, matching status codes and error envelopes.
+7. **Ticket Service**: implement in `apps/ticket-service-dotnet`, matching the
+   contract's status codes and error envelopes.
 8. **Web**: update `apps/web` callers; types come from `@eticket/contracts`.
 9. Update `docs/spec.md` where it describes the endpoint.
 
@@ -35,5 +35,3 @@ Code follows the contract, never the reverse.
 - With the stack up, the suites pass in order:
   `infra/scripts/contract.sh ticket`, then `payment`, `ledger`, `gateway`.
   The ticket suite drains VIP quota, so it always runs first.
-- Ticket change: also `infra/scripts/contract.sh ticket http://127.0.0.1:3011`
-  against the NestJS reference (profile `reference`).

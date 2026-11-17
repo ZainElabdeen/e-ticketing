@@ -4,7 +4,7 @@ How to run the e-ticketing platform on your machine, log in to the backoffice, u
 
 ## What you get
 
-Docker Compose starts PostgreSQL, a .NET (ASP.NET Core) Ticket Service, NestJS Payment and Ledger services, a NestJS gateway (the only public API) and the web app. The original NestJS Ticket Service is not part of the default stack. It runs only under the `reference` compose profile, on `127.0.0.1:3011`. The web app is a React single-page app served by nginx at `http://127.0.0.1:8080`. It holds the shop, the checkout and the backoffice. Everything binds to `127.0.0.1`, so nothing is reachable from other machines.
+Docker Compose starts PostgreSQL, a .NET (ASP.NET Core) Ticket Service, NestJS Payment and Ledger services, a NestJS gateway (the only public API) and the web app. The web app is a React single-page app served by nginx at `http://127.0.0.1:8080`. It holds the shop, the checkout and the backoffice. Everything binds to `127.0.0.1`, so nothing is reachable from other machines.
 
 ## Prerequisites
 
