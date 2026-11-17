@@ -1,5 +1,7 @@
 # ADR-0021: ASP.NET Core Ticket Service port
 
+Status: Superseded in part by [ADR-0031](./0031-remove-nestjs-ticket-service.md)
+
 ## Context
 
 ADR-0002 commits to porting the Ticket Service to ASP.NET Core against the

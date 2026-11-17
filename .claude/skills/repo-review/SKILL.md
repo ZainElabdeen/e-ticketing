@@ -28,8 +28,7 @@ is out of scope: lint and Prettier own it.
    - **Ledger**: debits = credits, append-only, `UNIQUE(transaction_id)`.
    - **Outbox**: retries are idempotent on both sides (Ledger post, Ticket
      confirm).
-   - **Contracts**: OpenAPI changed first; generated types committed; both
-     Ticket Service implementations match.
+   - **Contracts**: OpenAPI changed first; generated types committed; the Ticket Service (.NET) passes the contract suite.
    - **Security**: no PAN/CVC stored or logged; API keys server-side only;
      validation on every input; secrets only via env; error bodies never leak
      internals.

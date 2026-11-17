@@ -53,8 +53,8 @@ web:
   - '.github/images.json'
 
 migrate-tickets:
-  - 'apps/ticket-service/prisma/**'
-  - 'apps/ticket-service/prisma.config.ts'
+  - 'apps/ticket-service-dotnet/prisma/**'
+  - 'apps/ticket-service-dotnet/prisma.config.ts'
   - 'infra/migrate/**'
   - 'infra/docker-compose.yml'
   - '.github/workflows/images.yml'

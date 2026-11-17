@@ -1,6 +1,6 @@
 # One image recipe for every NestJS service. Build context is the repo root:
 #   docker build -f infra/docker/nest-service.Dockerfile \
-#     --build-arg SERVICE=ticket-service --build-arg PORT=3001 -t eticket/ticket-service:dev .
+#     --build-arg SERVICE=payment-service --build-arg PORT=3002 -t eticket/payment-service:dev .
 # Pure JS dependencies only, so the same file builds for linux/arm64.
 FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS build
 ARG SERVICE
@@ -10,7 +10,6 @@ WORKDIR /repo
 
 # Manifests first so the install layer is cached until a dependency changes.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/ticket-service/package.json apps/ticket-service/package.json
 COPY apps/payment-service/package.json apps/payment-service/package.json
 COPY apps/ledger-service/package.json apps/ledger-service/package.json
 COPY apps/gateway/package.json apps/gateway/package.json

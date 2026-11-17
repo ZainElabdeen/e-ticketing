@@ -48,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for f in apps/ticket-service/coverage/unit/lcov.info apps/payment-service/coverage/unit/lcov.info \
+          for f in apps/payment-service/coverage/unit/lcov.info \
             apps/ledger-service/coverage/unit/lcov.info apps/gateway/coverage/unit/lcov.info \
             packages/nest-common/coverage/unit/lcov.info apps/web/coverage/lcov.info; do
             [ -s "$f" ] || { echo "::error::missing coverage report: $f"; missing=1; }
@@ -86,7 +86,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for f in apps/ticket-service/coverage/int/lcov.info apps/payment-service/coverage/int/lcov.info \
+          for f in apps/payment-service/coverage/int/lcov.info \
             apps/ledger-service/coverage/int/lcov.info apps/gateway/coverage/int/lcov.info; do
             [ -s "$f" ] || { echo "::error::missing coverage report: $f"; missing=1; }
           done
