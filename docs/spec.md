@@ -37,13 +37,13 @@ accounts, horizontal scaling of the scheduled jobs (see §10).
 
 ```mermaid
 flowchart LR
-    SPA[React SPA<br/>apps/web] -->|HTTPS| GW[Gateway BFF<br/>apps/gateway :3000]
-    GW -->|REST, public-scope key| TS[Ticket Service<br/>.NET after Phase 5 :3001]
-    GW -->|REST, public-scope key| PS[Payment Service<br/>apps/payment-service :3002]
-    GW -->|REST, public-scope key| LS[Ledger Service<br/>apps/ledger-service :3003]
-    PS -->|GET /v1/orders/{orderId}| TS
-    PS -->|outbox worker<br/>POST /v1/internal/orders/{orderId}/confirm<br/>internal-scope key| TS
-    PS -->|outbox worker<br/>POST /v1/internal/postings<br/>internal-scope key| LS
+    SPA["React SPA<br/>apps/web"] -->|HTTPS| GW["Gateway BFF, NestJS<br/>apps/gateway :3000"]
+    GW -->|"REST, public-scope key"| TS["Ticket Service, ASP.NET Core<br/>apps/ticket-service-dotnet :3001"]
+    GW -->|"REST, public-scope key"| PS["Payment Service, NestJS<br/>apps/payment-service :3002"]
+    GW -->|"REST, public-scope key"| LS["Ledger Service, NestJS<br/>apps/ledger-service :3003"]
+    PS -->|"GET /v1/orders/{orderId}"| TS
+    PS -->|"outbox worker<br/>POST /v1/internal/orders/{orderId}/confirm<br/>internal-scope key"| TS
+    PS -->|"outbox worker<br/>POST /v1/internal/postings<br/>internal-scope key"| LS
     TS --- DB1[(PostgreSQL<br/>schema tickets)]
     PS --- DB2[(PostgreSQL<br/>schema payments)]
     LS --- DB3[(PostgreSQL<br/>schema ledger)]
